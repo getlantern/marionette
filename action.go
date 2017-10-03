@@ -9,11 +9,11 @@ type Action struct {
 	party_                string
 	module_               string
 	method_               string
-	args_                 []interface{}
+	args_                 []string
 	regex_match_incoming_ *regexp.Regexp
 }
 
-func NewAction(name, party, module, method string, args []interface{}, regex *regexp.Regexp) *Action {
+func NewAction(name, party, module, method string, args []string, regex *regexp.Regexp) *Action {
 	return &Action{
 		name_:   name,
 		party_:  party,
@@ -22,6 +22,13 @@ func NewAction(name, party, module, method string, args []interface{}, regex *re
 		args_:   args,
 		regex_match_incoming_: regex,
 	}
+}
+
+func (a *Action) Arg(i int) string {
+	if i >= len(a.args_) {
+		return ""
+	}
+	return a.args_[i]
 }
 
 func (a *Action) execute(party, name string) bool {

@@ -1,7 +1,9 @@
 package marionette
 
 import (
+	"encoding/binary"
 	"math/rand"
+	"strings"
 )
 
 type PIOA struct {
@@ -18,21 +20,27 @@ type PIOA struct {
 	history_len_        int
 	states_             map[string]interface{}
 	success_            bool
+
+	global map[string]interface{}
+	local  map[string]interface{}
 }
 
-func NewPIOA(party, first_sender string) {
+func NewPIOA(party, first_sender string) *PIOA {
 	pioa := &PIOA{
-		party:          party,
+		party_:         party,
 		first_sender_:  first_sender,
 		current_state_: "start",
 		global:         make(map[string]interface{}),
-		local:          make(map[string]interface{}{"party": party}),
+		local:          map[string]interface{}{"party": party},
 		states_:        make(map[string]interface{}),
 	}
 
 	if party == first_sender {
-		pioa.local["model_instance_id"] = fte.bytes_to_long(os.urandom(4))
-		pioa.rng_ = rand.New(rand.NewSource(pioa.local["model_instance_id"]))
+		source := uint32(rand.Int31())
+		buf := make([]byte, 4)
+		binary.BigEndian.PutUint32(buf, source)
+		pioa.local["model_instance_id"] = buf
+		pioa.rng_ = rand.New(rand.NewSource(int64(source)))
 	}
 
 	return pioa
@@ -40,16 +48,16 @@ func NewPIOA(party, first_sender string) {
 
 func (pioa *PIOA) do_precomputations() {
 	for _, action := range pioa.actions_ {
-		if action.Module == "fte" && strings.HasPrefix(action.Method, "send") {
+		if action.module_ == "fte" && strings.HasPrefix(action.method_, "send") {
 			pioa.get_fte_obj(action.Arg(0), action.Arg(1))
 		}
 	}
 }
 
-func (pioa *PIOA) execute(reactor) {
+func (pioa *PIOA) execute() {
 	if pioa.isRunning() {
 		pioa.transition()
-		reactor.callLater(EVENT_LOOP_FREQUENCY_S, pioa.execute, reactor)
+		// reactor.callLater(EVENT_LOOP_FREQUENCY_S, pioa.execute, reactor)
 	} else {
 		pioa.channel_.close()
 	}
@@ -67,7 +75,7 @@ func (pioa *PIOA) check_channel_state() {
 	return pioa.channel_ != nil
 }
 
-func (pioa *PIOA) set_channel(channel) {
+func (pioa *PIOA) set_channel(channel *Channel) {
 	pioa.channel_ = channel
 }
 
@@ -91,7 +99,7 @@ func (pioa *PIOA) check_rng_state() {
 	pioa.history_len_ = 0
 }
 
-func (pioa *PIOA) determine_action_block(src_state, dst_state) []*Action {
+func (pioa *PIOA) determine_action_block(src_state, dst_state string) []*Action {
 	var retval []*Action
 	for action := range pioa.actions_ {
 		action_name := pioa.states_[src_state].transitions_[dst_state][0]
@@ -167,7 +175,7 @@ func (pioa *PIOA) advance_to_next_state() bool {
 	return true
 }
 
-func (pioa *PIOA) eval_action_block(action_block) {
+func (pioa *PIOA) eval_action_block(action_block []*Action) {
 	var retval bool
 
 	if len(action_block) == 0 {
@@ -214,11 +222,11 @@ func (pioa *PIOA) replicate() *PIOA {
 	return other
 }
 
-func (pioa *PIOA) isRunning() {
+func (pioa *PIOA) isRunning() bool {
 	return pioa.current_state_ != "dead"
 }
 
-func (pioa *PIOA) eval_action(action_obj) {
+func (pioa *PIOA) eval_action(action_obj *Action) {
 	module := action_obj.get_module()
 	method := action_obj.get_method()
 	args := action_obj.get_args()
@@ -256,6 +264,17 @@ func (pioa *PIOA) get_port() int {
 		return pioa.port_
 	}
 	return pioa.local[pioa.port_]
+}
+
+func (pioa *PIOA) get_fte_obj(regex, msg_len string) interface{} {
+	fte_key := fmt.Sprintf("fte_obj-%s%d", regex, msg_len)
+	if _, ok := pioa.global[fte_key]; !ok {
+		dfa := regex2dfa.Regex2dfa(regex)
+		fte_obj := fte.Encode(dfa, msg_len)
+		poia.global[fte_key] = fte_obj
+	}
+
+	return poia.global[fte_key]
 }
 
 type PAState struct {
@@ -304,14 +323,3 @@ func (s *PAState) transition(rng) {
 	}
 	return state
 }
-
-// class MarionetteSystemState(object):
-//
-//     def get_fte_obj(regex, msg_len):
-//         fte_key = 'fte_obj-' + regex + str(msg_len)
-//         if not self.get_global(fte_key):
-//             dfa = regex2dfa.regex2dfa(regex)
-//             fte_obj = fte.encoder.DfaEncoder(dfa, msg_len)
-//             self.set_global(fte_key, fte_obj)
-//
-//         return self.get_global(fte_key)
