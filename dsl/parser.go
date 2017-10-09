@@ -264,6 +264,7 @@ func (p *Parser) parseAction(scanner *Scanner) (*Action, error) {
 	if err != nil {
 		return nil, err
 	}
+	action.Args = args
 
 	tok, lit, pos = scanner.Scan()
 	if tok != RPAREN {

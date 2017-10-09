@@ -47,6 +47,7 @@ type Action struct {
 	Method    string
 	MethodPos Pos
 	Lparen    Pos
+	Args      []*Arg
 	Rparen    Pos
 	If        Pos
 

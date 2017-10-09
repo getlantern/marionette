@@ -9,6 +9,7 @@ const (
 	ILLEGAL Token = iota
 	EOF
 	COMMENT
+	WS
 
 	IDENT   // connection
 	NULL    // NULL
