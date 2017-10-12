@@ -1,5 +1,18 @@
 package dsl
 
+// Node represents a node within the AST.
+type Node interface {
+	node()
+}
+
+func (*Document) node()    {}
+func (*Model) node()       {}
+func (*Transition) node()  {}
+func (*ActionBlock) node() {}
+func (*Action) node()      {}
+func (*Arg) node()         {}
+func (*Pos) node()         {}
+
 type Document struct {
 	Model        *Model
 	ActionBlocks []*ActionBlock
@@ -69,4 +82,50 @@ type Arg struct {
 type Pos struct {
 	Char int
 	Line int
+}
+
+// Walk traverses an AST in depth-first order.
+func Walk(v Visitor, node Node) {
+	if v = v.Visit(node); v == nil {
+		return
+	}
+
+	// Walk children.
+	switch node := node.(type) {
+	case *Document:
+		Walk(v, node.Model)
+		for _, blk := range node.ActionBlocks {
+			Walk(v, blk)
+		}
+
+	case *Model:
+		for _, transition := range node.Transitions {
+			Walk(v, transition)
+		}
+
+	case *ActionBlock:
+		for _, action := range node.Actions {
+			Walk(v, action)
+		}
+
+	case *Action:
+		for _, arg := range node.Args {
+			Walk(v, arg)
+		}
+	}
+
+	v.Visit(nil)
+}
+
+// Visitor represents an object for iterating over nodes using Walk().
+type Visitor interface {
+	Visit(node Node) (w Visitor)
+}
+
+// VisitorFunc implements a type to use a function as a Visitor.
+type VisitorFunc func(node Node)
+
+func (fn VisitorFunc) Visit(node Node) Visitor {
+	fn(node)
+	return fn
 }

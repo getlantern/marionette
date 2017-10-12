@@ -2,6 +2,7 @@ package dsl
 
 import (
 	"bytes"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -79,7 +80,7 @@ func (s *Scanner) Peek() (tok Token, lit string, pos Pos) {
 func (s *Scanner) PeekIgnoreWhitespace() (tok Token, lit string, pos Pos) {
 	i, prev := s.i, s.pos
 	for {
-		if tok, lit, pos = s.Peek(); tok != WS {
+		if tok, lit, pos = s.Scan(); tok != WS {
 			s.i, s.pos = i, prev
 			return tok, lit, pos
 		}
@@ -112,10 +113,41 @@ func (s *Scanner) scanString() (tok Token, lit string, pos Pos) {
 		case ending:
 			return STRING, buf.String(), pos
 		case '\\':
-			if next := s.peek(); next == ending {
+			switch next := s.peek(); next {
+			case '\\':
+				buf.WriteRune(s.read())
+			case '\'':
+				buf.WriteRune(s.read())
+			case '"':
+				buf.WriteRune(s.read())
+			case 'a':
 				s.read()
-				buf.WriteRune(ending)
-			} else {
+				buf.WriteRune('\a')
+			case 'b':
+				s.read()
+				buf.WriteRune('\b')
+			case 'f':
+				s.read()
+				buf.WriteRune('\f')
+			case 'n':
+				s.read()
+				buf.WriteRune('\n')
+			case 'r':
+				s.read()
+				buf.WriteRune('\r')
+			case 't':
+				s.read()
+				buf.WriteRune('\t')
+			case 'v':
+				s.read()
+				buf.WriteRune('\v')
+			case 'o':
+				s.read()
+				buf.WriteRune(rune(s.readOctal()))
+			case 'x':
+				s.read()
+				buf.WriteRune(rune(s.readHex()))
+			default:
 				buf.WriteRune('\\')
 			}
 		default:
@@ -152,6 +184,26 @@ func (s *Scanner) scanDigits(buf *bytes.Buffer) {
 	for ch := s.peek(); isDigit(ch); ch = s.peek() {
 		buf.WriteRune(s.read())
 	}
+}
+
+// readOctal reads and parses a stream of octal digits.
+func (s *Scanner) readOctal() int {
+	var buf bytes.Buffer
+	for ch := s.peek(); isOctal(ch); ch = s.peek() {
+		buf.WriteRune(s.read())
+	}
+	i, _ := strconv.ParseInt(buf.String(), 8, 64)
+	return int(i)
+}
+
+// readHex reads and parses a stream of hex digits.
+func (s *Scanner) readHex() int {
+	var buf bytes.Buffer
+	for ch := s.peek(); isHex(ch); ch = s.peek() {
+		buf.WriteRune(s.read())
+	}
+	i, _ := strconv.ParseInt(buf.String(), 16, 64)
+	return int(i)
 }
 
 // scanIdent consumes an identifier token.
@@ -225,6 +277,16 @@ func isLetter(ch rune) bool {
 // isDigit returns true if the rune is a decimal digit.
 func isDigit(ch rune) bool {
 	return (ch >= '0' && ch <= '9')
+}
+
+// isOctal returns true if the rune is an octal digit.
+func isOctal(ch rune) bool {
+	return (ch >= '0' && ch <= '7')
+}
+
+// isHex returns true if the rune is a hex digit.
+func isHex(ch rune) bool {
+	return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
 }
 
 // isNameStart returns true if the rune can start a name.

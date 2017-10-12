@@ -13,9 +13,9 @@ func NewParser() *Parser {
 	return &Parser{}
 }
 
-// ParseString parses s into an AST.
-func (p *Parser) ParseString(s string) (*Document, error) {
-	scanner := NewScanner([]byte(s))
+// Parse parses s into an AST.
+func (p *Parser) Parse(data []byte) (*Document, error) {
+	scanner := NewScanner(data)
 
 	var doc Document
 	model, err := p.parseModel(scanner)
@@ -51,7 +51,7 @@ func (p *Parser) parseModel(scanner *Scanner) (*Model, error) {
 	model.Lparen = pos
 
 	// Read transport type.
-	tok, lit, pos = scanner.Scan()
+	tok, lit, pos = scanner.ScanIgnoreWhitespace()
 	if tok != IDENT {
 		return nil, newSyntaxError("expected transport type ('tcp' or 'udp')", tok, lit, pos)
 	}
@@ -66,7 +66,7 @@ func (p *Parser) parseModel(scanner *Scanner) (*Model, error) {
 	model.Comma = pos
 
 	// Read port.
-	tok, lit, pos = scanner.Scan()
+	tok, lit, pos = scanner.ScanIgnoreWhitespace()
 	if tok != IDENT && tok != INTEGER {
 		return nil, newSyntaxError("expected named or numeric port", tok, lit, pos)
 	}
@@ -278,7 +278,7 @@ func (p *Parser) parseAction(scanner *Scanner) (*Action, error) {
 		_, _, action.If = scanner.ScanIgnoreWhitespace()
 
 		// Read 'regex_match_incoming' keyword.
-		tok, lit, pos = scanner.Scan()
+		tok, lit, pos = scanner.ScanIgnoreWhitespace()
 		if tok != REGEX_MATCH_INCOMING {
 			return nil, newSyntaxError("expected 'regex_match_incoming'", tok, lit, pos)
 		}
@@ -291,14 +291,14 @@ func (p *Parser) parseAction(scanner *Scanner) (*Action, error) {
 		}
 		action.RegexMatchIncomingLparen = pos
 
-		tok, lit, pos = scanner.Scan()
+		tok, lit, pos = scanner.ScanIgnoreWhitespace()
 		if tok != STRING {
 			return nil, newSyntaxError("expected regex string", tok, lit, pos)
 		}
 		action.Regex = lit
 		action.RegexPos = pos
 
-		tok, lit, pos = scanner.Scan()
+		tok, lit, pos = scanner.ScanIgnoreWhitespace()
 		if tok != RPAREN {
 			return nil, newSyntaxError("expected ')'", tok, lit, pos)
 		}
@@ -309,13 +309,13 @@ func (p *Parser) parseAction(scanner *Scanner) (*Action, error) {
 }
 
 func (p *Parser) parseArgs(scanner *Scanner) ([]*Arg, error) {
+	if tok, _, _ := scanner.PeekIgnoreWhitespace(); tok == RPAREN {
+		return nil, nil
+	}
+
 	var args []*Arg
 	for {
-		if tok, _, _ := scanner.PeekIgnoreWhitespace(); tok == LPAREN {
-			break
-		}
-
-		tok, lit, pos := scanner.Scan()
+		tok, lit, pos := scanner.ScanIgnoreWhitespace()
 		arg := &Arg{Pos: pos, EndPos: Pos{Line: pos.Line, Char: pos.Char + len(lit)}}
 
 		switch tok {
@@ -345,7 +345,7 @@ func (p *Parser) parseArgs(scanner *Scanner) ([]*Arg, error) {
 		if tok, _, _ := scanner.PeekIgnoreWhitespace(); tok == COMMA {
 			scanner.ScanIgnoreWhitespace()
 		} else if tok == RPAREN {
-			// nop
+			break
 		} else {
 			return nil, newSyntaxError("expected ',' or ')'", tok, lit, pos)
 		}

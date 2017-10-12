@@ -37,6 +37,7 @@ var tokens = [...]string{
 	ILLEGAL: "ILLEGAL",
 	EOF:     "EOF",
 	COMMENT: "COMMENT",
+	WS:      "WS",
 
 	IDENT:   "IDENT",
 	NULL:    "NULL",
