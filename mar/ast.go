@@ -1,4 +1,4 @@
-package dsl
+package mar
 
 // Node represents a node within the AST.
 type Node interface {

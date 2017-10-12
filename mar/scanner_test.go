@@ -1,4 +1,4 @@
-package dsl_test
+package mar_test
 
 import (
 	"testing"
