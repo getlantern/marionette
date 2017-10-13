@@ -5,29 +5,29 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/redjack/marionette/dsl"
+	"github.com/redjack/marionette/mar"
 )
 
 func TestParser_Parse(t *testing.T) {
 	t.Run("test1", func(t *testing.T) {
-		exp := &dsl.Document{
-			Model: &dsl.Model{
+		exp := &mar.Document{
+			Model: &mar.Model{
 				Transport: "tcp",
 				Port:      "80",
-				Transitions: []*dsl.Transition{
-					&dsl.Transition{
+				Transitions: []*mar.Transition{
+					&mar.Transition{
 						Source:      "start",
 						Destination: "downstream",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "downstream",
 						Destination: "upstream",
 						ActionBlock: "http_get",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "upstream",
 						Destination: "end",
 						ActionBlock: "http_ok",
@@ -35,15 +35,15 @@ func TestParser_Parse(t *testing.T) {
 					},
 				},
 			},
-			ActionBlocks: []*dsl.ActionBlock{
-				&dsl.ActionBlock{
+			ActionBlocks: []*mar.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_get",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
 								{Value: 128},
 							},
@@ -51,14 +51,14 @@ func TestParser_Parse(t *testing.T) {
 						},
 					},
 				},
-				&dsl.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_ok",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "server",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n\\C*$"},
 								{Value: 128},
 							},
@@ -88,24 +88,24 @@ func TestParser_Parse(t *testing.T) {
 	})
 
 	t.Run("test2", func(t *testing.T) {
-		exp := &dsl.Document{
-			Model: &dsl.Model{
+		exp := &mar.Document{
+			Model: &mar.Model{
 				Transport: "tcp",
 				Port:      "80",
-				Transitions: []*dsl.Transition{
-					&dsl.Transition{
+				Transitions: []*mar.Transition{
+					&mar.Transition{
 						Source:      "start",
 						Destination: "downstream",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "downstream",
 						Destination: "upstream",
 						ActionBlock: "http_get",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "upstream",
 						Destination: "end",
 						ActionBlock: "http_ok",
@@ -113,15 +113,15 @@ func TestParser_Parse(t *testing.T) {
 					},
 				},
 			},
-			ActionBlocks: []*dsl.ActionBlock{
-				&dsl.ActionBlock{
+			ActionBlocks: []*mar.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_get",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
 								{Value: 128},
 							},
@@ -129,14 +129,14 @@ func TestParser_Parse(t *testing.T) {
 						},
 					},
 				},
-				&dsl.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_ok",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "server",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n\\C*$"},
 								{Value: 128},
 							},
@@ -144,14 +144,14 @@ func TestParser_Parse(t *testing.T) {
 						},
 					},
 				},
-				&dsl.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_put",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
 								{Value: 128},
 							},
@@ -184,24 +184,24 @@ func TestParser_Parse(t *testing.T) {
 	})
 
 	t.Run("test3", func(t *testing.T) {
-		exp := &dsl.Document{
-			Model: &dsl.Model{
+		exp := &mar.Document{
+			Model: &mar.Model{
 				Transport: "tcp",
 				Port:      "80",
-				Transitions: []*dsl.Transition{
-					&dsl.Transition{
+				Transitions: []*mar.Transition{
+					&mar.Transition{
 						Source:      "start",
 						Destination: "downstream",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "downstream",
 						Destination: "upstream",
 						ActionBlock: "http_get",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "upstream",
 						Destination: "end",
 						ActionBlock: "http_ok",
@@ -209,15 +209,15 @@ func TestParser_Parse(t *testing.T) {
 					},
 				},
 			},
-			ActionBlocks: []*dsl.ActionBlock{
-				&dsl.ActionBlock{
+			ActionBlocks: []*mar.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_get",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
 								{Value: 128},
 							},
@@ -225,14 +225,14 @@ func TestParser_Parse(t *testing.T) {
 						},
 					},
 				},
-				&dsl.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_ok",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "server",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n\\C*$"},
 								{Value: 128},
 							},
@@ -240,14 +240,14 @@ func TestParser_Parse(t *testing.T) {
 						},
 					},
 				},
-				&dsl.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_put",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
 								{Value: 128},
 							},
@@ -255,14 +255,14 @@ func TestParser_Parse(t *testing.T) {
 						},
 					},
 				},
-				&dsl.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_notok",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "server",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n\\C*$"},
 								{Value: 128},
 							},
@@ -298,30 +298,30 @@ func TestParser_Parse(t *testing.T) {
 	})
 
 	t.Run("test4", func(t *testing.T) {
-		exp := &dsl.Document{
-			Model: &dsl.Model{
+		exp := &mar.Document{
+			Model: &mar.Model{
 				Transport: "tcp",
 				Port:      "8082",
-				Transitions: []*dsl.Transition{
-					&dsl.Transition{
+				Transitions: []*mar.Transition{
+					&mar.Transition{
 						Source:      "start",
 						Destination: "handshake",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "handshake",
 						Destination: "upstream",
 						ActionBlock: "upstream_handshake",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "upstream",
 						Destination: "downstream",
 						ActionBlock: "upstream_async",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "downstream",
 						Destination: "upstream",
 						ActionBlock: "downstream_async",
@@ -329,15 +329,15 @@ func TestParser_Parse(t *testing.T) {
 					},
 				},
 			},
-			ActionBlocks: []*dsl.ActionBlock{
-				&dsl.ActionBlock{
+			ActionBlocks: []*mar.ActionBlock{
+				&mar.ActionBlock{
 					Name: "upstream_handshake",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^.*$"},
 								{Value: 128},
 							},
@@ -345,14 +345,14 @@ func TestParser_Parse(t *testing.T) {
 						},
 					},
 				},
-				&dsl.ActionBlock{
+				&mar.ActionBlock{
 					Name: "upstream_async",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send_async",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^.*$"},
 								{Value: 128},
 							},
@@ -360,14 +360,14 @@ func TestParser_Parse(t *testing.T) {
 						},
 					},
 				},
-				&dsl.ActionBlock{
+				&mar.ActionBlock{
 					Name: "downstream_async",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "server",
 							Name:   "fte",
 							Method: "send_async",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^.*$"},
 								{Value: 128},
 							},
@@ -401,24 +401,24 @@ action downstream_async:
 	})
 
 	t.Run("test5", func(t *testing.T) {
-		exp := &dsl.Document{
-			Model: &dsl.Model{
+		exp := &mar.Document{
+			Model: &mar.Model{
 				Transport: "tcp",
 				Port:      "80",
-				Transitions: []*dsl.Transition{
-					&dsl.Transition{
+				Transitions: []*mar.Transition{
+					&mar.Transition{
 						Source:      "start",
 						Destination: "downstream",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "downstream",
 						Destination: "upstream",
 						ActionBlock: "http_get",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "upstream",
 						Destination: "end",
 						ActionBlock: "http_ok",
@@ -426,29 +426,29 @@ action downstream_async:
 					},
 				},
 			},
-			ActionBlocks: []*dsl.ActionBlock{
-				&dsl.ActionBlock{
+			ActionBlocks: []*mar.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_get",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
 							},
 							Regex: "",
 						},
 					},
 				},
-				&dsl.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_ok",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "server",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n\\C*$"},
 							},
 							Regex: "",
@@ -477,18 +477,18 @@ action downstream_async:
 	})
 
 	t.Run("test6", func(t *testing.T) {
-		exp := &dsl.Document{
-			Model: &dsl.Model{
+		exp := &mar.Document{
+			Model: &mar.Model{
 				Transport: "tcp",
 				Port:      "80",
-				Transitions: []*dsl.Transition{
-					&dsl.Transition{
+				Transitions: []*mar.Transition{
+					&mar.Transition{
 						Source:      "start",
 						Destination: "do_nothing",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "do_nothing",
 						Destination: "end",
 						ActionBlock: "NULL",
@@ -496,24 +496,24 @@ action downstream_async:
 					},
 				},
 			},
-			ActionBlocks: []*dsl.ActionBlock{
-				&dsl.ActionBlock{
+			ActionBlocks: []*mar.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_get",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex1\r\n\r\n$"},
 							},
 							Regex: "",
 						},
-						&dsl.Action{
+						&mar.Action{
 							Party:  "server",
 							Name:   "fte",
 							Method: "recv",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex2\r\n\r\n$"},
 							},
 							Regex: "",
@@ -539,30 +539,30 @@ action downstream_async:
 	})
 
 	t.Run("test7", func(t *testing.T) {
-		exp := &dsl.Document{
-			Model: &dsl.Model{
+		exp := &mar.Document{
+			Model: &mar.Model{
 				Transport: "tcp",
 				Port:      "80",
-				Transitions: []*dsl.Transition{
-					&dsl.Transition{
+				Transitions: []*mar.Transition{
+					&mar.Transition{
 						Source:      "start",
 						Destination: "do_nothing",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "do_nothing",
 						Destination: "end",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:            "start",
 						Destination:       "do_err",
 						ActionBlock:       "NULL",
 						IsErrorTransition: true,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:            "do_err",
 						Destination:       "end",
 						ActionBlock:       "NULL",
@@ -570,15 +570,15 @@ action downstream_async:
 					},
 				},
 			},
-			ActionBlocks: []*dsl.ActionBlock{
-				&dsl.ActionBlock{
+			ActionBlocks: []*mar.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_get",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex1\r\n\r\n$"},
 							},
 							Regex: "",
@@ -605,18 +605,18 @@ action downstream_async:
 	})
 
 	t.Run("test8", func(t *testing.T) {
-		exp := &dsl.Document{
-			Model: &dsl.Model{
+		exp := &mar.Document{
+			Model: &mar.Model{
 				Transport: "tcp",
 				Port:      "80",
-				Transitions: []*dsl.Transition{
-					&dsl.Transition{
+				Transitions: []*mar.Transition{
+					&mar.Transition{
 						Source:      "start",
 						Destination: "do_nothing",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "do_nothing",
 						Destination: "end",
 						ActionBlock: "NULL",
@@ -624,24 +624,24 @@ action downstream_async:
 					},
 				},
 			},
-			ActionBlocks: []*dsl.ActionBlock{
-				&dsl.ActionBlock{
+			ActionBlocks: []*mar.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_get",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex1\r\n\r\n$"},
 							},
 							Regex: "",
 						},
-						&dsl.Action{
+						&mar.Action{
 							Party:  "server",
 							Name:   "fte",
 							Method: "recv",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex2\r\n\r\n$"},
 							},
 							Regex: "^regex2.*",
@@ -667,18 +667,18 @@ action downstream_async:
 	})
 
 	t.Run("test9", func(t *testing.T) {
-		exp := &dsl.Document{
-			Model: &dsl.Model{
+		exp := &mar.Document{
+			Model: &mar.Model{
 				Transport: "udp",
 				Port:      "80",
-				Transitions: []*dsl.Transition{
-					&dsl.Transition{
+				Transitions: []*mar.Transition{
+					&mar.Transition{
 						Source:      "start",
 						Destination: "do_nothing",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "do_nothing",
 						Destination: "end",
 						ActionBlock: "NULL",
@@ -686,15 +686,15 @@ action downstream_async:
 					},
 				},
 			},
-			ActionBlocks: []*dsl.ActionBlock{
-				&dsl.ActionBlock{
+			ActionBlocks: []*mar.ActionBlock{
+				&mar.ActionBlock{
 					Name: "http_get",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "fte",
 							Method: "send",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "^regex1\r\n\r\n$"},
 							},
 							Regex: "",
@@ -719,18 +719,18 @@ action downstream_async:
 	})
 
 	t.Run("hex_input_strings", func(t *testing.T) {
-		exp := &dsl.Document{
-			Model: &dsl.Model{
+		exp := &mar.Document{
+			Model: &mar.Model{
 				Transport: "tcp",
 				Port:      "80",
-				Transitions: []*dsl.Transition{
-					&dsl.Transition{
+				Transitions: []*mar.Transition{
+					&mar.Transition{
 						Source:      "start",
 						Destination: "do_nothing",
 						ActionBlock: "NULL",
 						Probability: 1,
 					},
-					&dsl.Transition{
+					&mar.Transition{
 						Source:      "do_nothing",
 						Destination: "end",
 						ActionBlock: "NULL",
@@ -738,15 +738,15 @@ action downstream_async:
 					},
 				},
 			},
-			ActionBlocks: []*dsl.ActionBlock{
-				&dsl.ActionBlock{
+			ActionBlocks: []*mar.ActionBlock{
+				&mar.ActionBlock{
 					Name: "null_puts",
-					Actions: []*dsl.Action{
-						&dsl.Action{
+					Actions: []*mar.Action{
+						&mar.Action{
 							Party:  "client",
 							Name:   "io",
 							Method: "puts",
-							Args: []*dsl.Arg{
+							Args: []*mar.Arg{
 								{Value: "\x41\x42\\backslash"},
 							},
 							Regex: "",
@@ -770,50 +770,50 @@ action downstream_async:
 	})
 }
 
-func Parse(data string) (*dsl.Document, error) {
-	return dsl.NewParser().Parse([]byte(data))
+func Parse(data string) (*mar.Document, error) {
+	return mar.NewParser().Parse([]byte(data))
 }
 
 // StripPos removes all position data from a node and its descendents.
-func StripPos(node dsl.Node) {
-	dsl.Walk(dsl.VisitorFunc(func(node dsl.Node) {
+func StripPos(node mar.Node) {
+	mar.Walk(mar.VisitorFunc(func(node mar.Node) {
 		switch node := node.(type) {
-		case *dsl.Model:
-			node.Connection = dsl.Pos{}
-			node.Lparen = dsl.Pos{}
-			node.TransportPos = dsl.Pos{}
-			node.Comma = dsl.Pos{}
-			node.PortPos = dsl.Pos{}
-			node.Rparen = dsl.Pos{}
-			node.Colon = dsl.Pos{}
+		case *mar.Model:
+			node.Connection = mar.Pos{}
+			node.Lparen = mar.Pos{}
+			node.TransportPos = mar.Pos{}
+			node.Comma = mar.Pos{}
+			node.PortPos = mar.Pos{}
+			node.Rparen = mar.Pos{}
+			node.Colon = mar.Pos{}
 
-		case *dsl.Transition:
-			node.SourcePos = dsl.Pos{}
-			node.DestinationPos = dsl.Pos{}
-			node.ActionBlockPos = dsl.Pos{}
-			node.ProbabilityPos = dsl.Pos{}
+		case *mar.Transition:
+			node.SourcePos = mar.Pos{}
+			node.DestinationPos = mar.Pos{}
+			node.ActionBlockPos = mar.Pos{}
+			node.ProbabilityPos = mar.Pos{}
 
-		case *dsl.ActionBlock:
-			node.Action = dsl.Pos{}
-			node.NamePos = dsl.Pos{}
-			node.Colon = dsl.Pos{}
+		case *mar.ActionBlock:
+			node.Action = mar.Pos{}
+			node.NamePos = mar.Pos{}
+			node.Colon = mar.Pos{}
 
-		case *dsl.Action:
-			node.PartyPos = dsl.Pos{}
-			node.NamePos = dsl.Pos{}
-			node.Dot = dsl.Pos{}
-			node.MethodPos = dsl.Pos{}
-			node.Lparen = dsl.Pos{}
-			node.Rparen = dsl.Pos{}
-			node.If = dsl.Pos{}
-			node.RegexMatchIncoming = dsl.Pos{}
-			node.RegexMatchIncomingLparen = dsl.Pos{}
-			node.RegexPos = dsl.Pos{}
-			node.RegexMatchIncomingRparen = dsl.Pos{}
+		case *mar.Action:
+			node.PartyPos = mar.Pos{}
+			node.NamePos = mar.Pos{}
+			node.Dot = mar.Pos{}
+			node.MethodPos = mar.Pos{}
+			node.Lparen = mar.Pos{}
+			node.Rparen = mar.Pos{}
+			node.If = mar.Pos{}
+			node.RegexMatchIncoming = mar.Pos{}
+			node.RegexMatchIncomingLparen = mar.Pos{}
+			node.RegexPos = mar.Pos{}
+			node.RegexMatchIncomingRparen = mar.Pos{}
 
-		case *dsl.Arg:
-			node.Pos = dsl.Pos{}
-			node.EndPos = dsl.Pos{}
+		case *mar.Arg:
+			node.Pos = mar.Pos{}
+			node.EndPos = mar.Pos{}
 		}
 	}), node)
 }
