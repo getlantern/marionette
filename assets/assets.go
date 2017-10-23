@@ -2,6 +2,8 @@ package assets
 
 import (
 	"path"
+	"sort"
+	"strings"
 )
 
 //go:generate go-bindata -ignore .go -o assets.gen.go -pkg assets ./...
@@ -26,4 +28,31 @@ func Format(name, version string) []byte {
 	}
 
 	return nil
+}
+
+// Formats returns a list of available formats.
+func Formats() []string {
+	var formats []string
+
+	names := AssetNames()
+	sort.Strings(names)
+
+	for _, name := range names {
+		// Ignore files outside 'formats' directory.
+		if !strings.HasPrefix(name, "formats/") {
+			continue
+		}
+
+		// Remove subdir and extension.
+		name = strings.TrimPrefix(name, "formats/")
+		name = strings.TrimSuffix(name, ".mar")
+
+		// Move version to the end.
+		segments := strings.SplitN(name, "/", 2)
+		format := segments[1] + ":" + segments[0]
+
+		// Add to format list.
+		formats = append(formats, format)
+	}
+	return formats
 }

@@ -14,6 +14,7 @@ func (*Arg) node()         {}
 func (*Pos) node()         {}
 
 type Document struct {
+	UUID         int
 	Model        *Model
 	ActionBlocks []*ActionBlock
 }

@@ -1,6 +1,8 @@
 package mar
 
 import (
+	"crypto/md5"
+	"encoding/binary"
 	"fmt"
 	"strconv"
 )
@@ -18,6 +20,8 @@ func (p *Parser) Parse(data []byte) (*Document, error) {
 	scanner := NewScanner(data)
 
 	var doc Document
+	doc.UUID = GenerateUUID(data)
+
 	model, err := p.parseModel(scanner)
 	if err != nil {
 		return nil, err
@@ -379,4 +383,8 @@ func newSyntaxError(exp string, tok Token, lit string, pos Pos) *SyntaxError {
 		Message: fmt.Sprintf("%s at line %d, found %s", exp, pos.Line, tok.String()),
 		Pos:     pos,
 	}
+}
+
+func GenerateUUID(data []byte) int {
+	return int(binary.BigEndian.Uint32(md5.Sum(data)[:4]))
 }
