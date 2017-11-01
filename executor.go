@@ -1,6 +1,8 @@
 package marionette
 
 import (
+	"strconv"
+
 	"github.com/redjack/marionette/mar"
 )
 
@@ -30,8 +32,9 @@ func (e *Executor) Port() int {
 		return port
 	}
 
-	port, _ := e.locals[e.doc.Model.Port].(int)
-	return port
+	// port, _ := e.locals[e.doc.Model.Port].(int)
+	// return port
+	panic("TODO")
 }
 
 // FirstSender returns the party that initiates the protocol.

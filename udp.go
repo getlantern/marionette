@@ -1,5 +1,7 @@
 package marionette
 
+import "net"
+
 type UDPClient struct {
 	conn *net.UDPConn
 }

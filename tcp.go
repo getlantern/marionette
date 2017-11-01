@@ -1,5 +1,7 @@
 package marionette
 
+import "net"
+
 type TCPClient struct {
 	conn *net.TCPConn
 }
