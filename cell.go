@@ -135,6 +135,8 @@ func (c *Cell) UnmarshalBinary(data []byte) (err error) {
 	return nil
 }
 
+type CellEncoder struct{}
+
 type CellDecoder struct {
 	mu      sync.RWMutex
 	r       io.Reader
