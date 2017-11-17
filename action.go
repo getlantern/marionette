@@ -30,7 +30,3 @@ func (a *Action) Arg(i int) string {
 	}
 	return a.args_[i]
 }
-
-func (a *Action) execute(party, name string) bool {
-	return a.party_ == party && a.name_ == name
-}

@@ -15,8 +15,17 @@ func (*Pos) node()         {}
 
 type Document struct {
 	UUID         int
+	Format       string
 	Model        *Model
 	ActionBlocks []*ActionBlock
+}
+
+// FirstSender returns the party that initiates the protocol.
+func (doc *Document) FirstSender() string {
+	if doc.format == "ftp_pasv_transfer" {
+		return "server"
+	}
+	return "client"
 }
 
 type Model struct {

@@ -16,3 +16,9 @@ func StripFormatVersion(format string) string {
 	}
 	return format
 }
+
+func assert(condition bool) {
+	if !condition {
+		panic("assertion failed")
+	}
+}
