@@ -11,28 +11,26 @@ import (
 func TestParser_Parse(t *testing.T) {
 	t.Run("test1", func(t *testing.T) {
 		exp := &mar.Document{
-			Model: &mar.Model{
-				Transport: "tcp",
-				Port:      "80",
-				Transitions: []*mar.Transition{
-					&mar.Transition{
-						Source:      "start",
-						Destination: "downstream",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "downstream",
-						Destination: "upstream",
-						ActionBlock: "http_get",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "upstream",
-						Destination: "end",
-						ActionBlock: "http_ok",
-						Probability: 1,
-					},
+			Transport: "tcp",
+			Port:      "80",
+			Transitions: []*mar.Transition{
+				&mar.Transition{
+					Source:      "start",
+					Destination: "downstream",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "downstream",
+					Destination: "upstream",
+					ActionBlock: "http_get",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "upstream",
+					Destination: "end",
+					ActionBlock: "http_ok",
+					Probability: 1,
 				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
@@ -82,35 +80,33 @@ func TestParser_Parse(t *testing.T) {
 		`)
 		if err != nil {
 			t.Fatal(err)
-		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
+		} else if Strip(doc); !reflect.DeepEqual(doc, exp) {
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
 
 	t.Run("test2", func(t *testing.T) {
 		exp := &mar.Document{
-			Model: &mar.Model{
-				Transport: "tcp",
-				Port:      "80",
-				Transitions: []*mar.Transition{
-					&mar.Transition{
-						Source:      "start",
-						Destination: "downstream",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "downstream",
-						Destination: "upstream",
-						ActionBlock: "http_get",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "upstream",
-						Destination: "end",
-						ActionBlock: "http_ok",
-						Probability: 1,
-					},
+			Transport: "tcp",
+			Port:      "80",
+			Transitions: []*mar.Transition{
+				&mar.Transition{
+					Source:      "start",
+					Destination: "downstream",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "downstream",
+					Destination: "upstream",
+					ActionBlock: "http_get",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "upstream",
+					Destination: "end",
+					ActionBlock: "http_ok",
+					Probability: 1,
 				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
@@ -178,35 +174,33 @@ func TestParser_Parse(t *testing.T) {
         `)
 		if err != nil {
 			t.Fatal(err)
-		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
+		} else if Strip(doc); !reflect.DeepEqual(doc, exp) {
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
 
 	t.Run("test3", func(t *testing.T) {
 		exp := &mar.Document{
-			Model: &mar.Model{
-				Transport: "tcp",
-				Port:      "80",
-				Transitions: []*mar.Transition{
-					&mar.Transition{
-						Source:      "start",
-						Destination: "downstream",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "downstream",
-						Destination: "upstream",
-						ActionBlock: "http_get",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "upstream",
-						Destination: "end",
-						ActionBlock: "http_ok",
-						Probability: 1,
-					},
+			Transport: "tcp",
+			Port:      "80",
+			Transitions: []*mar.Transition{
+				&mar.Transition{
+					Source:      "start",
+					Destination: "downstream",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "downstream",
+					Destination: "upstream",
+					ActionBlock: "http_get",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "upstream",
+					Destination: "end",
+					ActionBlock: "http_ok",
+					Probability: 1,
 				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
@@ -292,41 +286,39 @@ func TestParser_Parse(t *testing.T) {
         `)
 		if err != nil {
 			t.Fatal(err)
-		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
+		} else if Strip(doc); !reflect.DeepEqual(doc, exp) {
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
 
 	t.Run("test4", func(t *testing.T) {
 		exp := &mar.Document{
-			Model: &mar.Model{
-				Transport: "tcp",
-				Port:      "8082",
-				Transitions: []*mar.Transition{
-					&mar.Transition{
-						Source:      "start",
-						Destination: "handshake",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "handshake",
-						Destination: "upstream",
-						ActionBlock: "upstream_handshake",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "upstream",
-						Destination: "downstream",
-						ActionBlock: "upstream_async",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "downstream",
-						Destination: "upstream",
-						ActionBlock: "downstream_async",
-						Probability: 1,
-					},
+			Transport: "tcp",
+			Port:      "8082",
+			Transitions: []*mar.Transition{
+				&mar.Transition{
+					Source:      "start",
+					Destination: "handshake",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "handshake",
+					Destination: "upstream",
+					ActionBlock: "upstream_handshake",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "upstream",
+					Destination: "downstream",
+					ActionBlock: "upstream_async",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "downstream",
+					Destination: "upstream",
+					ActionBlock: "downstream_async",
+					Probability: 1,
 				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
@@ -395,35 +387,33 @@ action downstream_async:
         `)
 		if err != nil {
 			t.Fatal(err)
-		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
+		} else if Strip(doc); !reflect.DeepEqual(doc, exp) {
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
 
 	t.Run("test5", func(t *testing.T) {
 		exp := &mar.Document{
-			Model: &mar.Model{
-				Transport: "tcp",
-				Port:      "80",
-				Transitions: []*mar.Transition{
-					&mar.Transition{
-						Source:      "start",
-						Destination: "downstream",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "downstream",
-						Destination: "upstream",
-						ActionBlock: "http_get",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "upstream",
-						Destination: "end",
-						ActionBlock: "http_ok",
-						Probability: 1,
-					},
+			Transport: "tcp",
+			Port:      "80",
+			Transitions: []*mar.Transition{
+				&mar.Transition{
+					Source:      "start",
+					Destination: "downstream",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "downstream",
+					Destination: "upstream",
+					ActionBlock: "http_get",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "upstream",
+					Destination: "end",
+					ActionBlock: "http_ok",
+					Probability: 1,
 				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
@@ -471,29 +461,27 @@ action downstream_async:
         `)
 		if err != nil {
 			t.Fatal(err)
-		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
+		} else if Strip(doc); !reflect.DeepEqual(doc, exp) {
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
 
 	t.Run("test6", func(t *testing.T) {
 		exp := &mar.Document{
-			Model: &mar.Model{
-				Transport: "tcp",
-				Port:      "80",
-				Transitions: []*mar.Transition{
-					&mar.Transition{
-						Source:      "start",
-						Destination: "do_nothing",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "do_nothing",
-						Destination: "end",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
+			Transport: "tcp",
+			Port:      "80",
+			Transitions: []*mar.Transition{
+				&mar.Transition{
+					Source:      "start",
+					Destination: "do_nothing",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "do_nothing",
+					Destination: "end",
+					ActionBlock: "NULL",
+					Probability: 1,
 				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
@@ -533,41 +521,39 @@ action downstream_async:
         `)
 		if err != nil {
 			t.Fatal(err)
-		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
+		} else if Strip(doc); !reflect.DeepEqual(doc, exp) {
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
 
 	t.Run("test7", func(t *testing.T) {
 		exp := &mar.Document{
-			Model: &mar.Model{
-				Transport: "tcp",
-				Port:      "80",
-				Transitions: []*mar.Transition{
-					&mar.Transition{
-						Source:      "start",
-						Destination: "do_nothing",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "do_nothing",
-						Destination: "end",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:            "start",
-						Destination:       "do_err",
-						ActionBlock:       "NULL",
-						IsErrorTransition: true,
-					},
-					&mar.Transition{
-						Source:            "do_err",
-						Destination:       "end",
-						ActionBlock:       "NULL",
-						IsErrorTransition: true,
-					},
+			Transport: "tcp",
+			Port:      "80",
+			Transitions: []*mar.Transition{
+				&mar.Transition{
+					Source:      "start",
+					Destination: "do_nothing",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "do_nothing",
+					Destination: "end",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:            "start",
+					Destination:       "do_err",
+					ActionBlock:       "NULL",
+					IsErrorTransition: true,
+				},
+				&mar.Transition{
+					Source:            "do_err",
+					Destination:       "end",
+					ActionBlock:       "NULL",
+					IsErrorTransition: true,
 				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
@@ -599,29 +585,27 @@ action downstream_async:
         `)
 		if err != nil {
 			t.Fatal(err)
-		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
+		} else if Strip(doc); !reflect.DeepEqual(doc, exp) {
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
 
 	t.Run("test8", func(t *testing.T) {
 		exp := &mar.Document{
-			Model: &mar.Model{
-				Transport: "tcp",
-				Port:      "80",
-				Transitions: []*mar.Transition{
-					&mar.Transition{
-						Source:      "start",
-						Destination: "do_nothing",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "do_nothing",
-						Destination: "end",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
+			Transport: "tcp",
+			Port:      "80",
+			Transitions: []*mar.Transition{
+				&mar.Transition{
+					Source:      "start",
+					Destination: "do_nothing",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "do_nothing",
+					Destination: "end",
+					ActionBlock: "NULL",
+					Probability: 1,
 				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
@@ -661,29 +645,27 @@ action downstream_async:
         `)
 		if err != nil {
 			t.Fatal(err)
-		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
+		} else if Strip(doc); !reflect.DeepEqual(doc, exp) {
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
 
 	t.Run("test9", func(t *testing.T) {
 		exp := &mar.Document{
-			Model: &mar.Model{
-				Transport: "udp",
-				Port:      "80",
-				Transitions: []*mar.Transition{
-					&mar.Transition{
-						Source:      "start",
-						Destination: "do_nothing",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "do_nothing",
-						Destination: "end",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
+			Transport: "udp",
+			Port:      "80",
+			Transitions: []*mar.Transition{
+				&mar.Transition{
+					Source:      "start",
+					Destination: "do_nothing",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "do_nothing",
+					Destination: "end",
+					ActionBlock: "NULL",
+					Probability: 1,
 				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
@@ -713,29 +695,27 @@ action downstream_async:
         `)
 		if err != nil {
 			t.Fatal(err)
-		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
+		} else if Strip(doc); !reflect.DeepEqual(doc, exp) {
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
 
 	t.Run("hex_input_strings", func(t *testing.T) {
 		exp := &mar.Document{
-			Model: &mar.Model{
-				Transport: "tcp",
-				Port:      "80",
-				Transitions: []*mar.Transition{
-					&mar.Transition{
-						Source:      "start",
-						Destination: "do_nothing",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
-					&mar.Transition{
-						Source:      "do_nothing",
-						Destination: "end",
-						ActionBlock: "NULL",
-						Probability: 1,
-					},
+			Transport: "tcp",
+			Port:      "80",
+			Transitions: []*mar.Transition{
+				&mar.Transition{
+					Source:      "start",
+					Destination: "do_nothing",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "do_nothing",
+					Destination: "end",
+					ActionBlock: "NULL",
+					Probability: 1,
 				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
@@ -764,7 +744,7 @@ action downstream_async:
         `)
 		if err != nil {
 			t.Fatal(err)
-		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
+		} else if Strip(doc); !reflect.DeepEqual(doc, exp) {
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
@@ -774,11 +754,12 @@ func Parse(data string) (*mar.Document, error) {
 	return mar.NewParser().Parse([]byte(data))
 }
 
-// StripPos removes all position data from a node and its descendents.
-func StripPos(node mar.Node) {
+// Strip removes all position and generated data from a node and its descendents.
+func Strip(node mar.Node) {
 	mar.Walk(mar.VisitorFunc(func(node mar.Node) {
 		switch node := node.(type) {
-		case *mar.Model:
+		case *mar.Document:
+			node.UUID = 0
 			node.Connection = mar.Pos{}
 			node.Lparen = mar.Pos{}
 			node.TransportPos = mar.Pos{}

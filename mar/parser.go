@@ -22,11 +22,62 @@ func (p *Parser) Parse(data []byte) (*Document, error) {
 	var doc Document
 	doc.UUID = GenerateUUID(data)
 
-	model, err := p.parseModel(scanner)
+	// Read 'connection' keyword.
+	tok, lit, pos := scanner.ScanIgnoreWhitespace()
+	if err := expect(IDENT, "connection", tok, lit, pos); err != nil {
+		return nil, err
+	}
+	doc.Connection = pos
+
+	// Read opening parenthesis.
+	tok, lit, pos = scanner.ScanIgnoreWhitespace()
+	if err := expect(LPAREN, "", tok, lit, pos); err != nil {
+		return nil, err
+	}
+	doc.Lparen = pos
+
+	// Read transport type.
+	tok, lit, pos = scanner.ScanIgnoreWhitespace()
+	if tok != IDENT {
+		return nil, newSyntaxError("expected transport type ('tcp' or 'udp')", tok, lit, pos)
+	}
+	doc.Transport = lit
+	doc.TransportPos = pos
+
+	// Read comma.
+	tok, lit, pos = scanner.ScanIgnoreWhitespace()
+	if err := expect(COMMA, "", tok, lit, pos); err != nil {
+		return nil, err
+	}
+	doc.Comma = pos
+
+	// Read port.
+	tok, lit, pos = scanner.ScanIgnoreWhitespace()
+	if tok != IDENT && tok != INTEGER {
+		return nil, newSyntaxError("expected named or numeric port", tok, lit, pos)
+	}
+	doc.Port = lit
+	doc.PortPos = pos
+
+	// Read closing parenthesis.
+	tok, lit, pos = scanner.ScanIgnoreWhitespace()
+	if err := expect(RPAREN, "", tok, lit, pos); err != nil {
+		return nil, err
+	}
+	doc.Rparen = pos
+
+	// Read colon.
+	tok, lit, pos = scanner.ScanIgnoreWhitespace()
+	if err := expect(COLON, "", tok, lit, pos); err != nil {
+		return nil, err
+	}
+	doc.Colon = pos
+
+	transitions, err := p.parseTransitions(scanner)
 	if err != nil {
 		return nil, err
 	}
-	doc.Model = model
+	doc.Transitions = transitions
 
 	actionBlocks, err := p.parseActionBlocks(scanner)
 	if err != nil {
@@ -35,69 +86,6 @@ func (p *Parser) Parse(data []byte) (*Document, error) {
 	doc.ActionBlocks = actionBlocks
 
 	return &doc, nil
-}
-
-func (p *Parser) parseModel(scanner *Scanner) (*Model, error) {
-	var model Model
-
-	// Read 'connection' keyword.
-	tok, lit, pos := scanner.ScanIgnoreWhitespace()
-	if err := expect(IDENT, "connection", tok, lit, pos); err != nil {
-		return nil, err
-	}
-	model.Connection = pos
-
-	// Read opening parenthesis.
-	tok, lit, pos = scanner.ScanIgnoreWhitespace()
-	if err := expect(LPAREN, "", tok, lit, pos); err != nil {
-		return nil, err
-	}
-	model.Lparen = pos
-
-	// Read transport type.
-	tok, lit, pos = scanner.ScanIgnoreWhitespace()
-	if tok != IDENT {
-		return nil, newSyntaxError("expected transport type ('tcp' or 'udp')", tok, lit, pos)
-	}
-	model.Transport = lit
-	model.TransportPos = pos
-
-	// Read comma.
-	tok, lit, pos = scanner.ScanIgnoreWhitespace()
-	if err := expect(COMMA, "", tok, lit, pos); err != nil {
-		return nil, err
-	}
-	model.Comma = pos
-
-	// Read port.
-	tok, lit, pos = scanner.ScanIgnoreWhitespace()
-	if tok != IDENT && tok != INTEGER {
-		return nil, newSyntaxError("expected named or numeric port", tok, lit, pos)
-	}
-	model.Port = lit
-	model.PortPos = pos
-
-	// Read closing parenthesis.
-	tok, lit, pos = scanner.ScanIgnoreWhitespace()
-	if err := expect(RPAREN, "", tok, lit, pos); err != nil {
-		return nil, err
-	}
-	model.Rparen = pos
-
-	// Read colon.
-	tok, lit, pos = scanner.ScanIgnoreWhitespace()
-	if err := expect(COLON, "", tok, lit, pos); err != nil {
-		return nil, err
-	}
-	model.Colon = pos
-
-	transitions, err := p.parseTransitions(scanner)
-	if err != nil {
-		return nil, err
-	}
-	model.Transitions = transitions
-
-	return &model, nil
 }
 
 func (p *Parser) parseTransitions(scanner *Scanner) ([]*Transition, error) {

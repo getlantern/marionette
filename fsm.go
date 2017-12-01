@@ -1,170 +1,213 @@
 package marionette
 
 import (
+	"errors"
+	"fmt"
+	"log"
 	"math/rand"
 	"net"
+	"regexp"
 	"strconv"
 
+	"github.com/redjack/marionette/fte"
 	"github.com/redjack/marionette/mar"
 )
 
 type FSM struct {
 	doc   *mar.Document
 	party string
+	enc   *CellEncoder
+	dec   *CellDecoder
 
 	state string
 	stepN int
 	rand  *rand.Rand
+	conn  *bufConn // channel
 
 	// Lookup of transitions by src state.
 	transitions map[string][]*mar.Transition
 
-	vars map[string]interface{}
+	// Special variables.
+	ModelInstanceID int
+
+	vars        map[string]interface{}
+	fteEncoders map[fteEncoderKey]*fte.Encoder
 }
 
-func NewFSM(doc *mar.Document, party string) *FSM {
+func NewFSM(doc *mar.Document, party string, enc *CellEncoder, dec *CellDecoder) *FSM {
 	fsm := &FSM{
 		doc:         doc,
 		party:       party,
 		state:       "start",
+		enc:         enc,
+		dec:         dec,
 		vars:        make(map[string]interface{}),
 		transitions: make(map[string][]*mar.Transition),
 	}
 
 	// Build transition map.
-	for _, t := range doc.Model.Transitions {
+	for _, t := range doc.Transitions {
 		fsm.transitions[t.Source] = append(fsm.transitions[t.Source], t)
 	}
 
 	// The initial sender generates the model instance ID.
 	if party == doc.FirstSender() {
-		fsm.modelInstanceID = uint32(rand.Int31())
-		fsm.rand = rand.New(rand.NewSource(int64(fsm.modelInstanceID)))
+		fsm.ModelInstanceID = int(rand.Int31())
+		fsm.rand = rand.New(rand.NewSource(int64(fsm.ModelInstanceID)))
 	}
 
 	return fsm
 }
 
+func (fsm *FSM) ModelUUID() int {
+	return fsm.doc.UUID
+}
+
 // Port returns the port from the underlying document.
 // If port is a named port then it is looked up in the local variables.
 func (fsm *FSM) Port() int {
-	if port, err := strconv.Atoi(fsm.doc.Model.Port); err == nil {
+	if port, err := strconv.Atoi(fsm.doc.Port); err == nil {
 		return port
 	}
 
-	// port, _ := fsm.locals[fsm.doc.Model.Port].(int)
+	// port, _ := fsm.locals[fsm.doc.Port].(int)
 	// return port
 	panic("TODO")
 }
 
-func (fsm *FSM) Next() error {
+// Dead returns true when the FSM is complete.
+func (fsm *FSM) Dead() bool { return fsm.state == "dead" }
+
+func (fsm *FSM) Next() (err error) {
 	// Create a new connection from the client if none is available.
-	if fsm.party == PartyClient && fsm.channel == nil && !fsm.channelRequested {
+	if fsm.party == PartyClient && fsm.conn == nil {
 		const serverIP = "127.0.0.1" // TODO: Pass in.
-		fsm.channel = net.Dial(fsm.doc.Model.Transport, net.JoinHostPort(serverIP, fsm.doc.Model.Port))
-		fsm.channelRequested = true
+		conn, err := net.Dial(fsm.doc.Transport, net.JoinHostPort(serverIP, fsm.doc.Port))
+		if err != nil {
+			return err
+		}
+		fsm.conn = newBufConn(conn)
 	}
 
-	// Exit if no channel available.
-	if fsm.channel == nil {
-		return false
+	// Exit if no connection available.
+	if fsm.conn == nil {
+		return errors.New("fsm.Next(): no connection available")
 	}
 
 	// Generate a new PRNG once we have an instance ID.
 	fsm.init()
 
-	transitions := fsm.chooseNextTransitions()
+	// If we have a successful transition, update our state info.
+	// Exit if no transitions were successful.
+	if nextState := fsm.next(); nextState == "" {
+		return errors.New("fsm.Next(): no matching transition action")
+	} else {
+		fsm.stepN += 1
+		fsm.state = nextState
+	}
 
-	assert(len(transitions) > 0)
+	return nil
+}
 
-	// attempt to do a normal transition
-	var fatal int
-	var success bool
-	var dst_state string
-	for _, dst_state = range transitions {
-		action_block := fsm.determine_action_block(fsm.state, dst_state)
+func (fsm *FSM) next() (nextState string) {
+	// Find all possible transitions from the current state.
+	// Then filter by PRNG (if available) or return all (if unavailable).
+	transitions := mar.FilterTransitionsBySource(fsm.doc.Transitions, fsm.state)
+	transitions = mar.ChooseTransitions(transitions, fsm.rand)
 
-		if success, err := fsm.eval_action_block(action_block); err != nil {
+	// Extract just the destination names.
+	destinations := mar.TransitionsDestinations(transitions)
+	assert(len(destinations) > 0)
+
+	// Append error state to try last if other destinations don't succeed.
+	if errorState := mar.TransitionsErrorState(transitions); errorState != "" {
+		destinations = append(destinations, errorState)
+	}
+
+	// Attempt each possible transition (and error transition at the end).
+	for _, destination := range destinations {
+		// Find all actions for this destination and current party.
+		blk := fsm.doc.ActionBlock(destination)
+		if blk == nil {
+			continue
+		}
+		actions := mar.FilterActionsByParty(blk.Actions, fsm.party)
+
+		// Attempt to execute each action.
+		if matched, err := fsm.evalActions(actions); err != nil {
 			log.Printf("EXCEPTION: %s", err)
-			fatal += 1
-		} else if success {
-			break
+		} else if matched {
+			return destination
 		}
 	}
-
-	// if all potential transitions are fatal, attempt the error transition
-	if !success && fatal == len(transitions) {
-		src_state := fsm.state
-		dst_state = fsm.states_[fsm.state].error_state_
-
-		if dst_state != "" {
-			action_block := fsm.determine_action_block(src_state, dst_state)
-			success, _ = fsm.eval_action_block(action_block)
-		}
-	}
-
-	if !success {
-		return false
-	}
-
-	// if we have a successful transition, update our state info.
-	fsm.stepN += 1
-	fsm.state = dst_state
-	fsm.next_state_ = ""
-
-	if fsm.state == "dead" {
-		fsm.success_ = true
-	}
-	return true
+	return ""
 }
 
 // init initializes the PRNG if we now have a model instance id.
 func (fsm *FSM) init() {
-	if fsm.rand != nil || fsm.modelInstanceID == 0 {
+	if fsm.rand != nil || fsm.ModelInstanceID == 0 {
 		return
 	}
 
 	// Create new PRNG.
-	fsm.rand = rand.New(rand.NewSource(int64(fsm.modelInstanceID)))
+	fsm.rand = rand.New(rand.NewSource(int64(fsm.ModelInstanceID)))
 
 	// Restart FSM from the beginning and iterate until the current step.
 	fsm.state = "start"
 	for i := 0; i < fsm.stepN; i++ {
-		fsm.state = fsm.states[fsm.state].transition(fsm.rand)
+		fsm.state = fsm.next()
+		assert(fsm.state != "")
 	}
-	fsm.nextState = ""
 }
 
-func (fsm *FSM) chooseNextTransitions() []*mar.Transition {
-	// If PRNG is not set yet then return all transitions with a non-zero probability.
-	if fsm.rand == nil {
-		var a []*mar.Transition
-		for _, t := range fsm.transition[fsm.state] {
-			if t.Probability > 0 {
-				a = append(t)
+func (fsm *FSM) next_transition(src_state, dst_state string) *mar.Transition {
+	for _, transition := range fsm.transitions[src_state] {
+		if transition.Destination == dst_state {
+			return transition
+		}
+	}
+	return nil
+}
+
+func (fsm *FSM) evalActions(actions []*mar.Action) (bool, error) {
+	if len(actions) == 0 {
+		return true, nil
+	}
+
+	for _, action := range actions {
+		// If there is no matching regex then simply evaluate action.
+		if action.Regex != "" {
+			// Compile regex.
+			// TODO(benbjohnson): Compile at parse time and store.
+			re, err := regexp.Compile(action.Regex)
+			if err != nil {
+				return false, err
+			}
+
+			// Only evaluate action if buffer matches.
+			incoming_buffer := fsm.conn.Peek()
+			if !re.Match(incoming_buffer) {
+				continue
 			}
 		}
-		return a
+
+		if success, err := fsm.evalAction(action); err != nil {
+			return false, err
+		} else if success {
+			return true, nil
+		}
+		continue
 	}
 
-	// If there is only one transition then return it.
-	transitions := fsm.transition[fsm.state]
-	if len(transitions) == 1 {
-		return transitions
-	}
+	return false, nil
+}
 
-	// Otherwise randomly choose a transition based on probability.
-	sum, coin := float64(0), fsm.rand.Float64()
-	for _, t := range transitions {
-		if t.Probability <= 0 {
-			continue
-		}
-		sum += t.Probability
-		if sum >= coin {
-			return []*mar.Transition{t}
-		}
+func (fsm *FSM) evalAction(action *mar.Action) (bool, error) {
+	fn := FindPlugin(action.Name, action.Method)
+	if fn == nil {
+		return false, fmt.Errorf("fsm.evalAction(): action not found: %s.%s", action.Name, action.Method)
 	}
-	return []*mar.Transition{transitions[len(transitions)-1]}
+	return fn(fsm, action.ArgValues())
 }
 
 /*
@@ -176,16 +219,6 @@ func (fsm *FSM) do_precomputations() {
 	}
 }
 
-func (fsm *FSM) determine_action_block(src_state, dst_state string) []*Action {
-	var retval []*Action
-	for _, action := range fsm.actions_ {
-		action_name := fsm.states_[src_state].transitions_[dst_state].name
-		if action.party_ == fsm.party_ && action.name_ == action_name {
-			retval = append(retval, action)
-		}
-	}
-	return retval
-}
 
 func transitionKeys(transitions map[string]PATransition) []string {
 	a := make([]string, 0, len(transitions))
@@ -196,45 +229,8 @@ func transitionKeys(transitions map[string]PATransition) []string {
 	return a
 }
 
-func (fsm *FSM) eval_action_block(action_block []*Action) (bool, error) {
-	var retval bool
-
-	if len(action_block) == 0 {
-		return true, nil
-	}
-
-	if len(action_block) >= 1 {
-		for _, action_obj := range action_block {
-			if action_obj.regex_match_incoming_ != nil {
-				incoming_buffer := fsm.channel_.peek()
-				if action_obj.regex_match_incoming_.Match(incoming_buffer) {
-					retval = fsm.eval_action(action_obj)
-				}
-			} else {
-				retval = fsm.eval_action(action_obj)
-			}
-			if retval {
-				break
-			}
-		}
-	}
-
-	return retval, nil
-}
-
 func (fsm *FSM) isRunning() bool {
 	return fsm.state != "dead"
-}
-
-func (fsm *FSM) eval_action(action_obj *Action) {
-	module := action_obj.get_module()
-	method := action_obj.get_method()
-	args := action_obj.get_args()
-
-	i := importlib.import_module("marionette_tg.plugins._" + module)
-	method_obj = getattr(i, method)
-
-	return method_obj(fsm.channel_, fsm.marionette_state_, args)
 }
 
 func (fsm *FSM) add_state(name string) {
@@ -266,19 +262,9 @@ func (fsm *FSM) get_port() int {
 	return fsm.local[fsm.port_]
 }
 
-func (fsm *FSM) get_fte_obj(regex, msg_len string) interface{} {
-	fte_key := fmt.Sprintf("fte_obj-%s%d", regex, msg_len)
-	if _, ok := fsm.global[fte_key]; !ok {
-		dfa := regex2dfa.Regex2dfa(regex)
-		fte_obj := fte.Encode(dfa, msg_len)
-		poia.global[fte_key] = fte_obj
-	}
-
-	return poia.global[fte_key]
-}
 */
 
-func (fsm *FSM) GetVar(key string) interface{} {
+func (fsm *FSM) Var(key string) interface{} {
 	switch key {
 	case "model_instance_id":
 		return fsm.ModelInstanceID
@@ -297,4 +283,18 @@ func (fsm *FSM) GetVar(key string) interface{} {
 
 func (fsm *FSM) SetVar(key string, value interface{}) {
 	fsm.vars[key] = value
+}
+
+func (fsm *FSM) fteEncoder(regex string, msgLen int) *fte.Encoder {
+	key := fteEncoderKey{regex, msgLen}
+	if fsm.fteEncoders[key] == nil {
+		enc := fte.NewEncoder(regex, msgLen)
+		fsm.fteEncoders[key] = enc
+	}
+	return fsm.fteEncoders[key]
+}
+
+type fteEncoderKey struct {
+	regex  string
+	msgLen int
 }

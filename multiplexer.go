@@ -49,6 +49,8 @@ func (s *Stream) peek() []byte {
 	return s.buffer
 }
 
+type IncomingBuffer struct{}
+
 type OutgoingBuffer struct {
 	mu                 sync.RWMutex
 	fifo_              map[int][]byte
@@ -120,7 +122,7 @@ func (buf *OutgoingBuffer) pop(model_uuid int, model_instance_id, n int) *Cell {
 			payload_length := (n - PAYLOAD_HEADER_SIZE_IN_BITS) / 8
 			payload := buf.fifo_[stream_id][:payload_length]
 			buf.fifo_[stream_id] = buf.fifo_[stream_id][payload_length:]
-			cell_obj.payload = payload
+			cell_obj.Payload = payload
 		} else {
 			cell_obj = NewCell(model_uuid, model_instance_id, 0, sequence_id, n, NORMAL)
 		}
@@ -130,7 +132,7 @@ func (buf *OutgoingBuffer) pop(model_uuid int, model_instance_id, n int) *Cell {
 			payload_length := len(buf.fifo_[stream_id])
 			payload := buf.fifo_[stream_id][:payload_length]
 			buf.fifo_[stream_id] = buf.fifo_[stream_id][payload_length:]
-			cell_obj.payload = payload
+			cell_obj.Payload = payload
 		}
 	}
 

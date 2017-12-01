@@ -1,11 +1,9 @@
 package marionette
 
+/*
 import (
-	"encoding/binary"
-	"log"
 	"math/rand"
 	"sort"
-	"strings"
 )
 
 type PIOA struct {
@@ -28,9 +26,9 @@ type PIOA struct {
 }
 
 type PAState struct {
-	name        string
-	transitions map[string]PATransition
-	errorState  string
+	name_        string
+	transitions_ map[string]PATransition
+	error_state_ string
 }
 
 func NewPAState(name string) *PAState {
@@ -54,8 +52,8 @@ func (s *PAState) get_error_transition() string {
 
 func (s *PAState) transition(rng *rand.Rand) string {
 	assert(rng != nil || len(s.transitions_) == 1)
-	if rng && len(s.transitions_) > 1 {
-		coin = rng.random()
+	if rng != nil && len(s.transitions_) > 1 {
+		coin := rng.random()
 		sum = 0
 		for _, state := range s.transitions_ {
 			if s.transitions_[state].probability == 0 {
@@ -90,3 +88,4 @@ type PATransition struct {
 	name        string
 	probability float64
 }
+*/

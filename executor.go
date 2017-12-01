@@ -13,21 +13,21 @@ type Executor struct {
 	dec *CellDecoder
 }
 
-func NewExecutor(doc *mar.Document, enc *CellEncoder, dec *CellDecoder) *Executor {
+func NewExecutor(doc *mar.Document, party string, enc *CellEncoder, dec *CellDecoder) *Executor {
 	return &Executor{
-		fsm: NewFSM(doc),
+		fsm: NewFSM(doc, party, enc, dec),
 		enc: enc,
 		dec: dec,
 	}
 }
 
 func (e *Executor) Execute() error {
-	for {
+	for !e.fsm.Dead() {
 		if err := e.fsm.Next(); err != nil {
 			return err
 		}
-		// TODO: Break when 'dead'.
 	}
 
 	// TODO: Close connection when FSM is done.
+	return nil
 }

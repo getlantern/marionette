@@ -135,7 +135,29 @@ func (c *Cell) UnmarshalBinary(data []byte) (err error) {
 	return nil
 }
 
-type CellEncoder struct{}
+type CellEncoder struct {
+	mu        sync.RWMutex
+	streamIDs map[int]struct{} // with data
+}
+
+func (enc *CellEncoder) chooseStreamID() int {
+	enc.mu.RLock()
+	defer enc.mu.RUnlock()
+
+	// Map range ordering is random so chooses a random stream.
+	for streamID := range enc.streamIDs {
+		return streamID
+	}
+	return 0
+}
+
+func (enc *CellEncoder) Peek(streamID int) []byte {
+	panic("TODO")
+}
+
+func (enc *CellEncoder) Pop(modelUUID, modelInstanceID, n int) (*Cell, error) {
+	panic("TODO")
+}
 
 type CellDecoder struct {
 	mu      sync.RWMutex
