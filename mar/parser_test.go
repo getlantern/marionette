@@ -83,7 +83,7 @@ func TestParser_Parse(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		} else if StripPos(doc); !reflect.DeepEqual(doc, exp) {
-			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
+	UID		t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
 
