@@ -1,12 +1,15 @@
 package mar
 
+import (
+	"math/rand"
+)
+
 // Node represents a node within the AST.
 type Node interface {
 	node()
 }
 
 func (*Document) node()    {}
-func (*Model) node()       {}
 func (*Transition) node()  {}
 func (*ActionBlock) node() {}
 func (*Action) node()      {}
@@ -14,12 +17,9 @@ func (*Arg) node()         {}
 func (*Pos) node()         {}
 
 type Document struct {
-	UUID         int
-	Model        *Model
-	ActionBlocks []*ActionBlock
-}
+	UUID   int
+	Format string
 
-type Model struct {
 	Connection   Pos
 	Lparen       Pos
 	Transport    string
@@ -30,6 +30,25 @@ type Model struct {
 	Rparen       Pos
 	Colon        Pos
 	Transitions  []*Transition
+	ActionBlocks []*ActionBlock
+}
+
+// FirstSender returns the party that initiates the protocol.
+func (doc *Document) FirstSender() string {
+	if doc.Format == "ftp_pasv_transfer" {
+		return "server"
+	}
+	return "client"
+}
+
+// ActionBlock returns an action block by name.
+func (doc *Document) ActionBlock(name string) *ActionBlock {
+	for _, blk := range doc.ActionBlocks {
+		if blk.Name == name {
+			return blk
+		}
+	}
+	return nil
 }
 
 type Transition struct {
@@ -42,6 +61,80 @@ type Transition struct {
 	Probability       float64
 	ProbabilityPos    Pos
 	IsErrorTransition bool
+}
+
+func FilterTransitionsBySource(a []*Transition, name string) []*Transition {
+	other := make([]*Transition, 0, len(a))
+	for _, t := range a {
+		if t.Source == name {
+			other = append(other, t)
+		}
+	}
+	return other
+}
+
+func FilterTransitionsByDestination(a []*Transition, name string) []*Transition {
+	other := make([]*Transition, 0, len(a))
+	for _, t := range a {
+		if t.Destination == name {
+			other = append(other, t)
+		}
+	}
+	return other
+}
+
+func FilterProbableTransitions(a []*Transition) []*Transition {
+	other := make([]*Transition, 0, len(a))
+	for _, t := range a {
+		if t.Probability > 0 {
+			other = append(other, t)
+		}
+	}
+	return other
+}
+
+// TransitionsDestinations returns the destination state names from the transitions.
+func TransitionsDestinations(a []*Transition) []string {
+	other := make([]string, 0, len(a))
+	for _, t := range a {
+		other = append(other, t.Destination)
+	}
+	return other
+}
+
+// TransitionsErrorState returns the first error state in a list of transitions.
+func TransitionsErrorState(a []*Transition) string {
+	for _, t := range a {
+		if t.IsErrorTransition {
+			return t.Destination
+		}
+	}
+	return ""
+}
+
+func ChooseTransitions(a []*Transition, rand *rand.Rand) []*Transition {
+	// If PRNG not available then return all transitions with a non-zero probability.
+	if rand == nil {
+		return FilterProbableTransitions(a)
+	}
+
+	// If there is only one transition then return it.
+	if len(a) == 1 {
+		return a
+	}
+
+	// Otherwise randomly choose a transition based on probability.
+	sum, coin := float64(0), rand.Float64()
+	for _, t := range a {
+		if t.Probability <= 0 {
+			continue
+		}
+		sum += t.Probability
+		if sum >= coin {
+			return []*Transition{t}
+		}
+	}
+	return []*Transition{a[len(a)-1]}
 }
 
 type ActionBlock struct {
@@ -72,6 +165,23 @@ type Action struct {
 	RegexMatchIncomingRparen Pos
 }
 
+func (a *Action) ArgValues() []interface{} {
+	other := make([]interface{}, len(a.Args))
+	for i, arg := range a.Args {
+		other[i] = arg.Value
+	}
+	return other
+}
+
+// FilterActionsByParty returns a slice of actions matching party.
+func FilterActionsByParty(actions []*Action, party string) []*Action {
+	other := make([]*Action, 0, len(actions))
+	for _, action := range actions {
+		other = append(other, action)
+	}
+	return other
+}
+
 type Arg struct {
 	Value  interface{}
 	Pos    Pos
@@ -94,14 +204,11 @@ func Walk(v Visitor, node Node) {
 	// Walk children.
 	switch node := node.(type) {
 	case *Document:
-		Walk(v, node.Model)
-		for _, blk := range node.ActionBlocks {
-			Walk(v, blk)
-		}
-
-	case *Model:
 		for _, transition := range node.Transitions {
 			Walk(v, transition)
+		}
+		for _, blk := range node.ActionBlocks {
+			Walk(v, blk)
 		}
 
 	case *ActionBlock:

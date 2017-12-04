@@ -5,7 +5,6 @@ package marionette
 // Use client/server wrapping net.Conn/Listener instead.
 
 import (
-	"net"
 	"sync"
 )
 
@@ -23,6 +22,11 @@ type UDPConn struct {
 	party               string // client/server,
 }
 
+type Channel struct{}
+
+func (*Channel) close() {}
+
+/*
 func NewChannel(protocol interface{}, transport_protocol string) *Channel {
 	return &Channel{
 		transport_protocol_: transport_protocol,
@@ -30,6 +34,7 @@ func NewChannel(protocol interface{}, transport_protocol string) *Channel {
 		is_alive_:           true,
 	}
 }
+*/
 
 /*
    def appendToBuffer(self, chunk):
@@ -74,6 +79,7 @@ func NewChannel(protocol interface{}, transport_protocol string) *Channel {
        return self.channel_id_
 */
 
+/*
 func (c *Channel) close() {
 	if c.closed_ {
 		return
@@ -83,6 +89,7 @@ func (c *Channel) close() {
 		c.protocol_.transport.loseConnection()
 	}
 }
+*/
 
 /*
 

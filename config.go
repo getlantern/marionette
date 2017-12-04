@@ -2,6 +2,7 @@ package marionette
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
@@ -31,9 +32,9 @@ type Config struct {
 func DefaultConfig() Config {
 	var config Config
 	config.General.Format = "dummy"
-	config.Client.ClientIP = "127.0.0.1"
-	config.Client.ClientPort = 8079
-	config.Server.ServerIP = "127.0.0.1"
+	config.Client.IP = "127.0.0.1"
+	config.Client.Port = 8079
+	config.Server.IP = "127.0.0.1"
 	config.Server.ProxyIP = "127.0.0.1"
 	config.Server.ProxyPort = 8081
 	return config
@@ -45,7 +46,7 @@ func DefaultConfig() Config {
 func ParseConfig() (Config, error) {
 	// Collect search paths.
 	var paths []string
-	if path, err := os.Getwd(); err == "" {
+	if path, err := os.Getwd(); err == nil {
 		paths = append(paths, path)
 	}
 	paths = append(paths, "/etc")
@@ -75,7 +76,7 @@ func ParseConfig() (Config, error) {
 func ParseConfigFile(path string) (Config, error) {
 	var config Config
 	if _, err := toml.DecodeFile(path, &config); err != nil {
-		return err
+		return Config{}, err
 	}
 	return config, nil
 }
