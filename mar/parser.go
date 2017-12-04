@@ -386,5 +386,7 @@ func newSyntaxError(exp string, tok Token, lit string, pos Pos) *SyntaxError {
 }
 
 func GenerateUUID(data []byte) int {
-	return int(binary.BigEndian.Uint32(md5.Sum(data)[:4]))
+	var b = md5.Sum(data)
+	return int(binary.BigEndian.Uint32(b[:4]))
+//	return int(binary.BigEndian.Uint32(md5.Sum(data)[:4]))
 }

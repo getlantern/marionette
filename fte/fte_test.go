@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/gopath/marionette/fte"
+	"github.com/redjack/marionette/fte"
 )
 
 func TestEncodeDecode(t *testing.T) {
