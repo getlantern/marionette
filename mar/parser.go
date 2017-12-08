@@ -7,6 +7,11 @@ import (
 	"strconv"
 )
 
+// Parse parses data in to a MAR document.
+func Parse(data []byte) (*Document, error) {
+	return NewParser().Parse(data)
+}
+
 // Parser represents a Marionette DSL parser.
 type Parser struct{}
 

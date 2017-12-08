@@ -1,9 +1,11 @@
 package marionette
 
 import (
+	"errors"
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func ModelSleepPlugin(fsm *FSM, args []interface{}) (success bool, err error) {

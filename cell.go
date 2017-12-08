@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"io"
 	"log"
+	"math/rand"
 	"sort"
 	"sync"
 )
@@ -136,28 +137,142 @@ func (c *Cell) UnmarshalBinary(data []byte) (err error) {
 }
 
 type CellEncoder struct {
-	mu        sync.RWMutex
-	streamIDs map[int]struct{} // with data
+	mu      sync.RWMutex
+	streams map[int]*encoderStream
 }
 
-func (enc *CellEncoder) chooseStreamID() int {
+// has_data_for_any_stream
+func (enc *CellEncoder) ChooseStreamIDWithData() int {
 	enc.mu.RLock()
 	defer enc.mu.RUnlock()
 
-	// Map range ordering is random so chooses a random stream.
-	for streamID := range enc.streamIDs {
-		return streamID
+	streamIDs := enc.streamIDsWithData()
+	if len(streamIDs) == 0 {
+		return 0
 	}
-	return 0
+	return streamIDs[rand.Intn(len(streamIDs))]
+}
+
+// streamIDsWithData returns a list of stream ids which have data.
+func (enc *CellEncoder) streamIDsWithData() []int {
+	var a []int
+	for streamID, stream := range enc.streams {
+		if len(stream.buf) > 0 {
+			a = append(a, streamID)
+		}
+	}
+	return a
+}
+
+// operableStreamIDs returns a list of stream id which have data or are marked terminated.
+func (enc *CellEncoder) operableStreams() []*encoderStream {
+	var a []*encoderStream
+	for _, stream := range enc.streams {
+		if len(stream.buf) > 0 || stream.terminated {
+			a = append(a, stream)
+		}
+	}
+	return a
+}
+
+func (enc *CellEncoder) Push(streamID int, data []byte) {
+	enc.mu.Lock()
+	defer enc.mu.Unlock()
+	stream := enc.streams[streamID]
+	if stream == nil {
+		stream = &encoderStream{id: streamID}
+		enc.streams[streamID] = stream
+	}
+	stream.buf = append(stream.buf, data...)
+}
+
+func (enc *CellEncoder) Pop(modelUUID int, modelInstanceID int, n int) *Cell {
+	enc.mu.Lock()
+	defer enc.mu.Unlock()
+
+	assert(modelUUID != 0)
+	assert(modelInstanceID != 0)
+
+	var stream *encoderStream
+	if streams := enc.operableStreams(); len(streams) > 0 {
+		stream = streams[rand.Intn(len(streams))]
+	}
+
+	var sequenceID int
+	if stream != nil {
+		stream.seq++
+		sequenceID = stream.seq
+	} else {
+		sequenceID = 1
+	}
+
+	// Determine if we should terminate the stream
+	if stream != nil && len(stream.buf) == 0 && stream.terminated {
+		delete(enc.streams, stream.id)
+		return NewCell(modelUUID, modelInstanceID, stream.id, sequenceID, n, END_OF_STREAM)
+	}
+
+	if n > 0 {
+		if len(stream.buf) > 0 {
+			payloadN := (n - PAYLOAD_HEADER_SIZE_IN_BITS) / 8
+			payload := stream.buf[:payloadN]
+			stream.buf = stream.buf[payloadN:]
+
+			cell := NewCell(modelUUID, modelInstanceID, stream.id, sequenceID, n, NORMAL)
+			cell.Payload = payload
+			return cell
+		} else {
+			return NewCell(modelUUID, modelInstanceID, 0, sequenceID, n, NORMAL)
+		}
+	} else {
+		if len(stream.buf) > 0 {
+			payloadN := len(stream.buf)
+			payload := stream.buf[:payloadN]
+			stream.buf = stream.buf[payloadN:]
+
+			cell := NewCell(modelUUID, modelInstanceID, stream.id, sequenceID, 0, NORMAL)
+			cell.Payload = payload
+			return cell
+		}
+	}
+
+	return nil
 }
 
 func (enc *CellEncoder) Peek(streamID int) []byte {
-	panic("TODO")
+	enc.mu.RLock()
+	defer enc.mu.RUnlock()
+	stream := enc.streams[streamID]
+	if stream == nil {
+		return nil
+	}
+	return stream.buf
 }
 
-func (enc *CellEncoder) Pop(modelUUID, modelInstanceID, n int) (*Cell, error) {
-	panic("TODO")
+func (enc *CellEncoder) has_data(streamID int) bool {
+	enc.mu.RLock()
+	defer enc.mu.RUnlock()
+	stream := enc.streams[streamID]
+	return stream != nil && len(stream.buf) > 0
 }
+
+func (enc *CellEncoder) Terminate(streamID int) {
+	enc.mu.RLock()
+	defer enc.mu.RUnlock()
+	stream := enc.streams[streamID]
+	if stream != nil {
+		stream.terminated = true
+	}
+}
+
+type encoderStream struct {
+	id         int
+	buf        []byte
+	terminated bool
+	seq        int
+}
+
+// NOTE: CellDecoder == BufferIncoming
 
 type CellDecoder struct {
 	mu      sync.RWMutex

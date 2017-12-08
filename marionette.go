@@ -39,6 +39,13 @@ func (conn *bufConn) Peek() []byte {
 	return conn.buf
 }
 
+// Unshift pushes data to the beginning of the buffer.
+func (conn *bufConn) Unshift(data []byte) {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	conn.buf = append(data, conn.buf...)
+}
+
 // Read reads
 func (conn *bufConn) Read(b []byte) (n int, err error) {
 	// TODO: Copy buffer into b.

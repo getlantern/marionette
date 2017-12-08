@@ -1,12 +1,17 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"os/signal"
 
+	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/assets"
+	"github.com/redjack/marionette/mar"
 )
 
 func main() {
@@ -21,10 +26,10 @@ func run() error {
 	var config marionette.Config
 	fs := flag.NewFlagSet("marionette-server", flag.ContinueOnError)
 	version := fs.Bool("version", false, "")
-	fs.StringVar(&config.Server.ServerIP, "server_ip", config.Server.ServerIP, "")
-	fs.StringVar(&config.Server.ServerIP, "sip", config.Server.ServerIP, "")
-	fs.StringVar(&config.Server.ProxyPort, "proxy_port", config.Server.ProxyPort, "")
-	fs.StringVar(&config.Server.ProxyPort, "pport", config.Server.ProxyPort, "")
+	fs.StringVar(&config.Server.IP, "server_ip", config.Server.IP, "")
+	fs.StringVar(&config.Server.IP, "sip", config.Server.IP, "")
+	fs.IntVar(&config.Server.ProxyPort, "proxy_port", config.Server.ProxyPort, "")
+	fs.IntVar(&config.Server.ProxyPort, "pport", config.Server.ProxyPort, "")
 	fs.StringVar(&config.Server.ProxyIP, "proxy_ip", config.Server.ProxyIP, "")
 	fs.StringVar(&config.Server.ProxyIP, "pip", config.Server.ProxyIP, "")
 	fs.StringVar(&config.General.Format, "format", config.General.Format, "")
@@ -40,19 +45,43 @@ func run() error {
 		return printVersion()
 	}
 
+	// Validate arguments.
+	if config.General.Format == "" {
+		return errors.New("format required")
+	}
+
 	// Strip off format version.
+	// TODO: Split version.
 	format := marionette.StripFormatVersion(config.General.Format)
+
+	// Read MAR file.
+	data := assets.Format(format, "")
+	if data == nil {
+		return fmt.Errorf("MAR document not found: %s", format)
+	}
+
+	// Parse document.
+	doc, err := mar.Parse(data)
+	if err != nil {
+		return err
+	}
 
 	if !config.General.Debug {
 		log.SetOutput(ioutil.Discard)
 	}
 
 	// Start server.
-	server := marionette.NewServer(format)
-	server.factory = ProxyServer
-	if err := server.ListenAndServe(); err != nil {
+	server := marionette.NewServer(doc)
+	if err := server.Open(); err != nil {
 		return err
 	}
+	defer server.Close()
+
+	// Wait for signal.
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<-c
+	fmt.Fprintln(os.Stderr, "received interrupt, shutting down...")
 
 	return nil
 }

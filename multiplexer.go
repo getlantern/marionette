@@ -144,7 +144,6 @@ func (buf *OutgoingBuffer) pop(model_uuid int, model_instance_id, n int) *Cell {
 }
 
 func (buf *OutgoingBuffer) peek(stream_id int) []byte {
-	var retval string
 	buf.mu.Lock()
 	defer buf.mu.Unlock()
 	return buf.fifo_[stream_id]

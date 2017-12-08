@@ -34,7 +34,7 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 	}
 
 	// Find random stream id with data.
-	streamID := fsm.enc.chooseStreamID()
+	streamID := fsm.enc.ChooseStreamIDWithData()
 	if streamID == 0 && !blocking {
 		return false, nil
 	}
@@ -55,7 +55,7 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 		cellBitN = MaxCellLengthInBits
 	}
 
-	cell, err := fsm.enc.Pop(fsm.ModelUUID(), fsm.ModelInstanceID, cellBitN)
+	cell := fsm.enc.Pop(fsm.ModelUUID(), fsm.ModelInstanceID, cellBitN)
 	if err != nil {
 		return false, err
 	}
