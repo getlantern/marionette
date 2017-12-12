@@ -7,7 +7,7 @@ import (
 	"github.com/redjack/marionette/fte"
 )
 
-const MaxCellLengthInBits = 2097152 // (2 ^ 18) * 8
+const MaxCellLength = 262144
 
 // FTESendPlugin send data to a connection.
 func FTESendPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
@@ -32,32 +32,13 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 	if !ok {
 		return false, errors.New("fte.send: invalid msg_len argument type")
 	}
-
-	// Find random stream id with data.
-	streamID := fsm.enc.ChooseStreamIDWithData()
-	if streamID == 0 && !blocking {
-		return false, nil
-	}
-
 	fteEncoder := fsm.fteEncoder(regex, msgLen)
 
-	bufferBitN := len(fsm.enc.Peek(streamID)) * 8
-	minCellByteN := int(math.Floor(float64(fteEncoder.Capacity())/8.0)) - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
-	minCellBitN := minCellByteN * 8
-
-	cellHeaderBitN := PAYLOAD_HEADER_SIZE_IN_BITS
-	cellBitN := minCellBitN
-	if bufferBitN > cellBitN {
-		cellBitN = bufferBitN
-	}
-	cellBitN += cellHeaderBitN
-	if cellBitN > MaxCellLengthInBits {
-		cellBitN = MaxCellLengthInBits
-	}
-
-	cell := fsm.enc.Pop(fsm.ModelUUID(), fsm.ModelInstanceID, cellBitN)
-	if err != nil {
-		return false, err
+	// Find random stream id with data.
+	min := int(math.Floor(float64(fteEncoder.Capacity())/8.0)) - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
+	cell := fsm.bufferSet.Pop(fsm.ModelUUID(), fsm.ModelInstanceID, min, blocking)
+	if cell == nil {
+		return false, nil
 	}
 
 	plaintext, err := cell.MarshalBinary()

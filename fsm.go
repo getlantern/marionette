@@ -14,10 +14,10 @@ import (
 )
 
 type FSM struct {
-	doc   *mar.Document
-	party string
-	enc   *CellEncoder
-	dec   *CellDecoder
+	doc       *mar.Document
+	party     string
+	bufferSet *StreamBufferSet
+	dec       *CellDecoder
 
 	state string
 	stepN int
@@ -34,12 +34,12 @@ type FSM struct {
 	fteEncoders map[fteEncoderKey]*fte.Encoder
 }
 
-func NewFSM(doc *mar.Document, party string, enc *CellEncoder, dec *CellDecoder) *FSM {
+func NewFSM(doc *mar.Document, party string, bufferSet *StreamBufferSet, dec *CellDecoder) *FSM {
 	fsm := &FSM{
 		doc:         doc,
 		party:       party,
 		state:       "start",
-		enc:         enc,
+		bufferSet:   bufferSet,
 		dec:         dec,
 		vars:        make(map[string]interface{}),
 		transitions: make(map[string][]*mar.Transition),
@@ -275,7 +275,7 @@ func (fsm *FSM) Var(key string) interface{} {
 	case "multiplexer_incoming":
 		return fsm.dec
 	case "multiplexer_outgoing":
-		return fsm.enc
+		return fsm.bufferSet
 	default:
 		return fsm.vars[key]
 	}
@@ -288,8 +288,7 @@ func (fsm *FSM) SetVar(key string, value interface{}) {
 func (fsm *FSM) fteEncoder(regex string, msgLen int) *fte.Encoder {
 	key := fteEncoderKey{regex, msgLen}
 	if fsm.fteEncoders[key] == nil {
-		enc := fte.NewEncoder(regex, msgLen)
-		fsm.fteEncoders[key] = enc
+		fsm.fteEncoders[key] = fte.NewEncoder(regex, msgLen)
 	}
 	return fsm.fteEncoders[key]
 }

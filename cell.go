@@ -6,14 +6,12 @@ import (
 	"encoding/binary"
 	"io"
 	"log"
-	"math/rand"
 	"sort"
 	"sync"
 )
 
 const (
-	PAYLOAD_HEADER_SIZE_IN_BITS  = 200
-	PAYLOAD_HEADER_SIZE_IN_BYTES = PAYLOAD_HEADER_SIZE_IN_BITS / 8
+	CellHeaderSize = 25
 )
 
 const (
@@ -22,28 +20,35 @@ const (
 	NEGOTIATE     = 0x3
 )
 
+// Cell represents a single unit of data sent between the client & server.
+//
+// This cell is associated with a specific stream and the encoder/decoders
+// handle ordering based on sequence id.
 type Cell struct {
-	Type            int
-	Payload         []byte
-	SequenceID      int
-	CellLength      int
-	StreamID        int
-	ModelUUID       int
-	ModelInstanceID int
+	Type       int    // Record type (NORMAL, END_OF_STREAM)
+	Payload    []byte // Data
+	Length     int    // Size of marshaled data, if specified.
+	StreamID   int    // Associated stream
+	SequenceID int    // Record number within stream
+	UUID       int    // MAR format identifier
+	InstanceID int    // MAR instance identifier
 }
 
-func NewCell(modelUUID, modelInstanceID, streamID, sequenceID, length, typ int) *Cell {
+// NewCell returns a new instance of Cell.
+func NewCell(uuid, instanceID, streamID, sequenceID, length, typ int) *Cell {
 	assert(streamID != 0)
 	return &Cell{
-		Type:            typ,
-		SequenceID:      sequenceID,
-		CellLength:      length,
-		StreamID:        streamID,
-		ModelUUID:       modelUUID,
-		ModelInstanceID: modelInstanceID,
+		Type:       typ,
+		SequenceID: sequenceID,
+		Length:     length,
+		StreamID:   streamID,
+		UUID:       uuid,
+		InstanceID: instanceID,
 	}
 }
 
+// Compare returns -1 if c has a lower sequence than other, 1 if c has a higher
+// sequence than other, and 0 if both cells have the same sequence.
 func (c *Cell) Compare(other *Cell) int {
 	if c.SequenceID < other.SequenceID {
 		return -1
@@ -53,44 +58,54 @@ func (c *Cell) Compare(other *Cell) int {
 	return 0
 }
 
+// Equal returns true if the payload, stream, sequence, uuid, and instance are the same.
 func (c *Cell) Equal(other *Cell) bool {
 	return bytes.Equal(c.Payload, other.Payload) &&
 		c.StreamID == other.StreamID &&
-		c.ModelUUID == other.ModelUUID &&
-		c.ModelInstanceID == other.ModelInstanceID &&
+		c.UUID == other.UUID &&
+		c.InstanceID == other.InstanceID &&
 		c.SequenceID == other.SequenceID
 }
 
+// Size returns the marshaled size of the cell, in bytes.
 func (c *Cell) Size() int {
-	return PAYLOAD_HEADER_SIZE_IN_BYTES + len(c.Payload) + c.paddingN()
+	return CellHeaderSize + len(c.Payload) + c.paddingN()
 }
 
+// paddingN returns the length of padding, in bytes, if a length is specified.
+// If no length is provided or the length is smaller than Size() then 0 is returned.
 func (c *Cell) paddingN() int {
-	return (c.CellLength / 8) - len(c.Payload) - PAYLOAD_HEADER_SIZE_IN_BYTES
+	n := c.Length - len(c.Payload) - CellHeaderSize
+	if n < 0 {
+		return 0
+	}
+	return n
 }
 
+// MarshalBinary returns a byte slice with an encoded cell.
 func (c *Cell) MarshalBinary() ([]byte, error) {
-	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, uint32(c.Size()))
-	binary.Write(&buf, binary.BigEndian, uint32(len(c.Payload)))
-	binary.Write(&buf, binary.BigEndian, uint32(c.ModelUUID))
-	binary.Write(&buf, binary.BigEndian, uint32(c.ModelInstanceID))
-	binary.Write(&buf, binary.BigEndian, uint32(c.StreamID))
-	binary.Write(&buf, binary.BigEndian, uint32(c.SequenceID))
-	binary.Write(&buf, binary.BigEndian, uint32(c.Type))
+	buf := bytes.NewBuffer(make([]byte, 0, c.Size()))
+	binary.Write(buf, binary.BigEndian, uint32(c.Size()))
+	binary.Write(buf, binary.BigEndian, uint32(len(c.Payload)))
+	binary.Write(buf, binary.BigEndian, uint32(c.UUID))
+	binary.Write(buf, binary.BigEndian, uint32(c.InstanceID))
+	binary.Write(buf, binary.BigEndian, uint32(c.StreamID))
+	binary.Write(buf, binary.BigEndian, uint32(c.SequenceID))
+	binary.Write(buf, binary.BigEndian, uint8(c.Type))
 	buf.Write(c.Payload)
 	buf.Write(make([]byte, c.paddingN()))
 
-	assert(buf.Len() == PAYLOAD_HEADER_SIZE_IN_BYTES+len(c.Payload)+c.paddingN())
+	assert(buf.Len() == CellHeaderSize+len(c.Payload)+c.paddingN())
 
 	return buf.Bytes(), nil
 }
 
+// UnmarshalBinary decodes a cell from binary-encoded data.
 func (c *Cell) UnmarshalBinary(data []byte) (err error) {
 	r := bytes.NewReader(data)
 
 	// Read cell & payload size.
-	var sz, payloadN, v uint32
+	var sz, payloadN, u32 uint32
 	if err := binary.Read(r, binary.BigEndian, &sz); err != nil {
 		return err
 	} else if err := binary.Read(r, binary.BigEndian, &payloadN); err != nil {
@@ -98,34 +113,35 @@ func (c *Cell) UnmarshalBinary(data []byte) (err error) {
 	}
 
 	// Read model uuid.
-	if err := binary.Read(r, binary.BigEndian, &v); err != nil {
+	if err := binary.Read(r, binary.BigEndian, &u32); err != nil {
 		return err
 	}
-	c.ModelUUID = int(v)
+	c.UUID = int(u32)
 
 	// Read model instance id.
-	if err := binary.Read(r, binary.BigEndian, &v); err != nil {
+	if err := binary.Read(r, binary.BigEndian, &u32); err != nil {
 		return err
 	}
-	c.ModelInstanceID = int(v)
+	c.InstanceID = int(u32)
 
 	// Read stream id.
-	if err := binary.Read(r, binary.BigEndian, &v); err != nil {
+	if err := binary.Read(r, binary.BigEndian, &u32); err != nil {
 		return err
 	}
-	c.StreamID = int(v)
+	c.StreamID = int(u32)
 
 	// Read sequence id.
-	if err := binary.Read(r, binary.BigEndian, &v); err != nil {
+	if err := binary.Read(r, binary.BigEndian, &u32); err != nil {
 		return err
 	}
-	c.SequenceID = int(v)
+	c.SequenceID = int(u32)
 
 	// Read cell type.
-	if err := binary.Read(r, binary.BigEndian, &v); err != nil {
+	var u8 uint8
+	if err := binary.Read(r, binary.BigEndian, &u8); err != nil {
 		return err
 	}
-	c.Type = int(v)
+	c.Type = int(u8)
 
 	// Read payload.
 	c.Payload = make([]byte, payloadN)
@@ -134,142 +150,6 @@ func (c *Cell) UnmarshalBinary(data []byte) (err error) {
 	}
 
 	return nil
-}
-
-type CellEncoder struct {
-	mu      sync.RWMutex
-	streams map[int]*encoderStream
-}
-
-// has_data_for_any_stream
-func (enc *CellEncoder) ChooseStreamIDWithData() int {
-	enc.mu.RLock()
-	defer enc.mu.RUnlock()
-
-	streamIDs := enc.streamIDsWithData()
-	if len(streamIDs) == 0 {
-		return 0
-	}
-	return streamIDs[rand.Intn(len(streamIDs))]
-}
-
-// streamIDsWithData returns a list of stream ids which have data.
-func (enc *CellEncoder) streamIDsWithData() []int {
-	var a []int
-	for streamID, stream := range enc.streams {
-		if len(stream.buf) > 0 {
-			a = append(a, streamID)
-		}
-	}
-	return a
-}
-
-// operableStreamIDs returns a list of stream id which have data or are marked terminated.
-func (enc *CellEncoder) operableStreams() []*encoderStream {
-	var a []*encoderStream
-	for _, stream := range enc.streams {
-		if len(stream.buf) > 0 || stream.terminated {
-			a = append(a, stream)
-		}
-	}
-	return a
-}
-
-func (enc *CellEncoder) Push(streamID int, data []byte) {
-	enc.mu.Lock()
-	defer enc.mu.Unlock()
-	stream := enc.streams[streamID]
-	if stream == nil {
-		stream = &encoderStream{id: streamID}
-		enc.streams[streamID] = stream
-	}
-	stream.buf = append(stream.buf, data...)
-}
-
-func (enc *CellEncoder) Pop(modelUUID int, modelInstanceID int, n int) *Cell {
-	enc.mu.Lock()
-	defer enc.mu.Unlock()
-
-	assert(modelUUID != 0)
-	assert(modelInstanceID != 0)
-
-	var stream *encoderStream
-	if streams := enc.operableStreams(); len(streams) > 0 {
-		stream = streams[rand.Intn(len(streams))]
-	}
-
-	var sequenceID int
-	if stream != nil {
-		stream.seq++
-		sequenceID = stream.seq
-	} else {
-		sequenceID = 1
-	}
-
-	// Determine if we should terminate the stream
-	if stream != nil && len(stream.buf) == 0 && stream.terminated {
-		delete(enc.streams, stream.id)
-		return NewCell(modelUUID, modelInstanceID, stream.id, sequenceID, n, END_OF_STREAM)
-	}
-
-	if n > 0 {
-		if len(stream.buf) > 0 {
-			payloadN := (n - PAYLOAD_HEADER_SIZE_IN_BITS) / 8
-			payload := stream.buf[:payloadN]
-			stream.buf = stream.buf[payloadN:]
-
-			cell := NewCell(modelUUID, modelInstanceID, stream.id, sequenceID, n, NORMAL)
-			cell.Payload = payload
-			return cell
-		} else {
-			return NewCell(modelUUID, modelInstanceID, 0, sequenceID, n, NORMAL)
-		}
-	} else {
-		if len(stream.buf) > 0 {
-			payloadN := len(stream.buf)
-			payload := stream.buf[:payloadN]
-			stream.buf = stream.buf[payloadN:]
-
-			cell := NewCell(modelUUID, modelInstanceID, stream.id, sequenceID, 0, NORMAL)
-			cell.Payload = payload
-			return cell
-		}
-	}
-
-	return nil
-}
-
-func (enc *CellEncoder) Peek(streamID int) []byte {
-	enc.mu.RLock()
-	defer enc.mu.RUnlock()
-	stream := enc.streams[streamID]
-	if stream == nil {
-		return nil
-	}
-	return stream.buf
-}
-
-func (enc *CellEncoder) has_data(streamID int) bool {
-	enc.mu.RLock()
-	defer enc.mu.RUnlock()
-	stream := enc.streams[streamID]
-	return stream != nil && len(stream.buf) > 0
-}
-
-func (enc *CellEncoder) Terminate(streamID int) {
-	enc.mu.RLock()
-	defer enc.mu.RUnlock()
-	stream := enc.streams[streamID]
-	if stream != nil {
-		stream.terminated = true
-	}
-}
-
-type encoderStream struct {
-	id         int
-	buf        []byte
-	terminated bool
-	seq        int
 }
 
 // NOTE: CellDecoder == BufferIncoming

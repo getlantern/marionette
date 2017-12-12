@@ -19,8 +19,8 @@ type Server struct {
 
 	doc *mar.Document
 
-	enc *CellEncoder
-	dec *CellDecoder
+	bufferSet *StreamBufferSet
+	dec       *CellDecoder
 
 	connID int
 
@@ -113,7 +113,7 @@ func (s *Server) handleConn(id int, conn net.Conn) {
 
 		case NORMAL:
 			if len(cell.Payload) > 0 {
-				s.enc.Push(cell.StreamID, cell.Payload)
+				s.bufferSet.Push(cell.StreamID, cell.Payload)
 			}
 
 		default:
@@ -131,7 +131,7 @@ func (s *Server) execute() {
 		}
 
 		// Start execution.
-		e := NewExecutor(s.doc, PartyServer, s.enc, s.dec)
+		e := NewExecutor(s.doc, PartyServer, s.bufferSet, s.dec)
 		if err := e.Execute(); err != nil {
 			log.Printf("execution error: %s", err)
 		}
