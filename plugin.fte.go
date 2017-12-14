@@ -36,7 +36,7 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 
 	// Find random stream id with data.
 	min := int(math.Floor(float64(fteEncoder.Capacity())/8.0)) - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
-	cell := fsm.bufferSet.Pop(fsm.ModelUUID(), fsm.ModelInstanceID, min, blocking)
+	cell := fsm.bufferSet.Pop(fsm.ModelUUID(), fsm.ModelInstanceID, min /*blocking*/)
 	if cell == nil {
 		return false, nil
 	}

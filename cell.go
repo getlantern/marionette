@@ -60,6 +60,11 @@ func (c *Cell) Compare(other *Cell) int {
 
 // Equal returns true if the payload, stream, sequence, uuid, and instance are the same.
 func (c *Cell) Equal(other *Cell) bool {
+	if c == nil && other == nil {
+		return true
+	} else if (c != nil && other == nil) || (c == nil && other != nil) {
+		return false
+	}
 	return bytes.Equal(c.Payload, other.Payload) &&
 		c.StreamID == other.StreamID &&
 		c.UUID == other.UUID &&

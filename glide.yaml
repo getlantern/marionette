@@ -1,7 +1,0 @@
-package: github.com/redjack/marionette
-import:
-- package: github.com/BurntSushi/toml
-testImport:
-- package: github.com/davecgh/go-spew
-  subpackages:
-  - spew

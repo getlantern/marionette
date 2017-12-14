@@ -2,7 +2,9 @@ package marionette
 
 import (
 	"math/rand"
+	"sort"
 	"sync"
+	"time"
 )
 
 // NOTE: StreamBufferSet == BufferOutgoing
@@ -11,12 +13,15 @@ import (
 type StreamBufferSet struct {
 	mu      sync.RWMutex
 	streams map[int]*streamBuffer
+
+	Rand *rand.Rand
 }
 
 // NewStreamBufferSet returns a new instance of StreamBufferSet.
 func NewStreamBufferSet() *StreamBufferSet {
 	return &StreamBufferSet{
 		streams: make(map[int]*streamBuffer),
+		Rand:    rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -34,7 +39,7 @@ func (s *StreamBufferSet) Push(streamID int, data []byte) {
 }
 
 // Pop returns a cell containing data for a random stream.
-func (s *StreamBufferSet) Pop(uuid, instanceID, n int, blocking bool) *Cell {
+func (s *StreamBufferSet) Pop(uuid, instanceID, n int) *Cell {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -44,9 +49,7 @@ func (s *StreamBufferSet) Pop(uuid, instanceID, n int, blocking bool) *Cell {
 	// Choose a stream with data.
 	var stream *streamBuffer
 	if streams := s.operableStreams(); len(streams) > 0 {
-		stream = streams[rand.Intn(len(streams))]
-	} else if blocking {
-		return NewCell(uuid, instanceID, 0, 1, n, END_OF_STREAM)
+		stream = streams[s.Rand.Intn(len(streams))]
 	} else {
 		return nil
 	}
@@ -100,6 +103,7 @@ func (s *StreamBufferSet) operableStreams() []*streamBuffer {
 			a = append(a, stream)
 		}
 	}
+	sort.Sort(streamBuffers(a))
 	return a
 }
 
@@ -114,3 +118,9 @@ func (b *streamBuffer) nextSeq() int {
 	b.seq++
 	return b.seq
 }
+
+type streamBuffers []*streamBuffer
+
+func (a streamBuffers) Len() int           { return len(a) }
+func (a streamBuffers) Less(i, j int) bool { return a[i].id < a[j].id }
+func (a streamBuffers) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
