@@ -2,13 +2,16 @@ package marionette_test
 
 import (
 	"math/rand"
+
+	"github.com/redjack/marionette"
 )
 
-func NewRandZero() rand.Source {
-	return zeroSource(0)
+func init() {
+	// Ensure all PRNGs are consistent for tests.
+	marionette.Rand = NewRand
 }
 
-type zeroSource int
-
-func (zeroSource) Int63() int64    { return 0 }
-func (zeroSource) Seed(seed int64) {}
+// NewRand returns a PRNG with a zero source.
+func NewRand() *rand.Rand {
+	return rand.New(rand.NewSource(0))
+}

@@ -1,6 +1,7 @@
 package marionette
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net"
@@ -50,7 +51,7 @@ func (s *Server) Open() (err error) {
 
 	// Run execution in a separate goroutine.
 	s.wg.Add(1)
-	go func() { defer s.wg.Done(); s.execute() }()
+	go func() { defer s.wg.Done(); s.execute(context.Background()) }()
 
 	// Open port to listen for new connections.
 	if s.ln, err = net.Listen(s.doc.Transport, net.JoinHostPort(s.Interface, strconv.Itoa(port))); err != nil {
@@ -122,7 +123,7 @@ func (s *Server) handleConn(id int, conn net.Conn) {
 	}
 }
 
-func (s *Server) execute() {
+func (s *Server) execute(ctx context.Context) {
 	for {
 		// Check if server is closing in between executions.
 		select {
@@ -132,7 +133,7 @@ func (s *Server) execute() {
 
 		// Start execution.
 		e := NewExecutor(s.doc, PartyServer, s.bufferSet, s.dec)
-		if err := e.Execute(); err != nil {
+		if err := e.Execute(ctx); err != nil {
 			log.Printf("execution error: %s", err)
 		}
 	}

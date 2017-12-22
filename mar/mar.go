@@ -1,4 +1,4 @@
-package assets
+package mar
 
 import (
 	"path"
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-//go:generate go-bindata -ignore .go -o assets.gen.go -pkg assets ./...
+//go:generate go-bindata -ignore .go -o mar.gen.go -pkg mar ./...
 
 var FormatVersions = []string{"20150701", "20150702"}
 

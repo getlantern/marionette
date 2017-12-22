@@ -98,7 +98,3 @@ func TestCell_MarshalBinary(t *testing.T) {
 		t.Fatalf("mismatch: %#v", &other)
 	}
 }
-
-func TestCellEncoder(t *testing.T) {
-
-}

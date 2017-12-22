@@ -93,6 +93,26 @@ func FilterProbableTransitions(a []*Transition) []*Transition {
 	return other
 }
 
+func FilterErrorTransitions(a []*Transition) []*Transition {
+	var other []*Transition
+	for _, t := range a {
+		if t.IsErrorTransition {
+			other = append(other, t)
+		}
+	}
+	return other
+}
+
+func FilterNonErrorTransitions(a []*Transition) []*Transition {
+	other := make([]*Transition, 0, len(a))
+	for _, t := range a {
+		if !t.IsErrorTransition {
+			other = append(other, t)
+		}
+	}
+	return other
+}
+
 // TransitionsDestinations returns the destination state names from the transitions.
 func TransitionsDestinations(a []*Transition) []string {
 	other := make([]string, 0, len(a))
@@ -177,7 +197,9 @@ func (a *Action) ArgValues() []interface{} {
 func FilterActionsByParty(actions []*Action, party string) []*Action {
 	other := make([]*Action, 0, len(actions))
 	for _, action := range actions {
-		other = append(other, action)
+		if action.Party == party {
+			other = append(other, action)
+		}
 	}
 	return other
 }

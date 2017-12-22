@@ -2,9 +2,6 @@ package marionette
 
 import (
 	"errors"
-	"math"
-
-	"github.com/redjack/marionette/fte"
 )
 
 const MaxCellLength = 262144
@@ -32,11 +29,14 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 	if !ok {
 		return false, errors.New("fte.send: invalid msg_len argument type")
 	}
-	fteEncoder := fsm.fteEncoder(regex, msgLen)
 
 	// Find random stream id with data.
-	min := int(math.Floor(float64(fteEncoder.Capacity())/8.0)) - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
-	cell := fsm.bufferSet.Pop(fsm.ModelUUID(), fsm.ModelInstanceID, min /*blocking*/)
+	cipher, err := fsm.Cipher(regex, msgLen)
+	if err != nil {
+		return false, err
+	}
+
+	cell := fsm.bufferSet.Pop(fsm.UUID(), fsm.InstanceID, cipher.Capacity() /*blocking*/)
 	if cell == nil {
 		return false, nil
 	}
@@ -46,7 +46,7 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 		return false, err
 	}
 
-	ciphertext, err := fteEncoder.Encode(plaintext)
+	ciphertext, err := cipher.Encrypt(plaintext)
 	if err != nil {
 		return false, err
 	}
@@ -92,7 +92,7 @@ func fteRecvPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 	                   marionette_state.get_global(
 	                       "multiplexer_incoming").push(ptxt)
 	               retval = True
-	   except fte.encrypter.RecoverableDecryptionError as e:
+	   except fte.cipher.RecoverableDecryptionError as e:
 	       retval = False
 	   except Exception as e:
 	       if len(ctxt)>0:

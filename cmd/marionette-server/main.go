@@ -10,7 +10,6 @@ import (
 	"os/signal"
 
 	"github.com/redjack/marionette"
-	"github.com/redjack/marionette/assets"
 	"github.com/redjack/marionette/mar"
 )
 
@@ -55,7 +54,7 @@ func run() error {
 	format := marionette.StripFormatVersion(config.General.Format)
 
 	// Read MAR file.
-	data := assets.Format(format, "")
+	data := mar.Format(format, "")
 	if data == nil {
 		return fmt.Errorf("MAR document not found: %s", format)
 	}
@@ -90,7 +89,7 @@ func run() error {
 func printVersion() error {
 	fmt.Println("Marionette proxy server.")
 	fmt.Println("Available formats:")
-	for _, format := range assets.Formats() {
+	for _, format := range mar.Formats() {
 		fmt.Printf(" %s", format)
 	}
 	return nil

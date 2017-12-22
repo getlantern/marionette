@@ -1,10 +1,7 @@
 package fte
 
 import (
-	"bytes"
 	"crypto/aes"
-	"fmt"
-	"os/exec"
 )
 
 const (
@@ -19,20 +16,24 @@ const (
 
 const FixedSlice = 512
 
-type Encoder struct {
+type Cipher struct {
 	capacity int
 }
 
-func NewEncoder(regex string, msgLen int) *Encoder {
-	return &Encoder{}
+func NewCipher(regex string, n int) (*Cipher, error) {
+	// TODO: Instantiate cipher process.
+	return &Cipher{}, nil
 }
 
-func (enc *Encoder) Capacity() int { return enc.capacity }
-
-func (enc *Encoder) Encode(plaintext []byte) ([]byte, error) {
-	panic("TODO")
+func (c *Cipher) Capacity() int {
+	// int(math.Floor(float64(fteEncoder.Capacity())/8.0)) - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
+	return c.capacity
 }
 
+func (c *Cipher) Encrypt(plaintext []byte) (ciphertext []byte, err error) { panic("TODO") }
+func (c *Cipher) Decrypt(ciphertext []byte) (plaintext []byte, err error) { panic("TODO") }
+
+/*
 // Encode encodes plaintext using the specified regex and returns the ciphertext.
 func Encode(regex, plaintext string) (string, error) {
 	cmd := exec.Command("python",
@@ -52,3 +53,4 @@ func Decode(regex, ciphertext string) (string, error) {
 	out, err := cmd.Output()
 	return string(bytes.TrimSpace(out)), err
 }
+*/

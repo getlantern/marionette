@@ -1,6 +1,8 @@
 package marionette
 
 import (
+	"context"
+
 	"github.com/redjack/marionette/mar"
 )
 
@@ -21,9 +23,9 @@ func NewExecutor(doc *mar.Document, party string, bufferSet *StreamBufferSet, de
 	}
 }
 
-func (e *Executor) Execute() error {
+func (e *Executor) Execute(ctx context.Context) error {
 	for !e.fsm.Dead() {
-		if err := e.fsm.Next(); err != nil {
+		if err := e.fsm.Next(ctx); err != nil {
 			return err
 		}
 	}

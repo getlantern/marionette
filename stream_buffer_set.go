@@ -76,9 +76,7 @@ func (s *StreamBufferSet) Pop(uuid, instanceID, n int) *Cell {
 
 	// Determine payload.
 	payloadN := n - CellHeaderSize
-	if payloadN < 0 {
-		payloadN = 0
-	} else if payloadN > len(stream.buf) {
+	if payloadN > len(stream.buf) {
 		payloadN = len(stream.buf)
 	}
 	cell.Payload, stream.buf = stream.buf[:payloadN], stream.buf[payloadN:]

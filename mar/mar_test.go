@@ -1,29 +1,29 @@
-package assets_test
+package mar_test
 
 import (
 	"bytes"
 	"reflect"
 	"testing"
 
-	"github.com/redjack/marionette/assets"
+	"github.com/redjack/marionette/mar"
 )
 
 func TestFormat(t *testing.T) {
 	t.Run("WithVersion", func(t *testing.T) {
-		if buf := assets.Format("active_probing/ftp_pureftpd_10", "20150701"); !bytes.Contains(buf, []byte("Welcome to Pure-FTPd")) {
+		if buf := mar.Format("active_probing/ftp_pureftpd_10", "20150701"); !bytes.Contains(buf, []byte("Welcome to Pure-FTPd")) {
 			t.Fatal("incorrect file")
 		}
 	})
 
 	t.Run("NoVersion", func(t *testing.T) {
-		if buf := assets.Format("http_simple_blocking", ""); !bytes.Contains(buf, []byte(`HTTP/1\.0`)) {
+		if buf := mar.Format("http_simple_blocking", ""); !bytes.Contains(buf, []byte(`HTTP/1\.0`)) {
 			t.Fatal("incorrect file")
 		}
 	})
 }
 
 func TestFormats(t *testing.T) {
-	formats := assets.Formats()
+	formats := mar.Formats()
 	if !reflect.DeepEqual(formats, []string{
 		"active_probing/ftp_pureftpd_10:20150701",
 		"active_probing/http_apache_247:20150701",

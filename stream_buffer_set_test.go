@@ -1,7 +1,6 @@
 package marionette_test
 
 import (
-	"math/rand"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -14,6 +13,22 @@ func TestStreamBufferSet(t *testing.T) {
 		s.Push(100, []byte("foo"))
 		if diff := cmp.Diff(s.Pop(2, 3, 0), &marionette.Cell{Type: marionette.NORMAL, Payload: []byte("foo"), Length: 28, StreamID: 100, SequenceID: 1, UUID: 2, InstanceID: 3}); diff != "" {
 			t.Fatal(diff)
+		}
+	})
+
+	t.Run("Padded", func(t *testing.T) {
+		s := NewStreamBufferSet()
+		s.Push(100, []byte("foo"))
+		if cell := s.Pop(2, 3, 10); cell.Length != marionette.CellHeaderSize+10 {
+			t.Fatalf("unexpected cell length: %d", cell.Length)
+		}
+	})
+
+	t.Run("AboveMaxCellLength", func(t *testing.T) {
+		s := NewStreamBufferSet()
+		s.Push(100, []byte("foo"))
+		if cell := s.Pop(2, 3, marionette.MaxCellLength+1); cell.Length != marionette.MaxCellLength {
+			t.Fatalf("unexpected cell length: %d", cell.Length)
 		}
 	})
 
@@ -66,6 +81,6 @@ func TestStreamBufferSet(t *testing.T) {
 // NewStreamBufferSet returns a testable StreamBufferSet.
 func NewStreamBufferSet() *marionette.StreamBufferSet {
 	s := marionette.NewStreamBufferSet()
-	s.Rand = rand.New(NewRandZero())
+	s.Rand = NewRand()
 	return s
 }
