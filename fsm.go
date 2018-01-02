@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
 	"regexp"
 	"strconv"
 
 	"github.com/redjack/marionette/mar"
+	"go.uber.org/zap"
 )
 
 var ErrNoTransition = errors.New("no matching transition")
@@ -39,6 +41,8 @@ type FSM struct {
 
 	// Factory functions to create new stateful ciphers.
 	NewCipherFunc NewCipherFunc
+
+	logger *zap.Logger
 }
 
 // NewFSM returns a new FSM. If party is the first sender then the instance id is set.
@@ -55,6 +59,8 @@ func NewFSM(doc *mar.Document, party string, bufferSet *StreamBufferSet, dec *Ce
 
 		Dialer:        &net.Dialer{},
 		NewCipherFunc: NewFTECipher,
+
+		logger: zap.NewNop(),
 	}
 
 	// Build transition map.
@@ -69,6 +75,17 @@ func NewFSM(doc *mar.Document, party string, bufferSet *StreamBufferSet, dec *Ce
 	}
 
 	return fsm
+}
+
+func (fsm *FSM) Close() error {
+	for _, c := range fsm.ciphers {
+		if c, ok := c.(io.Closer); ok {
+			if err := c.Close(); err != nil {
+				fsm.logger.Error("cannot close cipher", zap.Error(err))
+			}
+		}
+	}
+	return nil
 }
 
 func (fsm *FSM) UUID() int {
@@ -101,11 +118,17 @@ func (fsm *FSM) SetConn(conn net.Conn) {
 func (fsm *FSM) Dead() bool { return fsm.state == "dead" }
 
 func (fsm *FSM) Next(ctx context.Context) (err error) {
+	logger := fsm.logger
+	logger.Debug("fsm: moving to next state", zap.String("state", fsm.state))
+
 	// Create a new connection from the client if none is available.
 	if fsm.party == PartyClient && fsm.conn == nil {
+		logger.Debug("fsm: opening connection")
+
 		const serverIP = "127.0.0.1" // TODO: Pass in.
 		conn, err := fsm.Dialer.DialContext(ctx, fsm.doc.Transport, net.JoinHostPort(serverIP, fsm.doc.Port))
 		if err != nil {
+			logger.Debug("fsm: cannot open connection", zap.Error(err))
 			return err
 		}
 		fsm.SetConn(conn)
@@ -113,29 +136,36 @@ func (fsm *FSM) Next(ctx context.Context) (err error) {
 
 	// Exit if no connection available.
 	if fsm.conn == nil {
+		logger.Debug("fsm: no connection available")
 		return errors.New("fsm.Next(): no connection available")
 	}
 
 	// Generate a new PRNG once we have an instance ID.
 	if err := fsm.init(); err != nil {
+		logger.Debug("fsm: cannot initialize fsm", zap.Error(err))
 		return err
 	}
 
 	// If we have a successful transition, update our state info.
 	// Exit if no transitions were successful.
 	if nextState, err := fsm.next(); err != nil {
+		logger.Debug("fsm: cannot move to next state")
 		return err
 	} else if nextState == "" {
+		logger.Debug("fsm: no transition available")
 		return ErrNoTransition
 	} else {
 		fsm.stepN += 1
 		fsm.state = nextState
+		logger.Debug("fsm: transition successful", zap.String("state", fsm.state), zap.Int("step", fsm.stepN))
 	}
 
 	return nil
 }
 
 func (fsm *FSM) next() (nextState string, err error) {
+	logger := fsm.logger
+
 	// Find all possible transitions from the current state.
 	transitions := mar.FilterTransitionsBySource(fsm.doc.Transitions, fsm.state)
 	errorTransitions := mar.FilterErrorTransitions(transitions)
@@ -145,13 +175,18 @@ func (fsm *FSM) next() (nextState string, err error) {
 	transitions = mar.ChooseTransitions(transitions, fsm.rand)
 	assert(len(transitions) > 0)
 
+	logger.Debug("fsm: evaluating transitions", zap.Int("n", len(transitions)))
+
 	// Add error transitions back in after selection.
 	transitions = append(transitions, errorTransitions...)
 
 	// Attempt each possible transition.
 	for _, transition := range transitions {
+		logger.Debug("fsm: evaluating transition", zap.String("src", transition.Source), zap.String("dest", transition.Destination))
+
 		// If there's no action block then move to the next state.
 		if transition.ActionBlock == "NULL" {
+			logger.Debug("fsm: no action block, matched")
 			return transition.Destination, nil
 		}
 
@@ -163,6 +198,7 @@ func (fsm *FSM) next() (nextState string, err error) {
 		actions := mar.FilterActionsByParty(blk.Actions, fsm.party)
 
 		// Attempt to execute each action.
+		logger.Debug("fsm: evaluating action block", zap.String("name", transition.ActionBlock), zap.Int("actions", len(actions)))
 		if matched, err := fsm.evalActions(actions); err != nil {
 			return "", err
 		} else if matched {
@@ -177,6 +213,9 @@ func (fsm *FSM) init() (err error) {
 	if fsm.rand != nil || fsm.InstanceID == 0 {
 		return nil
 	}
+
+	logger := fsm.logger
+	logger.Debug("fsm: initializing fsm")
 
 	// Create new PRNG.
 	fsm.rand = rand.New(rand.NewSource(int64(fsm.InstanceID)))
@@ -203,15 +242,19 @@ func (fsm *FSM) next_transition(src_state, dst_state string) *mar.Transition {
 }
 
 func (fsm *FSM) evalActions(actions []*mar.Action) (bool, error) {
+	logger := fsm.logger
+
 	if len(actions) == 0 {
+		logger.Debug("fsm: no actions, matched")
 		return true, nil
 	}
 
 	for _, action := range actions {
+		logger.Debug("fsm: evaluating action", zap.String("name", action.Module+"."+action.Method), zap.String("regex", action.Regex))
+
 		// If there is no matching regex then simply evaluate action.
 		if action.Regex != "" {
 			// Compile regex.
-			// TODO(benbjohnson): Compile at parse time and store.
 			re, err := regexp.Compile(action.Regex)
 			if err != nil {
 				return false, err
@@ -220,6 +263,7 @@ func (fsm *FSM) evalActions(actions []*mar.Action) (bool, error) {
 			// Only evaluate action if buffer matches.
 			incoming_buffer := fsm.conn.Peek()
 			if !re.Match(incoming_buffer) {
+				logger.Debug("fsm: no regex match, skipping")
 				continue
 			}
 		}
@@ -236,66 +280,13 @@ func (fsm *FSM) evalActions(actions []*mar.Action) (bool, error) {
 }
 
 func (fsm *FSM) evalAction(action *mar.Action) (bool, error) {
-	fn := FindPlugin(action.Name, action.Method)
+	fn := FindPlugin(action.Module, action.Method)
 	if fn == nil {
-		return false, fmt.Errorf("fsm.evalAction(): action not found: %s.%s", action.Name, action.Method)
+		return false, fmt.Errorf("fsm.evalAction(): action not found: %s", action.Name())
 	}
+	fsm.logger.Debug("fsm: execute plugin", zap.String("name", action.Name()))
 	return fn(fsm, action.ArgValues())
 }
-
-/*
-func (fsm *FSM) do_precomputations() {
-	for _, action := range fsm.actions_ {
-		if action.module_ == "fte" && strings.HasPrefix(action.method_, "send") {
-			fsm.get_fte_obj(action.Arg(0), action.Arg(1))
-		}
-	}
-}
-
-
-func transitionKeys(transitions map[string]PATransition) []string {
-	a := make([]string, 0, len(transitions))
-	for k := range transitions {
-		a = append(a, k)
-	}
-	sort.Strings(a)
-	return a
-}
-
-func (fsm *FSM) isRunning() bool {
-	return fsm.state != "dead"
-}
-
-func (fsm *FSM) add_state(name string) {
-	if !stringSliceContains(fsm.states_.keys(), name) {
-		fsm.states_[name] = PAState(name)
-	}
-}
-
-func (fsm *FSM) set_multiplexer_outgoing(multiplexer *OutgoingBuffer) {
-	fsm.global["multiplexer_outgoing"] = multiplexer
-}
-
-func (fsm *FSM) set_multiplexer_incoming(multiplexer *IncomingBuffer) {
-	fsm.global["multiplexer_incoming"] = multiplexer
-}
-
-func (fsm *FSM) stop() {
-	fsm.state = "dead"
-}
-
-func (fsm *FSM) set_port(port int) { // TODO: Maybe string?
-	fsm.port_ = port
-}
-
-func (fsm *FSM) get_port() int {
-	if fsm.port_ != 0 {
-		return fsm.port_
-	}
-	return fsm.local[fsm.port_]
-}
-
-*/
 
 func (fsm *FSM) Var(key string) interface{} {
 	switch key {
@@ -327,7 +318,7 @@ func (fsm *FSM) Cipher(regex string, msgLen int) (_ Cipher, err error) {
 		return cipher, nil
 	}
 
-	cipher, err = fsm.NewCipherFunc(regex, msgLen)
+	cipher, err = fsm.NewCipherFunc(regex)
 	if err != nil {
 		return nil, err
 	}
@@ -338,4 +329,10 @@ func (fsm *FSM) Cipher(regex string, msgLen int) (_ Cipher, err error) {
 type cipherKey struct {
 	regex  string
 	msgLen int
+}
+
+func (fsm *FSM) SetLogger(logger *zap.Logger) {
+	fsm.logger = logger.With(
+		zap.String("party", fsm.party),
+	)
 }

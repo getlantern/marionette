@@ -168,8 +168,8 @@ type ActionBlock struct {
 type Action struct {
 	Party     string
 	PartyPos  Pos
-	Name      string
-	NamePos   Pos
+	Module    string
+	ModulePos Pos
 	Dot       Pos
 	Method    string
 	MethodPos Pos
@@ -183,6 +183,11 @@ type Action struct {
 	Regex                    string
 	RegexPos                 Pos
 	RegexMatchIncomingRparen Pos
+}
+
+// Name returns the concatenation of the module & method.
+func (a *Action) Name() string {
+	return a.Module + "." + a.Method
 }
 
 func (a *Action) ArgValues() []interface{} {

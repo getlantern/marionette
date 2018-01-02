@@ -241,8 +241,8 @@ func (p *Parser) parseAction(scanner *Scanner) (*Action, error) {
 	if tok != IDENT {
 		return nil, newSyntaxError("expected module name", tok, lit, pos)
 	}
-	action.Name = lit
-	action.NamePos = pos
+	action.Module = lit
+	action.ModulePos = pos
 
 	// Read dot.
 	tok, lit, pos = scanner.Scan()

@@ -68,7 +68,7 @@ func (conn *bufConn) Read(b []byte) (n int, err error) {
 }
 
 // NewCipherFunc returns a new instance of Cipher.
-type NewCipherFunc func(regex string, n int) (Cipher, error)
+type NewCipherFunc func(regex string) (Cipher, error)
 
 // Cipher represents an interface for encrypting & decrypting messages.
 type Cipher interface {
@@ -78,8 +78,12 @@ type Cipher interface {
 }
 
 // NewFTECipher returns a new instance of fte.Cipher.
-func NewFTECipher(regex string, n int) (Cipher, error) {
-	return fte.NewCipher(regex, n)
+func NewFTECipher(regex string) (Cipher, error) {
+	c := fte.NewCipher(regex)
+	if err := c.Open(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func assert(condition bool) {

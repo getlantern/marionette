@@ -38,6 +38,7 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 
 	cell := fsm.bufferSet.Pop(fsm.UUID(), fsm.InstanceID, cipher.Capacity() /*blocking*/)
 	if cell == nil {
+		fsm.logger.Debug("fte.send: no data available")
 		return false, nil
 	}
 
