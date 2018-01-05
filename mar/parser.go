@@ -7,6 +7,20 @@ import (
 	"strconv"
 )
 
+// Parse parses data in to a MAR document.
+func Parse(data []byte) (*Document, error) {
+	return NewParser().Parse(data)
+}
+
+// MustParse parses data in to a MAR document. Panic on error.
+func MustParse(data []byte) *Document {
+	doc, err := Parse(data)
+	if err != nil {
+		panic(err)
+	}
+	return doc
+}
+
 // Parser represents a Marionette DSL parser.
 type Parser struct{}
 
@@ -227,8 +241,8 @@ func (p *Parser) parseAction(scanner *Scanner) (*Action, error) {
 	if tok != IDENT {
 		return nil, newSyntaxError("expected module name", tok, lit, pos)
 	}
-	action.Name = lit
-	action.NamePos = pos
+	action.Module = lit
+	action.ModulePos = pos
 
 	// Read dot.
 	tok, lit, pos = scanner.Scan()

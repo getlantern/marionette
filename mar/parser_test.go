@@ -39,7 +39,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
@@ -54,7 +54,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "server",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n\\C*$"},
@@ -115,7 +115,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
@@ -130,7 +130,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "server",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n\\C*$"},
@@ -145,7 +145,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
@@ -209,7 +209,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
@@ -224,7 +224,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "server",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n\\C*$"},
@@ -239,7 +239,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
@@ -254,7 +254,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "server",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n\\C*$"},
@@ -327,7 +327,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^.*$"},
@@ -342,7 +342,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send_async",
 							Args: []*mar.Arg{
 								{Value: "^.*$"},
@@ -357,7 +357,7 @@ func TestParser_Parse(t *testing.T) {
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "server",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send_async",
 							Args: []*mar.Arg{
 								{Value: "^.*$"},
@@ -422,7 +422,7 @@ action downstream_async:
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n$"},
@@ -436,7 +436,7 @@ action downstream_async:
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "server",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex\r\n\r\n\\C*$"},
@@ -490,7 +490,7 @@ action downstream_async:
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex1\r\n\r\n$"},
@@ -499,7 +499,7 @@ action downstream_async:
 						},
 						&mar.Action{
 							Party:  "server",
-							Name:   "fte",
+							Module: "fte",
 							Method: "recv",
 							Args: []*mar.Arg{
 								{Value: "^regex2\r\n\r\n$"},
@@ -562,7 +562,7 @@ action downstream_async:
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex1\r\n\r\n$"},
@@ -614,7 +614,7 @@ action downstream_async:
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex1\r\n\r\n$"},
@@ -623,7 +623,7 @@ action downstream_async:
 						},
 						&mar.Action{
 							Party:  "server",
-							Name:   "fte",
+							Module: "fte",
 							Method: "recv",
 							Args: []*mar.Arg{
 								{Value: "^regex2\r\n\r\n$"},
@@ -674,7 +674,7 @@ action downstream_async:
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "fte",
+							Module: "fte",
 							Method: "send",
 							Args: []*mar.Arg{
 								{Value: "^regex1\r\n\r\n$"},
@@ -724,7 +724,7 @@ action downstream_async:
 					Actions: []*mar.Action{
 						&mar.Action{
 							Party:  "client",
-							Name:   "io",
+							Module: "io",
 							Method: "puts",
 							Args: []*mar.Arg{
 								{Value: "\x41\x42\\backslash"},
@@ -781,7 +781,7 @@ func Strip(node mar.Node) {
 
 		case *mar.Action:
 			node.PartyPos = mar.Pos{}
-			node.NamePos = mar.Pos{}
+			node.ModulePos = mar.Pos{}
 			node.Dot = mar.Pos{}
 			node.MethodPos = mar.Pos{}
 			node.Lparen = mar.Pos{}

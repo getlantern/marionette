@@ -2,12 +2,9 @@ package marionette
 
 import (
 	"errors"
-	"math"
-
-	"github.com/redjack/marionette/fte"
 )
 
-const MaxCellLengthInBits = 2097152 // (2 ^ 18) * 8
+const MaxCellLength = 262144
 
 // FTESendPlugin send data to a connection.
 func FTESendPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
@@ -34,30 +31,15 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 	}
 
 	// Find random stream id with data.
-	streamID := fsm.enc.chooseStreamID()
-	if streamID == 0 && !blocking {
-		return false, nil
-	}
-
-	fteEncoder := fsm.fteEncoder(regex, msgLen)
-
-	bufferBitN := len(fsm.enc.Peek(streamID)) * 8
-	minCellByteN := int(math.Floor(float64(fteEncoder.Capacity())/8.0)) - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
-	minCellBitN := minCellByteN * 8
-
-	cellHeaderBitN := PAYLOAD_HEADER_SIZE_IN_BITS
-	cellBitN := minCellBitN
-	if bufferBitN > cellBitN {
-		cellBitN = bufferBitN
-	}
-	cellBitN += cellHeaderBitN
-	if cellBitN > MaxCellLengthInBits {
-		cellBitN = MaxCellLengthInBits
-	}
-
-	cell, err := fsm.enc.Pop(fsm.ModelUUID(), fsm.ModelInstanceID, cellBitN)
+	cipher, err := fsm.Cipher(regex, msgLen)
 	if err != nil {
 		return false, err
+	}
+
+	cell := fsm.bufferSet.Pop(fsm.UUID(), fsm.InstanceID, cipher.Capacity() /*blocking*/)
+	if cell == nil {
+		fsm.logger.Debug("fte.send: no data available")
+		return false, nil
 	}
 
 	plaintext, err := cell.MarshalBinary()
@@ -65,7 +47,7 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 		return false, err
 	}
 
-	ciphertext, err := fteEncoder.Encode(plaintext)
+	ciphertext, err := cipher.Encrypt(plaintext)
 	if err != nil {
 		return false, err
 	}
@@ -111,7 +93,7 @@ func fteRecvPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 	                   marionette_state.get_global(
 	                       "multiplexer_incoming").push(ptxt)
 	               retval = True
-	   except fte.encrypter.RecoverableDecryptionError as e:
+	   except fte.cipher.RecoverableDecryptionError as e:
 	       retval = False
 	   except Exception as e:
 	       if len(ctxt)>0:

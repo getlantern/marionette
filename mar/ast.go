@@ -93,6 +93,26 @@ func FilterProbableTransitions(a []*Transition) []*Transition {
 	return other
 }
 
+func FilterErrorTransitions(a []*Transition) []*Transition {
+	var other []*Transition
+	for _, t := range a {
+		if t.IsErrorTransition {
+			other = append(other, t)
+		}
+	}
+	return other
+}
+
+func FilterNonErrorTransitions(a []*Transition) []*Transition {
+	other := make([]*Transition, 0, len(a))
+	for _, t := range a {
+		if !t.IsErrorTransition {
+			other = append(other, t)
+		}
+	}
+	return other
+}
+
 // TransitionsDestinations returns the destination state names from the transitions.
 func TransitionsDestinations(a []*Transition) []string {
 	other := make([]string, 0, len(a))
@@ -148,8 +168,8 @@ type ActionBlock struct {
 type Action struct {
 	Party     string
 	PartyPos  Pos
-	Name      string
-	NamePos   Pos
+	Module    string
+	ModulePos Pos
 	Dot       Pos
 	Method    string
 	MethodPos Pos
@@ -165,6 +185,11 @@ type Action struct {
 	RegexMatchIncomingRparen Pos
 }
 
+// Name returns the concatenation of the module & method.
+func (a *Action) Name() string {
+	return a.Module + "." + a.Method
+}
+
 func (a *Action) ArgValues() []interface{} {
 	other := make([]interface{}, len(a.Args))
 	for i, arg := range a.Args {
@@ -177,7 +202,9 @@ func (a *Action) ArgValues() []interface{} {
 func FilterActionsByParty(actions []*Action, party string) []*Action {
 	other := make([]*Action, 0, len(actions))
 	for _, action := range actions {
-		other = append(other, action)
+		if action.Party == party {
+			other = append(other, action)
+		}
 	}
 	return other
 }

@@ -14,7 +14,7 @@ $ go get -u github.com/jteeuwen/go-bindata/...
 Then you can use `go generate` to convert the asset files to Go files:
 
 ```sh
-$ go generate ./assets
+$ go generate ./...
 ```
 
 

@@ -1,6 +1,8 @@
 package marionette
 
 import (
+	"context"
+
 	"github.com/redjack/marionette/mar"
 )
 
@@ -9,21 +11,21 @@ import (
 type Executor struct {
 	fsm *FSM
 
-	enc *CellEncoder
-	dec *CellDecoder
+	bufferSet *StreamBufferSet
+	dec       *CellDecoder
 }
 
-func NewExecutor(doc *mar.Document, party string, enc *CellEncoder, dec *CellDecoder) *Executor {
+func NewExecutor(doc *mar.Document, party string, bufferSet *StreamBufferSet, dec *CellDecoder) *Executor {
 	return &Executor{
-		fsm: NewFSM(doc, party, enc, dec),
-		enc: enc,
-		dec: dec,
+		fsm:       NewFSM(doc, party, bufferSet, dec),
+		bufferSet: bufferSet,
+		dec:       dec,
 	}
 }
 
-func (e *Executor) Execute() error {
+func (e *Executor) Execute(ctx context.Context) error {
 	for !e.fsm.Dead() {
-		if err := e.fsm.Next(); err != nil {
+		if err := e.fsm.Next(ctx); err != nil {
 			return err
 		}
 	}
