@@ -29,7 +29,5 @@ func (e *Executor) Execute(ctx context.Context) error {
 			return err
 		}
 	}
-
-	// TODO: Close connection when FSM is done.
-	return nil
+	return e.fsm.Close()
 }

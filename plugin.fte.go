@@ -69,45 +69,52 @@ func FTERecvAsyncPlugin(fsm *FSM, args []interface{}) (success bool, err error) 
 }
 
 func fteRecvPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, err error) {
-	/*
-	   retval = False
-	   regex = input_args[0]
-	   msg_len = int(input_args[1])
+	if len(args) < 2 {
+		return false, errors.New("fte.send: not enough arguments")
+	}
 
-	   fteObj = marionette_state.get_fte_obj(regex, msg_len)
+	regex, ok := args[0].(string)
+	if !ok {
+		return false, errors.New("fte.send: invalid regex argument type")
+	}
+	msgLen, ok := args[1].(int)
+	if !ok {
+		return false, errors.New("fte.send: invalid msg_len argument type")
+	}
 
-	   try:
-	       ctxt = channel.recv()
-	       if len(ctxt) > 0:
-	           [ptxt, remainder] = fteObj.decode(ctxt)
+	// Retrieve data from the connection.
+	ciphertext, err := fsm.ReadBuffer()
+	if err != nil {
+		return false, err
+	} else if len(ciphertext) == 0 {
+		return false, nil
+	}
 
-	           cell_obj = marionette_tg.record_layer.unserialize(ptxt)
-	           assert cell_obj.get_model_uuid() == marionette_state.get_local(
-	               "model_uuid")
+	// Decode ciphertext.
+	cipher, err := fsm.Cipher(regex, msgLen)
+	if err != nil {
+		return false, err
+	}
+	plaintext, remainder, err := cipher.Decrypt(ciphertext)
+	if err != nil {
+		return false, err
+	}
 
-	           marionette_state.set_local(
-	               "model_instance_id", cell_obj.get_model_instance_id())
+	// Unmarshal data.
+	var cell Cell
+	if err := cell.UnmarshalBinary(ciphertext); err != nil {
+		return false, err
+	}
 
-	           if marionette_state.get_local("model_instance_id"):
-	               if cell_obj.get_stream_id() > 0:
-	                   marionette_state.get_global(
-	                       "multiplexer_incoming").push(ptxt)
-	               retval = True
-	   except fte.cipher.RecoverableDecryptionError as e:
-	       retval = False
-	   except Exception as e:
-	       if len(ctxt)>0:
-	           channel.rollback()
-	       raise e
+	assert(fsm.UUID() == cell.UUID)
+	fsm.InstanceID = cell.InstanceID
+	if fsm.InstanceID == 0 || cell.StreamID == 0 {
+		return false, nil
+	}
 
-	   if retval:
-	       if len(remainder) > 0:
-	           channel.rollback(len(remainder))
-	   else:
-	       if len(ctxt)>0:
-	           channel.rollback()
+	// TODO: Write plaintext to a cell decoder pipe.
 
-	   return retval
-	*/
-	panic("TODO")
+	fsm.SetBuffer(remainder)
+
+	return true, nil
 }

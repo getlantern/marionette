@@ -115,26 +115,29 @@ func (c *Cipher) Encrypt(plaintext []byte) (ciphertext []byte, err error) {
 }
 
 // Decrypt decrypts ciphertext into plaintext.
-func (c *Cipher) Decrypt(ciphertext []byte) (plaintext []byte, err error) {
+func (c *Cipher) Decrypt(ciphertext []byte) (plaintext, remainder []byte, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if _, err := fmt.Fprintf(c.stdin, "D%09d%x", len(ciphertext), ciphertext); err != nil {
-		return nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot write to stdin: %s", err)
+		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot write to stdin: %s", err)
 	}
 
 	line, err := c.bufout.ReadBytes('\n')
 	if err != nil {
-		return nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot read from stdout: %s", err)
+		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot read from stdout: %s", err)
 	}
 
 	// Line is split into <plaintext,remainder>.
 	segments := bytes.SplitN(line, []byte(" "), 2)
 
 	if plaintext, err = hex.DecodeString(string(bytes.TrimSpace(segments[0]))); err != nil {
-		return nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot decode result hex: %s", err)
+		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot decode plaintext hex: %s", err)
 	}
-	return plaintext, nil
+	if remainder, err = hex.DecodeString(string(bytes.TrimSpace(segments[1]))); err != nil {
+		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot decode remainder hex: %s", err)
+	}
+	return plaintext, remainder, nil
 }
 
 const program = `

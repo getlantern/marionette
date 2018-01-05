@@ -52,13 +52,13 @@ func IOGetsPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	// Read enough bytes to see if our expected data comes through.
 	buf := make([]byte, len(exp))
 	if _, err := io.ReadFull(fsm.conn, buf); err != nil {
-		fsm.conn.Unshift(buf)
+		fsm.SetBuffer(buf)
 		return false, err
 	}
 
 	// If bytes don't equal what we expect then shift them back on the buffer.
 	if !bytes.Equal([]byte(exp), buf) {
-		fsm.conn.Unshift(buf)
+		fsm.SetBuffer(buf)
 		return false, nil
 	}
 

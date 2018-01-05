@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"net"
 	"regexp"
 	"strconv"
 
+	"github.com/redjack/marionette/fte"
 	"github.com/redjack/marionette/mar"
 	"go.uber.org/zap"
 )
@@ -25,22 +25,21 @@ type FSM struct {
 	state string
 	stepN int
 	rand  *rand.Rand
-	conn  *bufConn // channel
+
+	conn net.Conn // channel
+	buf  []byte   // connection buffer
 
 	// Lookup of transitions by src state.
 	transitions map[string][]*mar.Transition
 
 	vars    map[string]interface{}
-	ciphers map[cipherKey]Cipher
+	ciphers map[cipherKey]*fte.Cipher
 
 	// Set by the first sender and used to seed PRNG.
 	InstanceID int
 
 	// Network dialer. Defaults to net.Dialer.
 	Dialer Dialer
-
-	// Factory functions to create new stateful ciphers.
-	NewCipherFunc NewCipherFunc
 
 	logger *zap.Logger
 }
@@ -55,10 +54,10 @@ func NewFSM(doc *mar.Document, party string, bufferSet *StreamBufferSet, dec *Ce
 		dec:         dec,
 		vars:        make(map[string]interface{}),
 		transitions: make(map[string][]*mar.Transition),
-		ciphers:     make(map[cipherKey]Cipher),
+		ciphers:     make(map[cipherKey]*fte.Cipher),
+		buf:         make([]byte, 0, MaxCellLength),
 
-		Dialer:        &net.Dialer{},
-		NewCipherFunc: NewFTECipher,
+		Dialer: &net.Dialer{},
 
 		logger: zap.NewNop(),
 	}
@@ -79,10 +78,8 @@ func NewFSM(doc *mar.Document, party string, bufferSet *StreamBufferSet, dec *Ce
 
 func (fsm *FSM) Close() error {
 	for _, c := range fsm.ciphers {
-		if c, ok := c.(io.Closer); ok {
-			if err := c.Close(); err != nil {
-				fsm.logger.Error("cannot close cipher", zap.Error(err))
-			}
+		if err := c.Close(); err != nil {
+			fsm.logger.Error("cannot close cipher", zap.Error(err))
 		}
 	}
 	return nil
@@ -109,11 +106,6 @@ func (fsm *FSM) Port() int {
 	panic("TODO")
 }
 
-// SetConn sets the connection on the FSM.
-func (fsm *FSM) SetConn(conn net.Conn) {
-	fsm.conn = newBufConn(conn)
-}
-
 // Dead returns true when the FSM is complete.
 func (fsm *FSM) Dead() bool { return fsm.state == "dead" }
 
@@ -131,7 +123,7 @@ func (fsm *FSM) Next(ctx context.Context) (err error) {
 			logger.Debug("fsm: cannot open connection", zap.Error(err))
 			return err
 		}
-		fsm.SetConn(conn)
+		fsm.conn, fsm.buf = conn, fsm.buf[:0]
 	}
 
 	// Exit if no connection available.
@@ -261,8 +253,10 @@ func (fsm *FSM) evalActions(actions []*mar.Action) (bool, error) {
 			}
 
 			// Only evaluate action if buffer matches.
-			incoming_buffer := fsm.conn.Peek()
-			if !re.Match(incoming_buffer) {
+			buf, err := fsm.ReadBuffer()
+			if err != nil {
+				return false, err
+			} else if !re.Match(buf) {
 				logger.Debug("fsm: no regex match, skipping")
 				continue
 			}
@@ -288,6 +282,31 @@ func (fsm *FSM) evalAction(action *mar.Action) (bool, error) {
 	return fn(fsm, action.ArgValues())
 }
 
+// ReadBuffer reads available data into the read buffer and returns the buffer.
+func (fsm *FSM) ReadBuffer() ([]byte, error) {
+	// Buffer full, exit.
+	if len(fsm.buf) == cap(fsm.buf) {
+		fsm.logger.Debug("fsm: buffer full")
+		return fsm.buf, nil
+	}
+
+	// Read from connection with any available buffer space.
+	n, err := fsm.conn.Read(fsm.buf[len(fsm.buf):cap(fsm.buf)])
+	if err != nil {
+		return fsm.buf, err
+	}
+	fsm.buf = fsm.buf[:len(fsm.buf)+int(n)]
+
+	return fsm.buf, nil
+}
+
+// SetBuffer copies p to the buffer.
+func (fsm *FSM) SetBuffer(p []byte) {
+	assert(len(p) < cap(fsm.buf))
+	fsm.buf = fsm.buf[:len(p)]
+	copy(fsm.buf, p)
+}
+
 func (fsm *FSM) Var(key string) interface{} {
 	switch key {
 	case "model_instance_id":
@@ -311,17 +330,18 @@ func (fsm *FSM) SetVar(key string, value interface{}) {
 
 // Cipher returns a cipher with the given settings.
 // If no cipher exists then a new one is created and returned.
-func (fsm *FSM) Cipher(regex string, msgLen int) (_ Cipher, err error) {
+func (fsm *FSM) Cipher(regex string, msgLen int) (_ *fte.Cipher, err error) {
 	key := cipherKey{regex, msgLen}
 	cipher := fsm.ciphers[key]
 	if cipher != nil {
 		return cipher, nil
 	}
 
-	cipher, err = fsm.NewCipherFunc(regex)
-	if err != nil {
+	cipher = fte.NewCipher(regex)
+	if err := cipher.Open(); err != nil {
 		return nil, err
 	}
+
 	fsm.ciphers[key] = cipher
 	return cipher, nil
 }

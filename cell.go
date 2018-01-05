@@ -107,13 +107,20 @@ func (c *Cell) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary decodes a cell from binary-encoded data.
 func (c *Cell) UnmarshalBinary(data []byte) (err error) {
-	r := bytes.NewReader(data)
+	br := bytes.NewReader(data)
 
-	// Read cell & payload size.
+	// Read cell size.
 	var sz, payloadN, u32 uint32
-	if err := binary.Read(r, binary.BigEndian, &sz); err != nil {
+	if err := binary.Read(br, binary.BigEndian, &sz); err != nil {
 		return err
-	} else if err := binary.Read(r, binary.BigEndian, &payloadN); err != nil {
+	}
+	c.Length = int(sz)
+
+	// Limit the reader to the bytes in the cell (minus the sz field).
+	r := io.LimitReader(br, int64(c.Length-4))
+
+	// Read payload size.
+	if err := binary.Read(r, binary.BigEndian, &payloadN); err != nil {
 		return err
 	}
 
