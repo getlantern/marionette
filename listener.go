@@ -3,7 +3,6 @@ package marionette
 import (
 	"context"
 	"errors"
-	"log"
 	"net"
 	"strconv"
 	"sync"
@@ -106,10 +105,10 @@ func (l *Listener) accept() {
 }
 
 func (l *Listener) execute(ctx context.Context, fsm *FSM) {
-	log.Printf("fsm executing")
-	defer log.Printf("fsm execution complete")
+	Logger.Debug("server fsm executing")
+	defer Logger.Debug("server fsm execution complete")
 
 	if err := fsm.Execute(ctx); err != nil {
-		log.Printf("fsm execution error: %s", err)
+		Logger.Debug("server fsm execution error", zap.Error(err))
 	}
 }

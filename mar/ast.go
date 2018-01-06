@@ -198,6 +198,37 @@ func (a *Action) ArgValues() []interface{} {
 	return other
 }
 
+// Transform converts the action to its complement depending on the party.
+func (a *Action) Transform(party string) {
+	switch party {
+	case "client":
+		a.transform("server", "client")
+	case "server":
+		a.transform("client", "server")
+	}
+}
+
+func (a *Action) transform(from, to string) {
+	if a.Party == from {
+		switch a.Module {
+		case "fte", "tg":
+			if a.Method == "send" {
+				a.Method = "recv"
+			} else if a.Method == "send_async" {
+				a.Method = "recv_async"
+			}
+			a.Party = to
+		case "io":
+			if a.Method == "gets" {
+				a.Method = "puts"
+			} else if a.Method == "puts" {
+				a.Method = "gets"
+			}
+			a.Party = to
+		}
+	}
+}
+
 // FilterActionsByParty returns a slice of actions matching party.
 func FilterActionsByParty(actions []*Action, party string) []*Action {
 	other := make([]*Action, 0, len(actions))

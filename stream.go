@@ -67,8 +67,17 @@ func (s *Stream) ReadBufferLen() int {
 	return len(s.rbuf)
 }
 
+// Write appends b to the write buffer.
 func (s *Stream) Write(b []byte) (n int, err error) {
-	panic("TODO")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// TODO: Wait until there is room in the write buffer.
+
+	s.wbuf = s.wbuf[:len(s.wbuf)+len(b)]
+	copy(s.wbuf[len(s.wbuf)-len(b):], b)
+
+	return len(b), nil
 }
 
 // WriteBufferLen returns the number of bytes in the write buffer.

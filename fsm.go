@@ -301,10 +301,6 @@ func (fsm *FSM) Var(key string) interface{} {
 		return fsm.doc.UUID
 	case "party":
 		return fsm.party
-	// case "multiplexer_incoming":
-	// 	return fsm.dec
-	// case "multiplexer_outgoing":
-	// 	return fsm.bufferSet
 	default:
 		return fsm.vars[key]
 	}

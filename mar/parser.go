@@ -8,13 +8,13 @@ import (
 )
 
 // Parse parses data in to a MAR document.
-func Parse(data []byte) (*Document, error) {
-	return NewParser().Parse(data)
+func Parse(party string, data []byte) (*Document, error) {
+	return NewParser(party).Parse(data)
 }
 
 // MustParse parses data in to a MAR document. Panic on error.
-func MustParse(data []byte) *Document {
-	doc, err := Parse(data)
+func MustParse(party string, data []byte) *Document {
+	doc, err := Parse(party, data)
 	if err != nil {
 		panic(err)
 	}
@@ -22,11 +22,17 @@ func MustParse(data []byte) *Document {
 }
 
 // Parser represents a Marionette DSL parser.
-type Parser struct{}
+//
+// The parser will automatically convert certain actions to their complement
+// depending on the party that is parsing the document. No transformation is
+// performed if the party is blank.
+type Parser struct {
+	party string
+}
 
 // NewParser returns a new instance of Parser.
-func NewParser() *Parser {
-	return &Parser{}
+func NewParser(party string) *Parser {
+	return &Parser{party: party}
 }
 
 // Parse parses s into an AST.
@@ -310,6 +316,9 @@ func (p *Parser) parseAction(scanner *Scanner) (*Action, error) {
 		}
 		action.RegexMatchIncomingRparen = pos
 	}
+
+	// Perform transformation depending on party.
+	action.Transform(p.party)
 
 	return &action, nil
 }

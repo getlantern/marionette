@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"math/rand"
 	"net"
-	"testing"
 	"time"
 
 	"github.com/redjack/marionette"
-	"go.uber.org/zap"
 )
 
 func init() {
@@ -19,16 +17,6 @@ func init() {
 // NewRand returns a PRNG with a zero source.
 func NewRand() *rand.Rand {
 	return rand.New(rand.NewSource(0))
-}
-
-func NewLogger() *zap.Logger {
-	if testing.Verbose() {
-		config := zap.NewDevelopmentConfig()
-		config.EncoderConfig.TimeKey = ""
-		logger, _ := config.Build()
-		return logger
-	}
-	return zap.NewNop()
 }
 
 var _ net.Conn = &BufferConn{}
