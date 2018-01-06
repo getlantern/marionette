@@ -22,7 +22,7 @@ func NewDialer(doc *mar.Document, addr string) (*Dialer, error) {
 		return nil, err
 	}
 
-	fsm := NewFSM(doc, PartyClient, NewStreamSet())
+	fsm := NewFSM(doc, PartyClient)
 	fsm.conn = conn
 
 	// Run execution in a separate goroutine.

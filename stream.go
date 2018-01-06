@@ -6,6 +6,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type Stream struct {
@@ -38,10 +40,13 @@ func (s *Stream) ID() int { return s.id }
 // Read reads n bytes from the stream.
 func (s *Stream) Read(b []byte) (n int, err error) {
 	// TODO: Loop and wait for read buffer to fill. Sleep in between.
+	println("dbg/read!!!", len(s.rbuf))
 
 	// Wait for data if buffer is empty.
 	if len(s.rbuf) == 0 {
+		println("dbg/read.123.aaa")
 		data, ok := <-s.rchan
+		println("dbg/read.123", len(data), ok)
 		if !ok {
 			return 0, io.EOF
 		}
@@ -57,6 +62,8 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 		n = len(s.rbuf)
 	}
 	copy(b, s.rbuf)
+
+	println("dbg/read.DONE", n, len(b), string(b))
 	return n, nil
 }
 
@@ -120,6 +127,8 @@ func (s *Stream) AddCell(cell *Cell) {
 		s.rqueue = s.rqueue[1:]
 		s.seq++
 	}
+
+	println("dbg/add.cell", string(cell.Payload), len(s.rbuf))
 }
 
 // GenerateCell reads n bytes from the write buffer and encodes it as a cell.
@@ -186,3 +195,7 @@ func (c *Stream) RemoteAddr() net.Addr { return c.remoteAddr }
 func (c *Stream) SetDeadline(t time.Time) error      { return nil }
 func (c *Stream) SetReadDeadline(t time.Time) error  { return nil }
 func (c *Stream) SetWriteDeadline(t time.Time) error { return nil }
+
+func (s *Stream) logger() *zap.Logger {
+	return Logger.With(zap.Int("stream_id", s.id))
+}

@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strconv"
 	"sync"
 )
 
@@ -89,9 +90,9 @@ func (c *Cipher) Close() error {
 	return nil
 }
 
+// Capacity returns the capacity left in the encoder.
 func (c *Cipher) Capacity() int {
-	// int(math.Floor(float64(fteEncoder.Capacity())/8.0)) - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
-	return c.capacity
+	return (c.capacity / 8) - COVERTEXT_HEADER_LEN_CIPHERTTEXT - CTXT_EXPANSION
 }
 
 // Encrypt encrypts plaintext into ciphertext.
@@ -108,8 +109,14 @@ func (c *Cipher) Encrypt(plaintext []byte) (ciphertext []byte, err error) {
 		return nil, fmt.Errorf("fte.Cipher.Encrypt(): cannot read from stdout: %s", err)
 	}
 
-	if ciphertext, err = hex.DecodeString(string(bytes.TrimSpace(line))); err != nil {
-		return nil, fmt.Errorf("fte.Cipher.Encrypt(): cannot decode result hex: %s", err)
+	// Line is split into <plaintext,capacity>.
+	segments := bytes.SplitN(line, []byte(":"), 2)
+
+	if ciphertext, err = hex.DecodeString(string(bytes.TrimSpace(segments[0]))); err != nil {
+		return nil, fmt.Errorf("fte.Cipher.Encrypt(): cannot decode ciphertext hex: %s", err)
+	}
+	if c.capacity, err = strconv.Atoi(string(bytes.TrimSpace(segments[1]))); err != nil {
+		return nil, fmt.Errorf("fte.Cipher.Encrypt(): cannot convert capacity to int: %s", err)
 	}
 	return ciphertext, nil
 }
@@ -128,14 +135,17 @@ func (c *Cipher) Decrypt(ciphertext []byte) (plaintext, remainder []byte, err er
 		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot read from stdout: %s", err)
 	}
 
-	// Line is split into <plaintext,remainder>.
-	segments := bytes.SplitN(line, []byte(" "), 2)
+	// Line is split into <plaintext,remainder,capacity>.
+	segments := bytes.SplitN(line, []byte(":"), 3)
 
 	if plaintext, err = hex.DecodeString(string(bytes.TrimSpace(segments[0]))); err != nil {
 		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot decode plaintext hex: %s", err)
 	}
 	if remainder, err = hex.DecodeString(string(bytes.TrimSpace(segments[1]))); err != nil {
 		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot decode remainder hex: %s", err)
+	}
+	if c.capacity, err = strconv.Atoi(string(bytes.TrimSpace(segments[2]))); err != nil {
+		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot convert capacity to int: %s", err)
 	}
 	return plaintext, remainder, nil
 }
@@ -152,14 +162,18 @@ encoder = fte.encoder.DfaEncoder(regex2dfa.regex2dfa(regex), 512)
 def encode(payload):
 	ciphertext = bytearray(encoder.encode(payload))
 	sys.stdout.write(binascii.hexlify(ciphertext))
+	sys.stdout.write(":")
+	sys.stdout.write(str(encoder.getCapacity()))
 	sys.stdout.write("\n")
 	sys.stdout.flush()
 
 def decode(payload):
 	[plaintext, remainder] = encoder.decode(payload)
 	sys.stdout.write(binascii.hexlify(plaintext))
-	sys.stdout.write(" ")
+	sys.stdout.write(":")
 	sys.stdout.write(binascii.hexlify(remainder))
+	sys.stdout.write(":")
+	sys.stdout.write(str(encoder.getCapacity()))
 	sys.stdout.write("\n")
 	sys.stdout.flush()
 

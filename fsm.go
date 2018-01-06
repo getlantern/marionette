@@ -39,12 +39,12 @@ type FSM struct {
 }
 
 // NewFSM returns a new FSM. If party is the first sender then the instance id is set.
-func NewFSM(doc *mar.Document, party string, streams *StreamSet) *FSM {
+func NewFSM(doc *mar.Document, party string) *FSM {
 	fsm := &FSM{
 		doc:         doc,
 		party:       party,
 		state:       "start",
-		streams:     streams,
+		streams:     NewStreamSet(),
 		vars:        make(map[string]interface{}),
 		transitions: make(map[string][]*mar.Transition),
 		ciphers:     make(map[cipherKey]*fte.Cipher),
@@ -110,7 +110,7 @@ func (fsm *FSM) Execute(ctx context.Context) error {
 
 func (fsm *FSM) Next(ctx context.Context) (err error) {
 	logger := fsm.logger()
-	logger.Debug("fsm: moving to next state", zap.String("state", fsm.state))
+	logger.Debug("fsm: Next()", zap.String("state", fsm.state))
 
 	// Exit if no connection available.
 	if fsm.conn == nil {

@@ -65,6 +65,8 @@ func (ss *StreamSet) GenerateCell(n int) *Cell {
 			break
 		}
 	}
+
+	// If there is no stream with data then send an empty
 	if stream == nil {
 		return nil
 	}

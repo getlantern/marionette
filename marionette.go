@@ -16,6 +16,7 @@ const (
 func init() {
 	config := zap.NewDevelopmentConfig()
 	config.EncoderConfig.TimeKey = ""
+	config.EncoderConfig.CallerKey = ""
 	Logger, _ = config.Build()
 }
 

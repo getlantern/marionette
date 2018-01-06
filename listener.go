@@ -16,7 +16,6 @@ type Listener struct {
 	mu         sync.RWMutex
 	ln         net.Listener
 	doc        *mar.Document
-	streams    *StreamSet
 	newStreams chan *Stream
 	err        error
 
@@ -44,7 +43,6 @@ func Listen(doc *mar.Document, iface string) (*Listener, error) {
 	l := &Listener{
 		ln:         ln,
 		doc:        doc,
-		streams:    NewStreamSet(),
 		newStreams: make(chan *Stream),
 		closing:    make(chan struct{}),
 	}
@@ -95,8 +93,9 @@ func (l *Listener) accept() {
 			return
 		}
 
-		fsm := NewFSM(l.doc, PartyServer, l.streams)
+		fsm := NewFSM(l.doc, PartyServer)
 		fsm.conn = conn
+		fsm.streams.OnNewStream = l.onNewStream
 
 		// Run execution in a separate goroutine.
 		l.wg.Add(1)
@@ -111,4 +110,10 @@ func (l *Listener) execute(ctx context.Context, fsm *FSM) {
 	if err := fsm.Execute(ctx); err != nil {
 		Logger.Debug("server fsm execution error", zap.Error(err))
 	}
+}
+
+// onNewStream is called everytime the FSM's stream set creates a new stream.
+func (l *Listener) onNewStream(stream *Stream) {
+	Logger.Debug("new server stream")
+	l.newStreams <- stream
 }
