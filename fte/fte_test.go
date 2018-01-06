@@ -16,19 +16,23 @@ func TestCipher(t *testing.T) {
 	// Encode/decode first message.
 	if ciphertext, err := cipher.Encrypt([]byte(`test`)); err != nil {
 		t.Fatal(err)
-	} else if plaintext, err := cipher.Decrypt(ciphertext); err != nil {
+	} else if plaintext, remainder, err := cipher.Decrypt(ciphertext); err != nil {
 		t.Fatal(err)
 	} else if string(plaintext) != `test` {
 		t.Fatalf("unexpected plaintext: %q", plaintext)
+	} else if string(remainder) != `` {
+		t.Fatalf("unexpected remainder: %q", remainder)
 	}
 
 	// Encode/decode second message.
 	if ciphertext, err := cipher.Encrypt([]byte(`foo bar`)); err != nil {
 		t.Fatal(err)
-	} else if plaintext, err := cipher.Decrypt(ciphertext); err != nil {
+	} else if plaintext, remainder, err := cipher.Decrypt(ciphertext); err != nil {
 		t.Fatal(err)
 	} else if string(plaintext) != `foo bar` {
 		t.Fatalf("unexpected plaintext: %q", plaintext)
+	} else if string(remainder) != `` {
+		t.Fatalf("unexpected remainder: %q", remainder)
 	}
 
 	if err := cipher.Close(); err != nil {

@@ -67,7 +67,7 @@ func TestParser_Parse(t *testing.T) {
 			},
 		}
 
-		doc, err := Parse(`connection(tcp, 80):
+		doc, err := Parse("", `connection(tcp, 80):
           start      downstream NULL     1.0
           downstream upstream   http_get 1.0
           upstream   end        http_ok  1.0
@@ -158,7 +158,7 @@ func TestParser_Parse(t *testing.T) {
 			},
 		}
 
-		doc, err := Parse(`connection(tcp, 80):
+		doc, err := Parse("", `connection(tcp, 80):
           start      downstream NULL     1.0
           downstream upstream   http_get 1.0
           upstream   end        http_ok  1.0
@@ -267,7 +267,7 @@ func TestParser_Parse(t *testing.T) {
 			},
 		}
 
-		doc, err := Parse(`connection(tcp, 80):
+		doc, err := Parse("", `connection(tcp, 80):
           start      downstream NULL     1.0
           downstream upstream   http_get 1.0
           upstream   end        http_ok  1.0
@@ -370,7 +370,7 @@ func TestParser_Parse(t *testing.T) {
 			},
 		}
 
-		doc, err := Parse(`connection(tcp, 8082):
+		doc, err := Parse("", `connection(tcp, 8082):
   start      handshake  NULL               1.0
   handshake  upstream   upstream_handshake 1.0
   upstream   downstream upstream_async     1.0
@@ -448,7 +448,7 @@ action downstream_async:
 			},
 		}
 
-		doc, err := Parse(`connection(tcp, 80):
+		doc, err := Parse("", `connection(tcp, 80):
           start      downstream NULL     1.0
           downstream upstream   http_get 1.0
           upstream   end        http_ok  1.0
@@ -511,7 +511,7 @@ action downstream_async:
 			},
 		}
 
-		doc, err := Parse(`connection(tcp, 80):
+		doc, err := Parse("", `connection(tcp, 80):
           start do_nothing NULL 1.0
           do_nothing end NULL 1.0
 
@@ -574,7 +574,7 @@ action downstream_async:
 			},
 		}
 
-		doc, err := Parse(`connection(tcp, 80):
+		doc, err := Parse("", `connection(tcp, 80):
           start do_nothing NULL 1.0
           do_nothing end NULL 1.0
           start do_err NULL error
@@ -635,7 +635,7 @@ action downstream_async:
 			},
 		}
 
-		doc, err := Parse(`connection(tcp, 80):
+		doc, err := Parse("", `connection(tcp, 80):
           start do_nothing NULL 1.0
           do_nothing end NULL 1.0
 
@@ -686,7 +686,7 @@ action downstream_async:
 			},
 		}
 
-		doc, err := Parse(`connection(udp, 80):
+		doc, err := Parse("", `connection(udp, 80):
           start do_nothing NULL 1.0
           do_nothing end NULL 1.0
 
@@ -736,7 +736,7 @@ action downstream_async:
 			},
 		}
 
-		doc, err := Parse(`connection(tcp, 80):
+		doc, err := Parse("", `connection(tcp, 80):
         start do_nothing NULL 1.0
         do_nothing end NULL 1.0
         action null_puts:
@@ -750,8 +750,8 @@ action downstream_async:
 	})
 }
 
-func Parse(data string) (*mar.Document, error) {
-	return mar.NewParser().Parse([]byte(data))
+func Parse(party, data string) (*mar.Document, error) {
+	return mar.NewParser(party).Parse([]byte(data))
 }
 
 // Strip removes all position and generated data from a node and its descendents.
