@@ -12,10 +12,20 @@ type Dialer struct {
 }
 
 // NewDialer returns a new instance of Dialer.
-func NewDialer(doc *mar.Document) *Dialer {
-	return &Dialer{
-		fsm: NewFSM(doc, PartyClient, NewStreamSet()),
+func NewDialer(doc *mar.Document, addr string) (*Dialer, error) {
+	conn, err := net.Dial(doc.Transport, net.JoinHostPort(addr, doc.Port))
+	if err != nil {
+		return nil, err
 	}
+
+	fsm := NewFSM(doc, PartyClient, NewStreamSet())
+	fsm.conn = conn
+	return &Dialer{fsm: fsm}, nil
+}
+
+// Close stops the dialer and its underlying connections.
+func (d *Dialer) Close() error {
+	return d.fsm.Close()
 }
 
 // Dial returns a new stream from the dialer.

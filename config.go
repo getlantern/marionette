@@ -19,6 +19,7 @@ type Config struct {
 	} `toml:"client"`
 
 	Server struct {
+		IP    string `toml:"ip"`
 		Bind  string `toml:"bind"`
 		Proxy string `toml:"proxy"`
 	} `toml:"server"`
@@ -29,7 +30,8 @@ func DefaultConfig() Config {
 	var config Config
 	config.General.Format = "dummy"
 	config.Client.Bind = "127.0.0.1:8079"
-	config.Server.Bind = "127.0.0.1"
+	config.Server.IP = "127.0.0.1"
+	config.Server.Bind = ""
 	config.Server.Proxy = "127.0.0.1:8081"
 	return config
 }

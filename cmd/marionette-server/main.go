@@ -82,7 +82,7 @@ func run() error {
 	defer ln.Close()
 
 	// Start proxy.
-	proxy := marionette.NewProxy(ln, config.Server.Proxy)
+	proxy := marionette.NewServerProxy(ln, config.Server.Proxy)
 	if err := proxy.Open(); err != nil {
 		return err
 	}

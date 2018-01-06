@@ -112,19 +112,6 @@ func (fsm *FSM) Next(ctx context.Context) (err error) {
 	logger := fsm.logger()
 	logger.Debug("fsm: moving to next state", zap.String("state", fsm.state))
 
-	// Create a new connection from the client if none is available.
-	if fsm.party == PartyClient && fsm.conn == nil {
-		logger.Debug("fsm: opening connection")
-
-		const serverIP = "127.0.0.1" // TODO: Pass in.
-		conn, err := net.Dial(fsm.doc.Transport, net.JoinHostPort(serverIP, fsm.doc.Port))
-		if err != nil {
-			logger.Debug("fsm: cannot open connection", zap.Error(err))
-			return err
-		}
-		fsm.conn, fsm.buf = conn, fsm.buf[:0]
-	}
-
 	// Exit if no connection available.
 	if fsm.conn == nil {
 		logger.Debug("fsm: no connection available")
