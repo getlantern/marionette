@@ -10,21 +10,17 @@ import (
 // Config represents a Marionette configuration file.
 type Config struct {
 	General struct {
-		Debug        bool   `toml:"debug"`
-		AutoUpdate   bool   `toml:"autoupdate"`
-		UpdateServer string `toml:"update_server"`
-		Format       string `toml:"format"`
+		Debug  bool   `toml:"debug"`
+		Format string `toml:"format"`
 	} `toml:"general"`
 
 	Client struct {
-		IP   string `toml:"client_ip"`
-		Port int    `toml:"client_port"`
+		Bind string `toml:"bind"`
 	} `toml:"client"`
 
 	Server struct {
-		IP        string `toml:"server_ip"`
-		ProxyIP   string `toml:"proxy_ip"`
-		ProxyPort int    `toml:"proxy_port"`
+		Bind  string `toml:"bind"`
+		Proxy string `toml:"proxy"`
 	} `toml:"server"`
 }
 
@@ -32,11 +28,9 @@ type Config struct {
 func DefaultConfig() Config {
 	var config Config
 	config.General.Format = "dummy"
-	config.Client.IP = "127.0.0.1"
-	config.Client.Port = 8079
-	config.Server.IP = "127.0.0.1"
-	config.Server.ProxyIP = "127.0.0.1"
-	config.Server.ProxyPort = 8081
+	config.Client.Bind = "127.0.0.1:8079"
+	config.Server.Bind = "127.0.0.1"
+	config.Server.Proxy = "127.0.0.1:8081"
 	return config
 }
 

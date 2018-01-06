@@ -4,13 +4,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/mar"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -21,20 +20,15 @@ func main() {
 }
 
 func run() error {
+	config := marionette.DefaultConfig()
+
 	// Parse arguments.
-	var config marionette.Config
 	fs := flag.NewFlagSet("marionette-server", flag.ContinueOnError)
 	version := fs.Bool("version", false, "")
-	fs.StringVar(&config.Server.IP, "server_ip", config.Server.IP, "")
-	fs.StringVar(&config.Server.IP, "sip", config.Server.IP, "")
-	fs.IntVar(&config.Server.ProxyPort, "proxy_port", config.Server.ProxyPort, "")
-	fs.IntVar(&config.Server.ProxyPort, "pport", config.Server.ProxyPort, "")
-	fs.StringVar(&config.Server.ProxyIP, "proxy_ip", config.Server.ProxyIP, "")
-	fs.StringVar(&config.Server.ProxyIP, "pip", config.Server.ProxyIP, "")
-	fs.StringVar(&config.General.Format, "format", config.General.Format, "")
-	fs.StringVar(&config.General.Format, "f", config.General.Format, "")
-	fs.BoolVar(&config.General.Debug, "debug", config.General.Debug, "")
-	fs.BoolVar(&config.General.Debug, "d", config.General.Debug, "")
+	fs.StringVar(&config.Server.Bind, "bind", config.Server.Bind, "Bind address")
+	fs.StringVar(&config.Server.Proxy, "proxy", config.Server.Proxy, "Proxy IP and port")
+	fs.StringVar(&config.General.Format, "format", config.General.Format, "Format name and version")
+	fs.BoolVar(&config.General.Debug, "debug", config.General.Debug, "Debug logging enabled")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		return err
 	}
@@ -65,16 +59,34 @@ func run() error {
 		return err
 	}
 
-	if !config.General.Debug {
-		log.SetOutput(ioutil.Discard)
+	// Set logger if debug is on.
+	if config.General.Debug {
+		logger, err := zap.NewDevelopment()
+		if err != nil {
+			return nil
+		}
+		marionette.Logger = logger
+	} else {
+		logger, err := zap.NewProduction()
+		if err != nil {
+			return nil
+		}
+		marionette.Logger = logger
 	}
 
-	// Start server.
-	server := marionette.NewServer(doc)
-	if err := server.Open(); err != nil {
+	// Start listener.
+	ln, err := marionette.Listen(doc, config.Server.Bind)
+	if err != nil {
 		return err
 	}
-	defer server.Close()
+	defer ln.Close()
+
+	// Start proxy.
+	proxy := marionette.NewProxy(ln, config.Server.Proxy)
+	if err := proxy.Open(); err != nil {
+		return err
+	}
+	defer proxy.Close()
 
 	// Wait for signal.
 	c := make(chan os.Signal, 1)
@@ -90,91 +102,8 @@ func printVersion() error {
 	fmt.Println("Marionette proxy server.")
 	fmt.Println("Available formats:")
 	for _, format := range mar.Formats() {
-		fmt.Printf(" %s", format)
+		fmt.Printf(" %s\n", format)
 	}
+	fmt.Println("")
 	return nil
 }
-
-/*
-class ProxyServerProtocol(protocol.Protocol):
-
-    def connectionMade(self):
-        log.msg("ProxyServerProtocol: connected to peer")
-        self.cli_queue = self.factory.cli_queue
-        self.cli_queue.get().addCallback(self.serverDataReceived)
-
-    def serverDataReceived(self, chunk):
-        if chunk is False:
-            self.cli_queue = None
-            log.msg("ProxyServerProtocol: disconnecting from peer")
-            self.factory.continueTrying = False
-            self.transport.loseConnection()
-        elif self.cli_queue:
-            log.msg(
-                "ProxyServerProtocol: writing %d bytes to peer" %
-                len(chunk))
-
-            self.transport.write(chunk)
-            self.cli_queue.get().addCallback(self.serverDataReceived)
-        else:
-            log.msg(
-                "ProxyServerProtocol: (2) writing %d bytes to peer" %
-                len(chunk))
-            self.factory.cli_queue.put(chunk)
-
-    def dataReceived(self, chunk):
-        log.msg(
-            "ProxyServerProtocol: %d bytes received from peer" %
-            len(chunk))
-        self.factory.srv_queue.put(chunk)
-
-    def connectionLost(self, why):
-        log.msg("ProxyServerProtocol.connectionLost: " + str(why))
-        if self.cli_queue:
-            self.cli_queue = None
-            log.msg("ProxyServerProtocol: peer disconnected unexpectedly")
-
-
-class ProxyServerFactory(protocol.ClientFactory):
-    protocol = ProxyServerProtocol
-
-    def __init__(self, srv_queue, cli_queue):
-        self.srv_queue = srv_queue
-        self.cli_queue = cli_queue
-
-
-class ProxyServer(object):
-
-    def __init__(self):
-        self.connector = None
-
-    def connectionMade(self, marionette_stream):
-        log.msg("ProxyServer.connectionMade")
-        self.cli_queue = defer.DeferredQueue()
-        self.srv_queue = defer.DeferredQueue()
-        self.marionette_stream = marionette_stream
-        self.srv_queue.get().addCallback(self.clientDataReceived)
-
-        self.factory = ProxyServerFactory(self.srv_queue, self.cli_queue)
-        self.connector = reactor.connectTCP(
-            REMOTE_IP,
-            REMOTE_PORT,
-            self.factory)
-
-    def clientDataReceived(self, chunk):
-        log.msg(
-            "ProxyServer.clientDataReceived: writing %d bytes to original client" %
-            len(chunk))
-        self.marionette_stream.push(chunk)
-        self.srv_queue.get().addCallback(self.clientDataReceived)
-
-    def dataReceived(self, chunk):
-        log.msg("ProxyServer.dataReceived: %s bytes" % len(chunk))
-        self.cli_queue.put(chunk)
-
-    def connectionLost(self):
-        log.msg("ProxyServer.connectionLost")
-        self.cli_queue.put(False)
-        self.connector.disconnect()
-
-*/

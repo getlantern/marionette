@@ -1,7 +1,7 @@
 package marionette_test
 
+/*
 import (
-	"bytes"
 	"context"
 	"testing"
 
@@ -61,7 +61,7 @@ type FSM struct {
 
 	Conn BufferConn
 
-	StreamBufferSet *marionette.StreamBufferSet
+	Streams *marionette.StreamBufferSet
 
 	Buffer      bytes.Buffer
 	CellDecoder *marionette.CellDecoder
@@ -76,3 +76,4 @@ func NewFSM(doc *mar.Document, party string) *FSM {
 	fsm.FSM.SetLogger(NewLogger())
 	return &fsm
 }
+*/

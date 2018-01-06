@@ -1,5 +1,6 @@
 package marionette_test
 
+/*
 import (
 	"testing"
 
@@ -84,3 +85,4 @@ func NewStreamBufferSet() *marionette.StreamBufferSet {
 	s.Rand = NewRand()
 	return s
 }
+*/

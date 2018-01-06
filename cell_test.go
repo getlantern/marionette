@@ -83,6 +83,7 @@ func TestCell_MarshalBinary(t *testing.T) {
 	cell := &marionette.Cell{
 		Type:       marionette.NORMAL,
 		Payload:    []byte("foo"),
+		Length:     28,
 		SequenceID: 1,
 		StreamID:   3,
 		UUID:       4,

@@ -2,12 +2,8 @@ package marionette
 
 import (
 	"bytes"
-	"container/heap"
 	"encoding/binary"
 	"io"
-	"log"
-	"sort"
-	"sync"
 )
 
 const (
@@ -35,15 +31,13 @@ type Cell struct {
 }
 
 // NewCell returns a new instance of Cell.
-func NewCell(uuid, instanceID, streamID, sequenceID, length, typ int) *Cell {
+func NewCell(streamID, sequenceID, length, typ int) *Cell {
 	assert(streamID != 0)
 	return &Cell{
 		Type:       typ,
 		SequenceID: sequenceID,
 		Length:     length,
 		StreamID:   streamID,
-		UUID:       uuid,
-		InstanceID: instanceID,
 	}
 }
 
@@ -164,8 +158,14 @@ func (c *Cell) UnmarshalBinary(data []byte) (err error) {
 	return nil
 }
 
-// NOTE: CellDecoder == BufferIncoming
+type Cells []*Cell
 
+func (a Cells) Len() int           { return len(a) }
+func (a Cells) Less(i, j int) bool { return a[i].Compare(a[j]) == -1 }
+func (a Cells) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+// NOTE: CellDecoder == BufferIncoming
+/*
 type CellDecoder struct {
 	mu      sync.RWMutex
 	r       io.Reader
@@ -299,21 +299,4 @@ type cellDecoderStream struct {
 	sequenceID int
 	queue      cellHeap
 }
-
-type cellHeap []*Cell
-
-func (q cellHeap) Len() int           { return len(q) }
-func (q cellHeap) Less(i, j int) bool { return q[i].Compare(q[j]) == -1 }
-func (q cellHeap) Swap(i, j int)      { q[i], q[j] = q[j], q[i] }
-
-func (q *cellHeap) Push(x interface{}) {
-	*q = append(*q, x.(*Cell))
-}
-
-func (q *cellHeap) Pop() interface{} {
-	old := *q
-	n := len(old)
-	item := old[n-1]
-	*q = old[0 : n-1]
-	return item
-}
+*/

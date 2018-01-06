@@ -36,11 +36,12 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 		return false, err
 	}
 
-	cell := fsm.bufferSet.Pop(fsm.UUID(), fsm.InstanceID, cipher.Capacity() /*blocking*/)
+	cell := fsm.streams.GenerateCell(cipher.Capacity() /*blocking*/)
 	if cell == nil {
-		fsm.logger.Debug("fte.send: no data available")
+		fsm.logger().Debug("fte.send: no data available")
 		return false, nil
 	}
+	cell.UUID, cell.InstanceID = fsm.UUID(), fsm.InstanceID
 
 	plaintext, err := cell.MarshalBinary()
 	if err != nil {
@@ -102,7 +103,7 @@ func fteRecvPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 
 	// Unmarshal data.
 	var cell Cell
-	if err := cell.UnmarshalBinary(ciphertext); err != nil {
+	if err := cell.UnmarshalBinary(plaintext); err != nil {
 		return false, err
 	}
 
@@ -112,9 +113,11 @@ func fteRecvPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 		return false, nil
 	}
 
-	// TODO: Write plaintext to a cell decoder pipe.
+	// Write plaintext to a cell decoder pipe.
+	fsm.streams.AddCell(&cell)
 
-	fsm.SetBuffer(remainder)
+	// Push any additional bytes back onto the FSM's read buffer.
+	fsm.SetReadBuffer(remainder)
 
 	return true, nil
 }
