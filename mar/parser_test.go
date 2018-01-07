@@ -748,6 +748,16 @@ action downstream_async:
 			t.Fatalf("document mismatch:\n\ngot:%s\n\nexp:%s", spew.Sprintf("%#v", doc), spew.Sprintf("%#v", exp))
 		}
 	})
+
+	// Sanity check all built-in formats.
+	for _, format := range mar.Formats() {
+		t.Run(format, func(t *testing.T) {
+			name, version := mar.SplitFormat(format)
+			if _, err := mar.Parse("", mar.Format(name, version)); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 func Parse(party, data string) (*mar.Document, error) {

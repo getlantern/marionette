@@ -22,6 +22,7 @@ const (
 	DOT    // .
 	COMMA  // ,
 	COLON  // :
+	HASH   // #
 
 	// keywords
 	ACTION
@@ -50,6 +51,7 @@ var tokens = [...]string{
 	DOT:    ".",
 	COMMA:  ",",
 	COLON:  ":",
+	HASH:   "#",
 
 	ACTION:               "action",
 	CLIENT:               "client",

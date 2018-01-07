@@ -139,6 +139,16 @@ func TestScanner_Scan(t *testing.T) {
 		}
 	})
 
+	t.Run("HASH", func(t *testing.T) {
+		if tok, lit, pos := Scan("#"); tok != mar.HASH {
+			t.Fatalf("unexpected token: %s", tok.String())
+		} else if lit != `#` {
+			t.Fatalf("unexpected literal: %s", lit)
+		} else if pos != (mar.Pos{Line: 0, Char: 0}) {
+			t.Fatalf("unexpected pos: %#v", pos)
+		}
+	})
+
 	t.Run("ACTION", func(t *testing.T) {
 		if tok, lit, pos := Scan("action"); tok != mar.ACTION {
 			t.Fatalf("unexpected token: %s", tok.String())
