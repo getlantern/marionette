@@ -24,6 +24,8 @@ func NewDialer(doc *mar.Document, addr string) (*Dialer, error) {
 
 	fsm := NewFSM(doc, PartyClient)
 	fsm.conn = conn
+	fsm.streams.LocalAddr = conn.LocalAddr()
+	fsm.streams.RemoteAddr = conn.RemoteAddr()
 
 	// Run execution in a separate goroutine.
 	d := &Dialer{fsm: fsm}

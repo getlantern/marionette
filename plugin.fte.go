@@ -43,7 +43,7 @@ func fteSendPlugin(fsm *FSM, args []interface{}, isSync bool) (success bool, err
 	// If synchronous, send an empty cell if there is no data.
 	var cell *Cell
 	for {
-		cell = fsm.streams.GenerateCell(cipher.Capacity())
+		cell = fsm.streams.Dequeue(cipher.Capacity())
 		if cell != nil {
 			break
 		} else if isSync {
@@ -141,7 +141,9 @@ func fteRecvPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	}
 
 	// Write plaintext to a cell decoder pipe.
-	fsm.streams.AddCell(&cell)
+	if err := fsm.streams.Enqueue(&cell); err != nil {
+		return false, err
+	}
 
 	// Push any additional bytes back onto the FSM's read buffer.
 	fsm.SetReadBuffer(remainder)

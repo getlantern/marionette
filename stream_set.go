@@ -2,12 +2,17 @@ package marionette
 
 import (
 	"math/rand"
+	"net"
 	"sync"
 )
 
 type StreamSet struct {
 	mu      sync.Mutex
 	streams map[int]*Stream
+
+	// Network address information injected into each new stream.
+	LocalAddr  net.Addr
+	RemoteAddr net.Addr
 
 	// Callback invoked whenever a stream is created.
 	OnNewStream func(*Stream)
@@ -28,7 +33,9 @@ func (ss *StreamSet) Create() *Stream {
 }
 
 func (ss *StreamSet) create() *Stream {
-	stream := newStream(int(rand.Int31()))
+	stream := NewStream(int(rand.Int31()))
+	stream.localAddr = ss.LocalAddr
+	stream.remoteAddr = ss.RemoteAddr
 	ss.streams[stream.id] = stream
 
 	// Execute callback, if exists.
@@ -39,9 +46,9 @@ func (ss *StreamSet) create() *Stream {
 	return stream
 }
 
-// AddCell pushes a cell onto a stream's read queue.
+// Enqueue pushes a cell onto a stream's read queue.
 // If the stream doesn't exist then it is created.
-func (ss *StreamSet) AddCell(cell *Cell) {
+func (ss *StreamSet) Enqueue(cell *Cell) error {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
@@ -49,11 +56,11 @@ func (ss *StreamSet) AddCell(cell *Cell) {
 	if stream == nil {
 		stream = ss.create()
 	}
-	stream.AddCell(cell)
+	return stream.Enqueue(cell)
 }
 
-// GenerateCell returns a cell containing data for a random stream.
-func (ss *StreamSet) GenerateCell(n int) *Cell {
+// Dequeue returns a cell containing data for a random stream's write buffer.
+func (ss *StreamSet) Dequeue(n int) *Cell {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
@@ -72,7 +79,7 @@ func (ss *StreamSet) GenerateCell(n int) *Cell {
 	}
 
 	// Generate cell from stream. Remove from set if at the end.
-	cell := stream.GenerateCell(n)
+	cell := stream.Dequeue(n)
 	if cell.Type == END_OF_STREAM {
 		delete(ss.streams, stream.ID())
 	}

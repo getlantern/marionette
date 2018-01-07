@@ -70,13 +70,3 @@ func (tok Token) String() string {
 	}
 	return s
 }
-
-// TODO: Scanner rules
-/*
-IDENT/KEY: [a-zA-Z_][a-zA-Z0-9_#\?]*
-STRING: '("[^"]*")|(\'[^\']*\')'
-FLOAT: '([-]?(\d+)(\.\d+)(e(\+|-)?(\d+))? | (\d+)e(\+|-)?(\d+))([lL]|[fF])?'
-INTEGER: '[-]?\d+([uU]|[lL]|[uU][lL]|[lL][uU])?'
-
-TRANSPORT: tcp/udp
-*/

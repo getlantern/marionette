@@ -95,6 +95,8 @@ func (l *Listener) accept() {
 
 		fsm := NewFSM(l.doc, PartyServer)
 		fsm.conn = conn
+		fsm.streams.LocalAddr = conn.LocalAddr()
+		fsm.streams.RemoteAddr = conn.RemoteAddr()
 		fsm.streams.OnNewStream = l.onNewStream
 
 		// Run execution in a separate goroutine.
