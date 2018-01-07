@@ -25,15 +25,36 @@ func NewStreamSet() *StreamSet {
 	}
 }
 
-// Create returns a new stream.
+// Close closes all streams in the set.
+func (ss *StreamSet) Close() (err error) {
+	for _, stream := range ss.streams {
+		if e := stream.Close(); e != nil && err == nil {
+			err = e
+		}
+	}
+	return err
+}
+
+// Stream returns a stream by id.
+func (ss *StreamSet) Stream(id int) *Stream {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	return ss.streams[id]
+}
+
+// Create returns a new stream with a random stream id.
 func (ss *StreamSet) Create() *Stream {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
-	return ss.create()
+	return ss.create(0)
 }
 
-func (ss *StreamSet) create() *Stream {
-	stream := NewStream(int(rand.Int31()))
+func (ss *StreamSet) create(id int) *Stream {
+	if id == 0 {
+		id = int(rand.Int31() + 1)
+	}
+
+	stream := NewStream(id)
 	stream.localAddr = ss.LocalAddr
 	stream.remoteAddr = ss.RemoteAddr
 	ss.streams[stream.id] = stream
@@ -52,9 +73,15 @@ func (ss *StreamSet) Enqueue(cell *Cell) error {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
+	// Ignore empty cells.
+	if cell.StreamID == 0 {
+		return nil
+	}
+
+	// Create or find stream and enqueue cell.
 	stream := ss.streams[cell.StreamID]
 	if stream == nil {
-		stream = ss.create()
+		stream = ss.create(cell.StreamID)
 	}
 	return stream.Enqueue(cell)
 }
@@ -67,7 +94,7 @@ func (ss *StreamSet) Dequeue(n int) *Cell {
 	// Choose a random stream with data.
 	var stream *Stream
 	for _, s := range ss.streams {
-		if s.WriteBufferLen() > 0 && !s.Closed() {
+		if s.WriteBufferLen() > 0 || s.Closed() {
 			stream = s
 			break
 		}
