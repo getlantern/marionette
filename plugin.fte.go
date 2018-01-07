@@ -20,6 +20,8 @@ func FTESendAsyncPlugin(fsm *FSM, args []interface{}) (success bool, err error) 
 }
 
 func fteSendPlugin(fsm *FSM, args []interface{}, isSync bool) (success bool, err error) {
+	logger := fsm.logger()
+
 	if len(args) < 2 {
 		return false, errors.New("fte.send: not enough arguments")
 	}
@@ -43,10 +45,12 @@ func fteSendPlugin(fsm *FSM, args []interface{}, isSync bool) (success bool, err
 	// If synchronous, send an empty cell if there is no data.
 	var cell *Cell
 	for {
+		logger.Debug("fte.send: dequeuing cell")
 		cell = fsm.streams.Dequeue(cipher.Capacity())
 		if cell != nil {
 			break
 		} else if isSync {
+			logger.Debug("fte.send: no cell, sending empty cell")
 			cell = NewCell(0, 0, 0, NORMAL)
 			break
 		}
@@ -58,11 +62,15 @@ func fteSendPlugin(fsm *FSM, args []interface{}, isSync bool) (success bool, err
 	// Assign fsm data to cell.
 	cell.UUID, cell.InstanceID = fsm.UUID(), fsm.InstanceID
 
+	logger.Debug("fte.send: marshaling cell", zap.Int("n", len(cell.Payload)))
+
 	// Encode to binary.
 	plaintext, err := cell.MarshalBinary()
 	if err != nil {
 		return false, err
 	}
+
+	logger.Debug("fte.send: encrypting cell")
 
 	// Encrypt using FTE cipher.
 	ciphertext, err := cipher.Encrypt(plaintext)
@@ -70,10 +78,14 @@ func fteSendPlugin(fsm *FSM, args []interface{}, isSync bool) (success bool, err
 		return false, err
 	}
 
+	logger.Debug("fte.send: writing cell data")
+
 	// Write to outgoing connection.
 	if _, err := fsm.conn.Write(ciphertext); err != nil {
 		return false, err
 	}
+
+	logger.Debug("fte.send: cell data written")
 	return true, nil
 }
 
@@ -135,8 +147,9 @@ func fteRecvPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	logger.Debug("fte.recv: received cell", zap.Int("payload", len(cell.Payload)))
 
 	assert(fsm.UUID() == cell.UUID)
+	initRequired := fsm.InstanceID == 0
 	fsm.InstanceID = cell.InstanceID
-	if fsm.InstanceID == 0 || cell.StreamID == 0 {
+	if initRequired || cell.StreamID == 0 {
 		return false, nil
 	}
 

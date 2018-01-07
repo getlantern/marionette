@@ -32,7 +32,6 @@ type Cell struct {
 
 // NewCell returns a new instance of Cell.
 func NewCell(streamID, sequenceID, length, typ int) *Cell {
-	assert(streamID != 0)
 	return &Cell{
 		Type:       typ,
 		SequenceID: sequenceID,

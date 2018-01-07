@@ -2,6 +2,7 @@ package marionette
 
 import (
 	"context"
+	"errors"
 	"net"
 	"sync"
 
@@ -9,10 +10,18 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	// ErrDialerClosed is returned when trying to operate on a closed dialer.
+	ErrDialerClosed = errors.New("marionette: dialer closed")
+)
+
 // Dialer represents a client-side dialer that communicates over the marionette protocol.
 type Dialer struct {
+	mu  sync.RWMutex
 	fsm *FSM
-	wg  sync.WaitGroup
+
+	closed bool
+	wg     sync.WaitGroup
 }
 
 // NewDialer returns a new instance of Dialer.
@@ -36,18 +45,35 @@ func NewDialer(doc *mar.Document, addr string) (*Dialer, error) {
 
 // Close stops the dialer and its underlying connections.
 func (d *Dialer) Close() (err error) {
+	println("dbg/dialer.close.1")
+	d.mu.Lock()
+	println("dbg/dialer.close.2")
+	d.closed = true
+	d.mu.Unlock()
+
 	if e := d.fsm.conn.Close(); e != nil && err == nil {
 		err = e
 	}
-	if e := d.fsm.Close(); e != nil && err == nil {
-		err = e
-	}
+	println("dbg/dialer.close.3")
 	d.wg.Wait()
+	println("dbg/dialer.close.done")
+
 	return err
+}
+
+// Closed returns true if the dialer has been closed.
+func (d *Dialer) Closed() bool {
+	d.mu.RLock()
+	closed := d.closed
+	d.mu.RUnlock()
+	return closed
 }
 
 // Dial returns a new stream from the dialer.
 func (d *Dialer) Dial() (net.Conn, error) {
+	if d.Closed() {
+		return nil, ErrDialerClosed
+	}
 	return d.fsm.streams.Create(), nil
 }
 
@@ -55,7 +81,11 @@ func (d *Dialer) execute(ctx context.Context) {
 	Logger.Debug("client fsm executing")
 	defer Logger.Debug("client execution complete")
 
-	if err := d.fsm.Execute(ctx); err != nil {
-		Logger.Debug("client execution error", zap.Error(err))
+	for !d.Closed() {
+		if err := d.fsm.Execute(ctx); err != nil {
+			if !d.Closed() {
+				Logger.Debug("client execution error", zap.Error(err))
+			}
+		}
 	}
 }

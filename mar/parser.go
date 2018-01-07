@@ -105,6 +105,10 @@ func (p *Parser) Parse(data []byte) (*Document, error) {
 	}
 	doc.ActionBlocks = actionBlocks
 
+	if err := doc.Normalize(); err != nil {
+		return nil, err
+	}
+
 	return &doc, nil
 }
 

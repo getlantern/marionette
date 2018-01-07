@@ -3,6 +3,9 @@ package marionette_test
 import (
 	"bytes"
 	"io"
+	"net"
+	"sync"
+	"sync/atomic"
 	"testing"
 	// "time"
 
@@ -89,7 +92,6 @@ func TestIntegration(t *testing.T) {
 	})
 
 	t.Run("http_simple_blocking", func(t *testing.T) {
-		t.Skip("TODO: tg")
 		RunIntegration(t, mar.Format("http_simple_blocking", ""))
 	})
 
@@ -156,45 +158,150 @@ func TestIntegration(t *testing.T) {
 }
 
 func RunIntegration(t *testing.T, program []byte) {
-	// Open listener.
+	tt := MustOpenIntegrationTest(program)
+	defer MustCloseIntegrationTest(tt)
+
+	tt.Conn(
+		func(conn net.Conn) {
+			println("dbg/client.1")
+			if _, err := conn.Write([]byte(`foo`)); err != nil {
+				t.Fatal(err)
+			} else if _, err := conn.Write([]byte(`bar`)); err != nil {
+				t.Fatal(err)
+			}
+
+			println("dbg/client.2")
+			resp := make([]byte, 11)
+			if _, err := io.ReadFull(conn, resp); err != nil {
+				t.Fatal(err)
+			} else if string(resp) != `lorem ipsum` {
+				t.Fatalf("unexpected response: %s", resp)
+			}
+
+			println("dbg/client.3")
+			if err := conn.Close(); err != nil {
+				t.Fatal(err)
+			}
+			println("dbg/client.4")
+		},
+		func(conn net.Conn) {
+			println("dbg/server.1")
+			req := make([]byte, 6)
+			if _, err := io.ReadFull(conn, req); err != nil {
+				t.Fatal(err)
+			} else if string(req) != `foobar` {
+				t.Fatalf("unexpected request: %s", req)
+			}
+
+			println("dbg/server.2")
+			if _, err := conn.Write([]byte(`lorem`)); err != nil {
+				t.Fatal(err)
+			} else if _, err := conn.Write([]byte(` `)); err != nil {
+				t.Fatal(err)
+			} else if _, err := conn.Write([]byte(`ipsum`)); err != nil {
+				t.Fatal(err)
+			}
+
+			println("dbg/server.3")
+			if err := conn.Close(); err != nil {
+				t.Fatal(err)
+			}
+			println("dbg/server.4")
+		},
+	)
+
+	println("dbg/wait.1")
+	tt.Wait()
+	println("dbg/wait.done")
+}
+
+type IntegrationTest struct {
+	mu sync.Mutex
+	wg sync.WaitGroup
+
+	Listener *marionette.Listener
+	Dialer   *marionette.Dialer
+}
+
+func MustOpenIntegrationTest(program []byte) *IntegrationTest {
+	tt := &IntegrationTest{}
+
 	ln, err := marionette.Listen(mar.MustParse(marionette.PartyServer, program), "")
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
-	defer ln.Close()
+	tt.Listener = ln
 
-	// Connect using the dialer.
-	dialer, err := marionette.NewDialer(mar.MustParse(marionette.PartyClient, program), "127.0.0.1")
+	d, err := marionette.NewDialer(mar.MustParse(marionette.PartyClient, program), "127.0.0.1")
 	if err != nil {
-		t.Fatal(err)
+		tt.Listener.Close()
+		panic(err)
 	}
-	defer dialer.Close()
+	tt.Dialer = d
 
-	// Open a stream and write.
-	input, err := dialer.Dial()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer input.Close()
+	return tt
+}
 
-	if n, err := input.Write([]byte("foo")); err != nil {
-		t.Fatal(err)
-	} else if n != 3 {
-		t.Fatalf("unexpected n: %d", n)
+func MustCloseIntegrationTest(tt *IntegrationTest) {
+	if err := tt.Close(); err != nil {
+		panic(err)
 	}
+}
 
-	// Accept stream from server-side.
-	output, err := ln.Accept()
-	if err != nil {
-		t.Fatal(err)
+func (tt *IntegrationTest) Close() (err error) {
+	if e := tt.Dialer.Close(); e != nil && err == nil {
+		err = e
 	}
-	defer output.Close()
+	if e := tt.Listener.Close(); e != nil && err == nil {
+		err = e
+	}
+	return err
+}
 
-	// Read data from server-side.
-	buf := make([]byte, 3)
-	if _, err := io.ReadFull(output, buf); err != nil {
-		t.Fatal(err)
-	} else if string(buf) != `foo` {
-		t.Fatalf("unexpected read: %s", buf)
-	}
+func (tt *IntegrationTest) Wait() {
+	tt.wg.Wait()
+}
+
+// Conn creates a client/server connection that runs in separate goroutines.
+//
+// The connection must be created before the function returns so that the
+// listener accepts the matching client connection.
+func (tt *IntegrationTest) Conn(clientFn, serverFn func(conn net.Conn)) {
+	tt.mu.Lock()
+	defer tt.mu.Unlock()
+
+	tt.wg.Add(2)
+	connected := make(chan struct{})
+
+	// Execute client connection.
+	var streamID uint32
+	go func() {
+		defer tt.wg.Done()
+
+		conn, err := tt.Dialer.Dial()
+		if err != nil {
+			panic(err)
+		}
+		atomic.StoreUint32(&streamID, uint32(conn.(*marionette.Stream).ID()))
+
+		clientFn(conn)
+	}()
+
+	// Execute server connection.
+	go func() {
+		defer tt.wg.Done()
+
+		conn, err := tt.Listener.Accept()
+		if err != nil {
+			panic(err)
+		} else if id := atomic.LoadUint32(&streamID); id != uint32(conn.(*marionette.Stream).ID()) {
+			panic("stream mismatch")
+		}
+
+		connected <- struct{}{}
+		serverFn(conn)
+	}()
+
+	// Wait until client/server connections are created.
+	<-connected
 }

@@ -25,7 +25,8 @@ const (
 )
 
 type Cipher struct {
-	mu sync.Mutex
+	mu   sync.Mutex
+	once sync.Once
 
 	regex    string
 	filename string
@@ -78,16 +79,19 @@ func (c *Cipher) Open() error {
 }
 
 // Close stops the cipher process.
-func (c *Cipher) Close() error {
-	if c.cmd != nil {
-		if err := c.stdin.Close(); err != nil {
-			return err
-		} else if err := c.cmd.Wait(); err != nil {
-			return err
+func (c *Cipher) Close() (err error) {
+	c.once.Do(func() {
+		if c.cmd != nil {
+			if e := c.stdin.Close(); e != nil && err == nil {
+				err = e
+			}
+			if e := c.cmd.Wait(); e != nil && err == nil {
+				err = e
+			}
+			c.cmd = nil
 		}
-		c.cmd = nil
-	}
-	return nil
+	})
+	return err
 }
 
 // Capacity returns the capacity left in the encoder.

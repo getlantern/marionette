@@ -8,6 +8,7 @@ import (
 	"net"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/redjack/marionette/fte"
 	"github.com/redjack/marionette/mar"
@@ -43,13 +44,11 @@ func NewFSM(doc *mar.Document, party string) *FSM {
 	fsm := &FSM{
 		doc:         doc,
 		party:       party,
-		state:       "start",
 		streams:     NewStreamSet(),
-		vars:        make(map[string]interface{}),
 		transitions: make(map[string][]*mar.Transition),
-		ciphers:     make(map[cipherKey]*fte.Cipher),
 		buf:         make([]byte, 0, MaxCellLength),
 	}
+	fsm.Reset()
 
 	// Build transition map.
 	for _, t := range doc.Transitions {
@@ -65,13 +64,16 @@ func NewFSM(doc *mar.Document, party string) *FSM {
 	return fsm
 }
 
-func (fsm *FSM) Close() error {
+func (fsm *FSM) Reset() {
+	fsm.state = "start"
+	fsm.vars = make(map[string]interface{})
+
 	for _, c := range fsm.ciphers {
 		if err := c.Close(); err != nil {
 			fsm.logger().Error("cannot close cipher", zap.Error(err))
 		}
 	}
-	return nil
+	fsm.ciphers = make(map[cipherKey]*fte.Cipher)
 }
 
 func (fsm *FSM) UUID() int {
@@ -100,23 +102,24 @@ func (fsm *FSM) Dead() bool { return fsm.state == "dead" }
 
 // Execute runs the the FSM to completion.
 func (fsm *FSM) Execute(ctx context.Context) error {
+	fsm.Reset()
+
 	for !fsm.Dead() {
-		if err := fsm.Next(ctx); err != nil {
+		if err := fsm.Next(ctx); err == ErrNoTransition {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		} else if err != nil {
 			return err
 		}
 	}
-	return fsm.Close()
+	return nil
 }
 
 func (fsm *FSM) Next(ctx context.Context) (err error) {
+	assert(fsm.conn != nil)
+
 	logger := fsm.logger()
 	logger.Debug("fsm: Next()", zap.String("state", fsm.state))
-
-	// Exit if no connection available.
-	if fsm.conn == nil {
-		logger.Debug("fsm: no connection available")
-		return errors.New("fsm.Next(): no connection available")
-	}
 
 	// Generate a new PRNG once we have an instance ID.
 	if err := fsm.init(); err != nil {
@@ -277,8 +280,14 @@ func (fsm *FSM) ReadBuffer() ([]byte, error) {
 	}
 
 	// Read from connection with any available buffer space.
+	if err := fsm.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond)); err != nil {
+		return nil, err
+	}
 	n, err := fsm.conn.Read(fsm.buf[len(fsm.buf):cap(fsm.buf)])
 	if err != nil {
+		if isTimeoutError(err) {
+			return fsm.buf, nil
+		}
 		return fsm.buf, err
 	}
 	fsm.buf = fsm.buf[:len(fsm.buf)+int(n)]
@@ -335,4 +344,14 @@ type cipherKey struct {
 
 func (fsm *FSM) logger() *zap.Logger {
 	return Logger.With(zap.String("party", fsm.party))
+}
+
+// isTimeoutError returns true if the error is a timeout error.
+func isTimeoutError(err error) bool {
+	if err, ok := err.(interface {
+		Timeout() bool
+	}); ok && err.Timeout() {
+		return true
+	}
+	return false
 }

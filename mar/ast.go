@@ -51,6 +51,28 @@ func (doc *Document) ActionBlock(name string) *ActionBlock {
 	return nil
 }
 
+// HasTransition returns true if there is a transition between src and dst.
+func (doc *Document) HasTransition(src, dst string) bool {
+	for _, transition := range doc.Transitions {
+		if transition.Source == src && transition.Destination == dst {
+			return true
+		}
+	}
+	return false
+}
+
+// Normalize ensures document conforms to expected state.
+func (doc *Document) Normalize() error {
+	// Add dead state transitions.
+	if !doc.HasTransition("end", "dead") {
+		doc.Transitions = append(doc.Transitions, &Transition{Source: "end", Destination: "dead", ActionBlock: "NULL", Probability: 1})
+	}
+	if !doc.HasTransition("dead", "dead") {
+		doc.Transitions = append(doc.Transitions, &Transition{Source: "dead", Destination: "dead", ActionBlock: "NULL", Probability: 1})
+	}
+	return nil
+}
+
 type Transition struct {
 	Source            string
 	SourcePos         Pos

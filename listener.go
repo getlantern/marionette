@@ -11,6 +11,11 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	// ErrListenerClosed is returned when trying to operate on a closed listener.
+	ErrListenerClosed = errors.New("marionette: listener closed")
+)
+
 // Listener listens on a port and communicates over the marionette protocol.
 type Listener struct {
 	mu         sync.RWMutex
@@ -23,6 +28,7 @@ type Listener struct {
 	once    sync.Once
 	wg      sync.WaitGroup
 	closing chan struct{}
+	closed  bool
 }
 
 // Listen returns a new instance of Listener.
@@ -70,7 +76,10 @@ func (l *Listener) Addr() net.Addr { return l.ln.Addr() }
 func (l *Listener) Close() error {
 	err := l.ln.Close()
 
+	println("dbg/ln.close.1")
 	l.mu.Lock()
+	println("dbg/ln.close.2")
+	l.closed = true
 	for conn := range l.conns {
 		if e := conn.Close(); e != nil && err == nil {
 			err = e
@@ -79,15 +88,32 @@ func (l *Listener) Close() error {
 	}
 	l.mu.Unlock()
 
+	println("dbg/ln.close.3")
+
 	l.once.Do(func() { close(l.closing) })
+	println("dbg/ln.close.4")
 	l.wg.Wait()
+	println("dbg/ln.close.5")
+
 	return err
+}
+
+// Closed returns true if the listener has been closed.
+func (l *Listener) Closed() bool {
+	l.mu.RLock()
+	closed := l.closed
+	l.mu.RUnlock()
+	return closed
 }
 
 // Accept waits for a new connection.
 func (l *Listener) Accept() (net.Conn, error) {
-	stream := <-l.newStreams
-	return stream, l.Err()
+	select {
+	case <-l.closing:
+		return nil, ErrListenerClosed
+	case stream := <-l.newStreams:
+		return stream, l.Err()
+	}
 }
 
 // accept continually accepts networks connections and multiplexes to streams.
@@ -99,7 +125,11 @@ func (l *Listener) accept() {
 		conn, err := l.ln.Accept()
 		if err != nil {
 			l.mu.Lock()
-			l.err = err
+			if l.closed {
+				l.err = ErrListenerClosed
+			} else {
+				l.err = err
+			}
 			l.mu.Unlock()
 			return
 		}
@@ -123,8 +153,12 @@ func (l *Listener) execute(ctx context.Context, fsm *FSM) {
 	l.addConn(fsm.conn)
 	defer l.removeConn(fsm.conn)
 
-	if err := fsm.Execute(ctx); err != nil {
-		Logger.Debug("server fsm execution error", zap.Error(err))
+	for !l.Closed() {
+		if err := fsm.Execute(ctx); err != nil {
+			if !l.Closed() {
+				Logger.Debug("server fsm execution error", zap.Error(err))
+			}
+		}
 	}
 }
 
