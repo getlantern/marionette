@@ -15,6 +15,7 @@ import (
 type Listener struct {
 	mu         sync.RWMutex
 	ln         net.Listener
+	conns      map[net.Conn]struct{}
 	doc        *mar.Document
 	newStreams chan *Stream
 	err        error
@@ -43,6 +44,7 @@ func Listen(doc *mar.Document, iface string) (*Listener, error) {
 	l := &Listener{
 		ln:         ln,
 		doc:        doc,
+		conns:      make(map[net.Conn]struct{}),
 		newStreams: make(chan *Stream),
 		closing:    make(chan struct{}),
 	}
@@ -67,6 +69,15 @@ func (l *Listener) Addr() net.Addr { return l.ln.Addr() }
 // Close stops the listener and waits for the connections to finish.
 func (l *Listener) Close() error {
 	err := l.ln.Close()
+
+	l.mu.Lock()
+	for conn := range l.conns {
+		if e := conn.Close(); e != nil && err == nil {
+			err = e
+		}
+		delete(l.conns, conn)
+	}
+	l.mu.Unlock()
 
 	l.once.Do(func() { close(l.closing) })
 	l.wg.Wait()
@@ -109,6 +120,9 @@ func (l *Listener) execute(ctx context.Context, fsm *FSM) {
 	Logger.Debug("server fsm executing")
 	defer Logger.Debug("server fsm execution complete")
 
+	l.addConn(fsm.conn)
+	defer l.removeConn(fsm.conn)
+
 	if err := fsm.Execute(ctx); err != nil {
 		Logger.Debug("server fsm execution error", zap.Error(err))
 	}
@@ -118,4 +132,16 @@ func (l *Listener) execute(ctx context.Context, fsm *FSM) {
 func (l *Listener) onNewStream(stream *Stream) {
 	Logger.Debug("new server stream")
 	l.newStreams <- stream
+}
+
+func (l *Listener) addConn(conn net.Conn) {
+	l.mu.Lock()
+	l.conns[conn] = struct{}{}
+	l.mu.Unlock()
+}
+
+func (l *Listener) removeConn(conn net.Conn) {
+	l.mu.Lock()
+	delete(l.conns, conn)
+	l.mu.Unlock()
 }

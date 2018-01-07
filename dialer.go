@@ -35,8 +35,13 @@ func NewDialer(doc *mar.Document, addr string) (*Dialer, error) {
 }
 
 // Close stops the dialer and its underlying connections.
-func (d *Dialer) Close() error {
-	err := d.fsm.Close()
+func (d *Dialer) Close() (err error) {
+	if e := d.fsm.conn.Close(); e != nil && err == nil {
+		err = e
+	}
+	if e := d.fsm.Close(); e != nil && err == nil {
+		err = e
+	}
 	d.wg.Wait()
 	return err
 }
