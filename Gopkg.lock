@@ -14,6 +14,17 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/google/go-cmp"
+  packages = [
+    "cmp",
+    "cmp/internal/diff",
+    "cmp/internal/function",
+    "cmp/internal/value"
+  ]
+  revision = "8099a9787ce5dc5984ed879a3bda47dc730a8e97"
+  version = "v0.1.0"
+
+[[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
   revision = "8474b86a5a6f79c443ce4b2992817ff32cf208b8"
@@ -41,6 +52,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a0e685590dde4ecf25ffe85e419bcf8b968fb04e17229c23be805a6ec96efa6d"
+  inputs-digest = "42d19518923e159ed0918519c4378a9df7ed52ee1c5000e294da78fd6c06ac33"
   solver-name = "gps-cdcl"
   solver-version = 1
