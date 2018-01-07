@@ -163,14 +163,12 @@ func RunIntegration(t *testing.T, program []byte) {
 
 	tt.Conn(
 		func(conn net.Conn) {
-			println("dbg/client.1")
 			if _, err := conn.Write([]byte(`foo`)); err != nil {
 				t.Fatal(err)
 			} else if _, err := conn.Write([]byte(`bar`)); err != nil {
 				t.Fatal(err)
 			}
 
-			println("dbg/client.2")
 			resp := make([]byte, 11)
 			if _, err := io.ReadFull(conn, resp); err != nil {
 				t.Fatal(err)
@@ -178,14 +176,11 @@ func RunIntegration(t *testing.T, program []byte) {
 				t.Fatalf("unexpected response: %s", resp)
 			}
 
-			println("dbg/client.3")
 			if err := conn.Close(); err != nil {
 				t.Fatal(err)
 			}
-			println("dbg/client.4")
 		},
 		func(conn net.Conn) {
-			println("dbg/server.1")
 			req := make([]byte, 6)
 			if _, err := io.ReadFull(conn, req); err != nil {
 				t.Fatal(err)
@@ -193,7 +188,6 @@ func RunIntegration(t *testing.T, program []byte) {
 				t.Fatalf("unexpected request: %s", req)
 			}
 
-			println("dbg/server.2")
 			if _, err := conn.Write([]byte(`lorem`)); err != nil {
 				t.Fatal(err)
 			} else if _, err := conn.Write([]byte(` `)); err != nil {
@@ -202,17 +196,13 @@ func RunIntegration(t *testing.T, program []byte) {
 				t.Fatal(err)
 			}
 
-			println("dbg/server.3")
 			if err := conn.Close(); err != nil {
 				t.Fatal(err)
 			}
-			println("dbg/server.4")
 		},
 	)
 
-	println("dbg/wait.1")
 	tt.Wait()
-	println("dbg/wait.done")
 }
 
 type IntegrationTest struct {

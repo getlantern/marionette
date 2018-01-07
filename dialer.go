@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/redjack/marionette/mar"
 	"go.uber.org/zap"
@@ -45,18 +46,14 @@ func NewDialer(doc *mar.Document, addr string) (*Dialer, error) {
 
 // Close stops the dialer and its underlying connections.
 func (d *Dialer) Close() (err error) {
-	println("dbg/dialer.close.1")
 	d.mu.Lock()
-	println("dbg/dialer.close.2")
 	d.closed = true
 	d.mu.Unlock()
 
 	if e := d.fsm.conn.Close(); e != nil && err == nil {
 		err = e
 	}
-	println("dbg/dialer.close.3")
 	d.wg.Wait()
-	println("dbg/dialer.close.done")
 
 	return err
 }
@@ -86,6 +83,7 @@ func (d *Dialer) execute(ctx context.Context) {
 			if !d.Closed() {
 				Logger.Debug("client execution error", zap.Error(err))
 			}
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }

@@ -54,7 +54,7 @@ func run() error {
 	}
 
 	// Parse document.
-	doc, err := mar.Parse(data)
+	doc, err := mar.Parse(marionette.PartyServer, data)
 	if err != nil {
 		return err
 	}

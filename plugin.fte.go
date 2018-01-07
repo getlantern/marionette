@@ -2,6 +2,7 @@ package marionette
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -19,7 +20,7 @@ func FTESendAsyncPlugin(fsm *FSM, args []interface{}) (success bool, err error) 
 	return fteSendPlugin(fsm, args, false)
 }
 
-func fteSendPlugin(fsm *FSM, args []interface{}, isSync bool) (success bool, err error) {
+func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, err error) {
 	logger := fsm.logger()
 
 	if len(args) < 2 {
@@ -49,7 +50,7 @@ func fteSendPlugin(fsm *FSM, args []interface{}, isSync bool) (success bool, err
 		cell = fsm.streams.Dequeue(cipher.Capacity())
 		if cell != nil {
 			break
-		} else if isSync {
+		} else if !blocking {
 			logger.Debug("fte.send: no cell, sending empty cell")
 			cell = NewCell(0, 0, 0, NORMAL)
 			break
@@ -62,7 +63,8 @@ func fteSendPlugin(fsm *FSM, args []interface{}, isSync bool) (success bool, err
 	// Assign fsm data to cell.
 	cell.UUID, cell.InstanceID = fsm.UUID(), fsm.InstanceID
 
-	logger.Debug("fte.send: marshaling cell", zap.Int("n", len(cell.Payload)))
+	logger.Info("fte.send: marshaling cell", zap.Int("n", len(cell.Payload)))
+	fmt.Println(string(cell.Payload))
 
 	// Encode to binary.
 	plaintext, err := cell.MarshalBinary()
@@ -144,7 +146,8 @@ func fteRecvPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 		return false, err
 	}
 
-	logger.Debug("fte.recv: received cell", zap.Int("payload", len(cell.Payload)))
+	logger.Info("fte.recv: received cell", zap.Int("n", len(cell.Payload)))
+	fmt.Println(string(cell.Payload))
 
 	assert(fsm.UUID() == cell.UUID)
 	initRequired := fsm.InstanceID == 0

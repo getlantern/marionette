@@ -6,6 +6,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/redjack/marionette/mar"
 	"go.uber.org/zap"
@@ -76,9 +77,7 @@ func (l *Listener) Addr() net.Addr { return l.ln.Addr() }
 func (l *Listener) Close() error {
 	err := l.ln.Close()
 
-	println("dbg/ln.close.1")
 	l.mu.Lock()
-	println("dbg/ln.close.2")
 	l.closed = true
 	for conn := range l.conns {
 		if e := conn.Close(); e != nil && err == nil {
@@ -88,12 +87,8 @@ func (l *Listener) Close() error {
 	}
 	l.mu.Unlock()
 
-	println("dbg/ln.close.3")
-
 	l.once.Do(func() { close(l.closing) })
-	println("dbg/ln.close.4")
 	l.wg.Wait()
-	println("dbg/ln.close.5")
 
 	return err
 }
@@ -158,6 +153,7 @@ func (l *Listener) execute(ctx context.Context, fsm *FSM) {
 			if !l.Closed() {
 				Logger.Debug("server fsm execution error", zap.Error(err))
 			}
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
