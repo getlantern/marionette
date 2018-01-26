@@ -87,42 +87,23 @@ def recv(channel, marionette_state, input_args):
 
 */
 
-/*
-def get_grammar_capacity(grammar):
-    retval = 0
-    for handler_key in conf[grammar]["handler_order"]:
-        retval += conf[grammar]['handlers'][handler_key].capacity()
-    retval /= 8.0
+func get_grammar_capacity(grammar) {
+    var n int
+    for _, h := range tgConfigs[grammar].Handlers {
+        retval += h.capacity()
+    }
     return retval
-
-# handler + (un)embed functions
-
-
-*/
-
-/*
-def do_embed(grammar, template, handler_key, value):
-    if template.count("%%" + handler_key + "%%") == 0:
-        # handler not in template, no need to execute
-        pass
-    elif template.count("%%" + handler_key + "%%") == 1:
-        template = template.replace("%%" + handler_key + "%%", value)
-    else:
-        # don't know how to handle >1 handlers, yet
-        assert False
-
-    return template
+}
 
 
-*/
+func do_embed(template, handler_key, value string) {
+	return strings.Replace(template, "%%" + handler_key + "%%", value, -1)
+}
 
-/*
-def do_unembed(grammar, ctxt, handler_key):
-    parse_tree = parser(grammar, ctxt)
+func do_unembed(grammar, ciphertext, handler_key string) string {
+    parse_tree := parser(grammar, ciphertext)
     return parse_tree[handler_key]
-
-
-*/
+}
 
 func execute_handler_sender(fsm *FSM, grammar string, handler *tgHandler, template string) string {
 	// Encode data from streams if there is capacity in the handler.
@@ -139,26 +120,18 @@ func execute_handler_sender(fsm *FSM, grammar string, handler *tgHandler, templa
 	}
 
 	value_to_embed := handler.encode(fsm, template, to_embed)
-	return do_embed(grammar, template, handler, value_to_embed)
+	return do_embed(template, handler, value_to_embed)
 }
 
-/*
-def execute_handler_receiver(marionette_state, grammar, handler_key,
-                             ctxt):
-    ptxt = ''
+func execute_handler_receiver(fsm *FSM, grammar, handler_key, ciphertext string) string {
+    handler_key_value = do_unembed(grammar, ciphertext, handler_key)
 
-    to_execute = conf[grammar]["handlers"][handler_key]
+    to_execute := conf[grammar].Handler(handler_key)
+    return to_execute.decode(marionette_state, handler_key_value)
+}
 
-    handler_key_value = do_unembed(grammar, ctxt, handler_key)
-    ptxt = to_execute.decode(marionette_state, handler_key_value)
-
-    return ptxt
-
-# handlers
-
-regex_cache_ = {}
-fte_cache_ = {}
-*/
+var regex_cache_ = {}
+var fte_cache_ = {}
 
 type RankerCrypter struct {
 	regex   string
@@ -382,231 +355,212 @@ func (c *SetDnsIp) decode(fsm *FSM, ciphertext string) string {
 	return ""
 }
 
-var amazon_msg_lens = map[int]int{
-	2049:  1,
-	2052:  2,
-	2054:  2,
-	2057:  3,
-	2058:  2,
-	2059:  1,
-	2065:  1,
-	17429: 1,
-	3098:  1,
-	687:   3,
-	2084:  1,
-	42:    58,
-	43:    107,
-	9260:  1,
-	11309: 1,
-	11829: 1,
-	9271:  1,
-	6154:  1,
-	64:    15,
-	1094:  1,
-	12376: 1,
-	89:    1,
-	10848: 1,
-	5223:  1,
-	69231: 1,
-	7795:  1,
-	2678:  1,
-	8830:  1,
-	29826: 1,
-	16006: 10,
-	8938:  1,
-	17055: 2,
-	87712: 1,
-	23202: 1,
-	7441:  1,
-	17681: 1,
-	12456: 1,
-	41132: 1,
-	25263: 6,
-	689:   1,
-	9916:  1,
-	10101: 2,
-	1730:  1,
-	10948: 1,
-	26826: 1,
-	6357:  1,
-	13021: 2,
-	1246:  4,
-	19683: 1,
-	1765:  1,
-	1767:  1,
-	1768:  1,
-	1769:  4,
-	1770:  6,
-	1771:  3,
-	1772:  2,
-	1773:  4,
-	1774:  4,
-	1775:  1,
-	1776:  1,
-	1779:  1,
-	40696: 1,
-	767:   1,
-	17665: 1,
-	27909: 1,
-	12550: 1,
-	5385:  1,
-	16651: 1,
-	5392:  1,
-	26385: 1,
-	12056: 1,
-	41245: 2,
-	13097: 1,
-	15152: 1,
-	310:   1,
-	40759: 1,
-	9528:  1,
-	8000:  7,
-	471:   1,
-	15180: 1,
-	14158: 3,
-	37719: 2,
-	1895:  1,
-	31082: 1,
-	19824: 1,
-	30956: 1,
-	18807: 1,
-	11095: 1,
-	37756: 2,
-	746:   1,
-	10475: 1,
-	4332:  1,
-	35730: 1,
-	11667: 1,
-	16788: 1,
-	12182: 4,
-	39663: 1,
-	9126:  1,
-	35760: 1,
-	12735: 1,
-	6594:  1,
-	451:   15,
-	19402: 1,
-	463:   3,
-	10193: 1,
-	16853: 6,
-	982:   1,
-	15865: 1,
-	2008:  2,
-	476:   1,
-	13655: 1,
-	10213: 1,
-	10737: 1,
-	15858: 1,
-	2035:  6,
-	2039:  1,
-	2041:  2,
+
+var amazon_msg_lens []int
+
+func init() { 
+	for _, item := range []struct {
+		n int
+		weight int
+	}{
+		{n: 2049:  weight:1},
+		{n: 2052:  weight:2},
+		{n: 2054:  weight:2},
+		{n: 2057:  weight:3},
+		{n: 2058:  weight:2},
+		{n: 2059:  weight:1},
+		{n: 2065:  weight:1},
+		{n: 17429: weight:1},
+		{n: 3098:  weight:1},
+		{n: 687:   weight:3},
+		{n: 2084:  weight:1},
+		{n: 42:    weight:58},
+		{n: 43:    weight:107},
+		{n: 9260:  weight:1},
+		{n: 11309: weight:1},
+		{n: 11829: weight:1},
+		{n: 9271:  weight:1},
+		{n: 6154:  weight:1},
+		{n: 64:    weight:15},
+		{n: 1094:  weight:1},
+		{n: 12376: weight:1},
+		{n: 89:    weight:1},
+		{n: 10848: weight:1},
+		{n: 5223:  weight:1},
+		{n: 69231: weight:1},
+		{n: 7795:  weight:1},
+		{n: 2678:  weight:1},
+		{n: 8830:  weight:1},
+		{n: 29826: weight:1},
+		{n: 16006: weight:10},
+		{n: 8938:  weight:1},
+		{n: 17055: weight:2},
+		{n: 87712: weight:1},
+		{n: 23202: weight:1},
+		{n: 7441:  weight:1},
+		{n: 17681: weight:1},
+		{n: 12456: weight:1},
+		{n: 41132: weight:1},
+		{n: 25263: weight:6},
+		{n: 689:   weight:1},
+		{n: 9916:  weight:1},
+		{n: 10101: weight:2},
+		{n: 1730:  weight:1},
+		{n: 10948: weight:1},
+		{n: 26826: weight:1},
+		{n: 6357:  weight:1},
+		{n: 13021: weight:2},
+		{n: 1246:  weight:4},
+		{n: 19683: weight:1},
+		{n: 1765:  weight:1},
+		{n: 1767:  weight:1},
+		{n: 1768:  weight:1},
+		{n: 1769:  weight:4},
+		{n: 1770:  weight:6},
+		{n: 1771:  weight:3},
+		{n: 1772:  weight:2},
+		{n: 1773:  weight:4},
+		{n: 1774:  weight:4},
+		{n: 1775:  weight:1},
+		{n: 1776:  weight:1},
+		{n: 1779:  weight:1},
+		{n: 40696: weight:1},
+		{n: 767:   weight:1},
+		{n: 17665: weight:1},
+		{n: 27909: weight:1},
+		{n: 12550: weight:1},
+		{n: 5385:  weight:1},
+		{n: 16651: weight:1},
+		{n: 5392:  weight:1},
+		{n: 26385: weight:1},
+		{n: 12056: weight:1},
+		{n: 41245: weight:2},
+		{n: 13097: weight:1},
+		{n: 15152: weight:1},
+		{n: 310:   weight:1},
+		{n: 40759: weight:1},
+		{n: 9528:  weight:1},
+		{n: 8000:  weight:7},
+		{n: 471:   weight:1},
+		{n: 15180: weight:1},
+		{n: 14158: weight:3},
+		{n: 37719: weight:2},
+		{n: 1895:  weight:1},
+		{n: 31082: weight:1},
+		{n: 19824: weight:1},
+		{n: 30956: weight:1},
+		{n: 18807: weight:1},
+		{n: 11095: weight:1},
+		{n: 37756: weight:2},
+		{n: 746:   weight:1},
+		{n: 10475: weight:1},
+		{n: 4332:  weight:1},
+		{n: 35730: weight:1},
+		{n: 11667: weight:1},
+		{n: 16788: weight:1},
+		{n: 12182: weight:4},
+		{n: 39663: weight:1},
+		{n: 9126:  weight:1},
+		{n: 35760: weight:1},
+		{n: 12735: weight:1},
+		{n: 6594:  weight:1},
+		{n: 451:   weight:15},
+		{n: 19402: weight:1},
+		{n: 463:   weight:3},
+		{n: 10193: weight:1},
+		{n: 16853: weight:6},
+		{n: 982:   weight:1},
+		{n: 15865: weight:1},
+		{n: 2008:  weight:2},
+		{n: 476:   weight:1},
+		{n: 13655: weight:1},
+		{n: 10213: weight:1},
+		{n: 10737: weight:1},
+		{n: 15858: weight:1},
+		{n: 2035:  weight:6},
+		{n: 2039:  weight:1},
+		{n: 2041:  weight:2},
+	} {
+		for i := 0; i<item.weight; i++ {
+			amazon_msg_lens = append(amazon_msg_lens, item.n)
+		}
+	}
 }
 
-/*
+cont MIN_PTXT_LEN = fte.encoder.DfaEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTTEXT + fte.encrypter.Encrypter._CTXT_EXPANSION + 32
 
-MIN_PTXT_LEN = fte.encoder.DfaEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTTEXT + \
-    fte.encrypter.Encrypter._CTXT_EXPANSION + 32
-*/
+type AmazonMsgLensHandler struct {}
 
-/*
+func NewAmazonMsgLensHandler(regex string) *AmazonMsgLensHandler {
+        // key = self.regex_ + str(self.min_len_)
+        // if not fte_cache_.get(key):
+        //     dfa = regex2dfa.regex2dfa(self.regex_)
+        //     encoder = fte.encoder.DfaEncoder(dfa, self.min_len_)
+        //     fte_cache_[key] = (dfa, encoder)
 
-class AmazonMsgLensHandler(object):
-    def __init__(self, regex, min_len = MIN_PTXT_LEN, msg_lens = amazon_msg_lens):
-        self.regex_ = regex
+	return &AmazonMsgLensHandler {
+		min_len: MIN_PTXT_LEN,
+		max_len_: 1 << 18,
+		target_len_: 0.0,
+	    regex_: regex,
+	}
+}
 
-        self.msg_lens_ = msg_lens
-        self.random_lens_ = []
-        for key in self.msg_lens_:
-            self.random_lens_ += [key] * self.msg_lens_[key]
+func    (h *AmazonMsgLensHandler) capacity() int {
+       h.target_len_ = amazon_msg_lens[rand.Intn(amazon_msg_lens)]
+       if h.target_len_ < h.min_len_ {
+           return 0
+       } else if  h.target_len_ > h.max_len_ {
+           // We do this to prevent unranking really large slices
+           // in practice this is probably bad since it unnaturally caps
+           // our message sizes to whatever FTE can support
+           h.target_len_ = h.max_len_
+           return h.max_len_
+	   } 
+       n := h.target_len_ - fte.encoder.DfaEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTTEXT
+       n -= fte.encrypter.Encrypter._CTXT_EXPANSION
+       // n = int(ptxt_len * 8.0)-1
+       return n
+}
 
-        self.min_len_ = min_len
+   func    (h *AmazonMsgLensHandler)  encode( marionette_state, template, to_embed) {
+       if h.target_len_ < h.min_len_ || h.target_len_ > h.max_len_ {
+           key := h.regex_ + str(h.target_len_)
+           if not regex_cache_.get(key) {
+               dfa := regex2dfa.regex2dfa(h.regex_)
+               cdfa_obj := fte.cDFA.DFA(dfa, h.target_len_)
+               encoder := fte.dfa.DFA(cdfa_obj, h.target_len_)
+               regex_cache_[key] = encoder
+			}
+           encoder := regex_cache_[key]
 
-        key = self.regex_ + str(self.min_len_)
-        if not fte_cache_.get(key):
-            dfa = regex2dfa.regex2dfa(self.regex_)
-            encoder = fte.encoder.DfaEncoder(dfa, self.min_len_)
-            fte_cache_[key] = (dfa, encoder)
+           to_unrank := random.Intn(encoder.getNumWordsInSlice(h.target_len_))
+           return encoder.unrank(to_unrank)
+		}
+       
+           key := h.regex_ + str(h.min_len_)
+           encoder := fte_cache_[key]
 
-        self.max_len_ = 2**18
+           ciphertext := encoder.encode(to_embed)
 
-        self.target_len_ = 0.0
+           if len(ciphertext) != h.target_len_ {
+               return fmt.Errorf("Could not find ciphertext of len %d (%d)" , h.target_len_, len(ciphertext))
+           }
 
-*/
+       return ciphertext
+}
 
-/*
 
-   def capacity(self):
+   func    (h *AmazonMsgLensHandler)  decode(self, marionette_state, ctxt) {
+       if len(ctxt) < self.min_len_ {
+       	return ""
+       }
+       key := self.regex_ + str(self.min_len_)
+        encoder = fte_cache_[key]
 
-       self.target_len_ = random.choice(self.random_lens_)
-
-       if self.target_len_ < self.min_len_:
-           ptxt_len = 0.0
-
-       elif self.target_len_ > self.max_len_:
-           #We do this to prevent unranking really large slices
-           # in practice this is probably bad since it unnaturally caps
-           # our message sizes to whatever FTE can support
-           ptxt_len = self.max_len_
-           self.target_len_ = self.max_len_
-
-       else:
-           ptxt_len = self.target_len_ - fte.encoder.DfaEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTTEXT
-           ptxt_len -= fte.encrypter.Encrypter._CTXT_EXPANSION
-           ptxt_len = int(ptxt_len * 8.0)-1
-
-       return ptxt_len
-*/
-
-/*
-
-   def encode(self, marionette_state, template, to_embed):
-       ctxt = ''
-
-       if self.target_len_ < self.min_len_ or self.target_len_ > self.max_len_:
-           key = self.regex_ + str(self.target_len_)
-           if not regex_cache_.get(key):
-               dfa = regex2dfa.regex2dfa(self.regex_)
-               cdfa_obj = fte.cDFA.DFA(dfa, self.target_len_)
-               encoder = fte.dfa.DFA(cdfa_obj, self.target_len_)
-               regex_cache_[key] = (dfa, encoder)
-
-           (dfa, encoder) = regex_cache_[key]
-
-           to_unrank = random.randint(0, encoder.getNumWordsInSlice(self.target_len_))
-           ctxt = encoder.unrank(to_unrank)
-
-       else:
-           key = self.regex_ + str(self.min_len_)
-           (dfa, encoder) = fte_cache_[key]
-
-           ctxt = encoder.encode(to_embed)
-
-           if len(ctxt) != self.target_len_:
-               raise Exception("Could not find ctxt of len %d (%d)" %
-                   (self.target_len_,len(ctxt)))
-
-       return ctxt
-*/
-
-/*
-
-   def decode(self, marionette_state, ctxt):
-       ptxt = None
-
-       ctxt_len = len(ctxt)
-
-       if ctxt_len >= self.min_len_:
-           key = self.regex_ + str(self.min_len_)
-           (dfa, encoder) = fte_cache_[key]
-
-           try:
-               retval = encoder.decode(ctxt)
-               ptxt = retval[0]
-           except Exception as e:
-               pass
-
-       return ptxt
-*/
+       plaintext := encoder.decode(ctxt)
+       return plaintext
+}
 
 type tgConfig struct {
 	Grammar  string
@@ -718,30 +672,26 @@ var tgConfigs = map[string]*tgConfig{
 	},
 }
 
-/*
-
-# grammars
-
-
-def parser(grammar, msg):
-    if grammar.startswith(
-            "http_response") or grammar == "http_amazon_response":
+func  parse(grammar, msg) {
+    if strings.HasPrefix(grammar, "http_response") || grammar == "http_amazon_response" {
         return http_response_parser(msg)
-    elif grammar.startswith("http_request") or grammar == "http_amazon_request":
+    } else if strings.HasPrefix(grammar, "http_request") || grammar == "http_amazon_request" {
         return http_request_parser(msg)
-    elif grammar.startswith("pop3_message_response"):
+    } else if strings.HasPrefix(grammar, "pop3_message_response") {
         return pop3_parser(msg)
-    elif grammar.startswith("pop3_password"):
+    } else if strings.HasPrefix(grammar, "pop3_password") {
         return pop3_password_parser(msg)
-    elif grammar.startswith("ftp_entering_passive"):
+    } else if strings.HasPrefix(grammar, "ftp_entering_passive") {
         return ftp_entering_passive_parser(msg)
-    elif grammar.startswith("dns_request"):
+    } else if strings.HasPrefix(grammar, "dns_request") {
         return dns_request_parser(msg)
-    elif grammar.startswith("dns_response"):
+    } else if strings.HasPrefix(grammar, "dns_response") {
         return dns_response_parser(msg)
+    }
+    return ""
+}
 
 
-*/
 
 var templates = map[string][]string{
 	"http_request_keep_alive": []string{
@@ -794,209 +744,197 @@ var templates = map[string][]string{
 	},
 }
 
-/*
-
-def get_http_header(header_name, msg):
-    retval = None
-
-    message_lines = msg.split("\r\n")
-    for line in message_lines[1:-2]:
-        line_compontents = line.partition(": ")
-        if line_compontents[0] == header_name:
-            retval = line_compontents[-1]
-            break
-
-    return retval
-*/
-
-/*
+func get_http_header(header_name, msg string) string {
+    lines := msg.split("\r\n")
+    for _, line := range lines[1:len(lines)-2] {        
+        if a := strings.Split(line, ": ", 2); a[0] == header_name {
+            if len(a) > 1 {
+            	return a[1]
+        	}
+        	return ""
+        }
+	}
+    return ""
+}
 
 
-def http_request_parser(msg):
-    if not msg.startswith("GET"):
-        return None
+func http_request_parser(msg string) map[string]interface{} {
+    if !strings.HasPrefix( msg.startswith("GET") ) {
+        return nil
+    } else if !strings.HasSuffix(msg, "\r\n\r\n") {
+        return nil
+    }
 
-    retval = {}
 
-    if msg.startswith("GET http"):
-        retval["URL"] = '/'.join(msg.split('\r\n')[0][:-9].split('/')[3:])
-    else:
-        retval["URL"] = '/'.join(msg.split('\r\n')[0][:-9].split('/')[1:])
+	lines := lineBreakRegex.Split(msg)
+	segments := strings.Split(lines[0][:len(lines[0])-9], "/")
 
-    if not msg.endswith("\r\n\r\n"):
-        retval = None
+    if strings.HasPrefix(msg, "GET http") {
+        return map[string]interface{}{"URL": strings.Join(segments[3:], "/")}
+    } 
+    return map[string]interface{}{"URL": strings.Join(segments[1:], "/")}
+}
 
-    return retval
+var lineBreakRegex = regexp.MustCompile(`\r\n`)
 
-*/
 
-/*
+func http_response_parser(msg)map[string]interface{} {
+    if !strings.HasPrefix(msg, "HTTP") {
+        return nil
+    }
 
-def http_response_parser(msg):
-    if not msg.startswith("HTTP"):
-        return None
+    m :=  make(map[string]interface{})
+    m["CONTENT-LENGTH"], _ = strconv.Atoi(get_http_header("Content-Length", msg))
+    m["COOKIE"] = get_http_header("Cookie", msg)
+    if a := strings.Split(msg< "\r\n\r\n"); len(a) > 1 {
+        m["HTTP-RESPONSE-BODY"] = a[1]
+    } else {
+        m["HTTP-RESPONSE-BODY"] = ""
+       }
 
-    retval = {}
+    if m["CONTENT-LENGTH"] != len(m["HTTP-RESPONSE-BODY"]) {
+        return nil
+    }
 
-    retval["CONTENT-LENGTH"] = int(get_http_header("Content-Length", msg))
-    retval["COOKIE"] = get_http_header("Cookie", msg)
-    try:
-        retval["HTTP-RESPONSE-BODY"] = msg.split("\r\n\r\n")[1]
-    except:
-        retval["HTTP-RESPONSE-BODY"] = ''
+    return m
+}
 
-    if retval["CONTENT-LENGTH"] != len(retval["HTTP-RESPONSE-BODY"]):
-        retval = None
 
-    return retval
 
-*/
+func pop3_parser(msg) map[string]interface{} {
+    a := strings.Split(msg, "\n\n"); 
+    if len(a) < 2 {
+    	return make(map[string]interface{})
+    }
+    
+    body := a[1]
+	if !strings.HasSuffix(body, "\n.\n") {
+    	return fmt.Errorf("invalid POP3-RESPONSE-BODY")
+    }
+    body = strings.TrimSuffix(body ,"\n.\n")
+    
 
-/*
+    return map[string]interface{}{
+		"POP3-RESPONSE-BODY": body,
+		"CONTENT-LENGTH": len(body),
+    }
+}
 
-def pop3_parser(msg):
-    retval = {}
+func pop3_password_parser(msg) map[string]interface{} {
+    if  !strings.HasSuffix(msg, "\n") {
+    	return nil
+    }
+    return map[string]interface{}{
+    	"PASSWORD": msg[5:len(msg)-1],
+    }
+}
 
-    try:
-        retval["POP3-RESPONSE-BODY"] = msg.split('\n\n')[1]
-        assert retval["POP3-RESPONSE-BODY"].endswith('\n.\n')
-        retval["POP3-RESPONSE-BODY"] = retval["POP3-RESPONSE-BODY"][:-3]
-        retval["CONTENT-LENGTH"] = len(retval["POP3-RESPONSE-BODY"])
-    except Exception as e:
-        pass
-        retval = {}
+func ftp_entering_passive_parser(msg) map[string]interface{} {
+    if !strings.HasPrefix(msg, "227 Entering Passive Mode (") || !strings.HasSuffix(msg, ").\n") {
+    	return make(map[string]interface{})
+    }
 
-    return retval
+	a := msg.split(',')
+	if len(a) < 6 {
+		return make(map[string]interface{})
+	}
 
-*/
+	return map[string]interface{}{
+        "FTP_PASV_PORT_X": int(a[4]),
+        "FTP_PASV_PORT_Y": int(a[5][:len(a[5])-3]),
+	}
+}
 
-/*
 
-def pop3_password_parser(msg):
-    retval = {}
+func validate_dns_domain(msg string, dns_response bool) string {
+    delim, splitN :=  "\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00", 2
+    if dns_response {
+        delim, splitN =  "\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00", 3
+    } 
 
-    try:
-        assert msg.endswith('\n')
-        retval["PASSWORD"] = msg[5:-1]
-    except Exception as e:
-        retval = {}
+    tmp_domain_split1 := strings.Split(msg, delim)
+    if len(tmp_domain_split1) != 2 {
+        return ""
+    }
 
-    return retval
-*/
+    tmp_domain_split2 := strings.Split(tmp_domain_split1[1], "\x00\x01\x00\x01")
+    if len(tmp_domain_split2) != splitN {
+        return ""
+    }
 
-/*
+    tmp_domain := tmp_domain_split2[0]
 
-def ftp_entering_passive_parser(msg):
-    retval = {}
+    // Check for valid prepended length
+    // Remove trailing tld prepended length (1), tld (3) and trailing null (1) = 5
+    if int(tmp_domain[0]) != len(tmp_domain[1:len(tmp_domain)-5]) {
+        return ""
+    } else if int(tmp_domain[-5]) != 3 {
+        return ""
+    }
 
-    try:
-        assert msg.startswith("227 Entering Passive Mode (")
-        assert msg.endswith(").\n")
-        bits = msg.split(',')
-        retval['FTP_PASV_PORT_X'] = int(bits[4])
-        retval['FTP_PASV_PORT_Y'] = int(bits[5][:-3])
-    except Exception as e:
-        retval = {}
-
-    return retval
-
-*/
-
-/*
-
-def validate_dns_domain(msg, dns_response=False):
-    if dns_response:
-        expected_splits = 3
-        split1_msg = '\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00'
-    else:
-        expected_splits = 2
-        split1_msg = '\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00'
-
-    tmp_domain_split1 = msg.split(split1_msg)
-    if len(tmp_domain_split1) != 2:
-        return None
-    tmp_domain_split2 = tmp_domain_split1[1].split('\x00\x01\x00\x01')
-    if len(tmp_domain_split2) != expected_splits:
-        return None
-    tmp_domain = tmp_domain_split2[0]
-    # Check for valid prepended length
-    # Remove trailing tld prepended length (1), tld (3) and trailing null (1) = 5
-    if ord(tmp_domain[0]) != len(tmp_domain[1:-5]):
-        return None
-    if ord(tmp_domain[-5]) != 3:
-        return None
-    # Check for valid TLD
-    if not re.search("(com|net|org)\x00$", tmp_domain):
-        return None
-    # Check for valid domain characters
-    if not re.match("^[\w\d]+$", tmp_domain[1:-5]):
-        return None
+    // Check for valid TLD
+    if !strings.HasSuffix(tmp_domain, "com\x00") && !strings.HasSuffix(tmp_domain, "net\x00") && !strings.HasSuffix(tmp_domain, "org\x00") {
+    	return ""
+    }
+    
+    // Check for valid domain characters
+    if ! domainRegex.MatchString(tmp_domain[1:len(tmp_domain)-5]) {
+        return ""
+    }
 
     return tmp_domain
+}
 
-*/
+var domainRegex = regexp.MustCompile(`^[\w\d]+$`)
 
-/*
 
-def validate_dns_ip(msg):
-    tmp_ip_split = msg.split('\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x02\x00\x04')
-    if len(tmp_ip_split) != 2:
-        return None
-    tmp_ip = tmp_ip_split[1]
-    if len(tmp_ip) != 4:
-        return None
-
+func validate_dns_ip(msg string)  string {
+    tmp_ip_split := strings.Split(msg, "\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x02\x00\x04")
+    if len(tmp_ip_split) != 2 {
+        return ""
+    }
+    
+    tmp_ip := tmp_ip_split[1]
+    if len(tmp_ip) != 4 {
+        return ""
+    }
     return tmp_ip
+}
 
-*/
+func dns_request_parser(msg string)  map[string]interface{} {
+    if !strings.Contains(msg, "\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00") {
+        return make(map[string]interface{})
+    }
 
-/*
+    tmp_domain := validate_dns_domain(msg, false)
+    if tmp_domain == "" {
+        return make(map[string]interface{})
+    }
 
-def dns_request_parser(msg):
-    retval = {}
-    if '\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00' not in msg:
-        return retval
+    return map[string]interface{}{
+        "DNS_TRANSACTION_ID": msg[:2],
+    	"DNS_DOMAIN": tmp_domain,
+    }
+}
 
-    try:
-        # Nothing to validate for Transaction ID
-        retval["DNS_TRANSACTION_ID"] = msg[:2]
+func dns_response_parser(msg string)   map[string]interface{} {
+    if !strings.Contains(msgm "\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00") {
+        return make(map[string]interface{})
+    }
 
-        tmp_domain = validate_dns_domain(msg)
-        if not tmp_domain:
-            raise Exception("Bad DNS Domain")
-        retval["DNS_DOMAIN"] = tmp_domain
+    tmp_domain := validate_dns_domain(msg, True)
+    if tmp_domain == "" {
+        return return make(map[string]interface{})
+    }
 
-    except Exception as e:
-        retval = {}
+    tmp_ip := validate_dns_ip(msg)
+    if tmp_ip == "" {
+    	return return make(map[string]interface{})
+    }
 
-    return retval
-
-*/
-
-/*
-
-def dns_response_parser(msg):
-    retval = {}
-    if '\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00' not in msg:
-        return retval
-
-    try:
-        # Nothing to validate for Transaction ID
-        retval["DNS_TRANSACTION_ID"] = msg[:2]
-
-        tmp_domain = validate_dns_domain(msg, dns_response=True)
-        if not tmp_domain:
-            raise Exception("Bad DNS Domain")
-        retval["DNS_DOMAIN"] = tmp_domain
-
-        tmp_ip = validate_dns_ip(msg)
-        if not tmp_ip:
-            raise Exception("Bad DNS IP")
-        retval["DNS_IP"] = tmp_ip
-
-    except Exception as e:
-        retval = {}
-
-    return retval
-
-*/
+    return map[string]interface{}{
+        "DNS_TRANSACTION_ID": msg[:2],
+        "DNS_DOMAIN": tmp_domain,
+        "DNS_IP": tmp_ip,
+    }
+}
