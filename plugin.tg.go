@@ -1,9 +1,11 @@
 package marionette
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 
 	"github.com/redjack/marionette/fte"
 )
@@ -26,8 +28,10 @@ func TGSendPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	}
 	ciphertext := grammarTemplates[rand.Intn(len(grammarTemplates))]
 
-	for _, handler := range tgConfigs[grammar].Handler {
-		ciphertext = execute_handler_sender(fsm, grammar, handler, ciphertext)
+	for _, handler := range tgConfigs[grammar].handlers {
+		if ciphertext, err = execute_handler_sender(fsm, grammar, handler, ciphertext); err != nil {
+			return false, fmt.Errorf("tg.send: execute handler sender: %q", err)
+		}
 	}
 
 	logger.Debug("tg.send: writing cell data")
@@ -87,204 +91,234 @@ def recv(channel, marionette_state, input_args):
 
 */
 
-func get_grammar_capacity(grammar) {
-    var n int
-    for _, h := range tgConfigs[grammar].Handlers {
-        retval += h.capacity()
-    }
-    return retval
+func get_grammar_capacity(grammar string) int {
+	var n int
+	for _, h := range tgConfigs[grammar].handlers {
+		n += h.cipher.capacity()
+	}
+	return n
 }
 
-
-func do_embed(template, handler_key, value string) {
-	return strings.Replace(template, "%%" + handler_key + "%%", value, -1)
+func do_embed(template, handler_key, value string) string {
+	return strings.Replace(template, "%%"+handler_key+"%%", value, -1)
 }
 
 func do_unembed(grammar, ciphertext, handler_key string) string {
-    parse_tree := parser(grammar, ciphertext)
-    return parse_tree[handler_key]
+	m := parse(grammar, ciphertext)
+	return m[handler_key]
 }
 
-func execute_handler_sender(fsm *FSM, grammar string, handler *tgHandler, template string) string {
+func execute_handler_sender(fsm *FSM, grammar string, handler *tgHandler, template string) (string, error) {
 	// Encode data from streams if there is capacity in the handler.
 	var data []byte
-	if capacity := handler.Capacity(); capacity > 0 {
-		cell = fsm.streams.Dequeue(handler.Capacity())
+	if capacity := handler.cipher.capacity(); capacity > 0 {
+		cell := fsm.streams.Dequeue(handler.cipher.capacity())
 		if cell == nil {
 			cell = NewCell(0, 0, 0, NORMAL)
 		}
 
 		// Assign ids and marshal to bytes.
 		cell.UUID, cell.InstanceID = fsm.UUID(), fsm.InstanceID
-		data, _ = cell.MarshalBinary()
+
+		var err error
+		if data, err = cell.MarshalBinary(); err != nil {
+			return "", err
+		}
 	}
 
-	value_to_embed := handler.encode(fsm, template, to_embed)
-	return do_embed(template, handler, value_to_embed)
+	value_to_embed, err := handler.cipher.encrypt(fsm, template, data)
+	if err != nil {
+		return "", err
+	}
+	return do_embed(template, handler.name, string(value_to_embed)), nil
 }
 
-func execute_handler_receiver(fsm *FSM, grammar, handler_key, ciphertext string) string {
-    handler_key_value = do_unembed(grammar, ciphertext, handler_key)
+func execute_handler_receiver(fsm *FSM, grammar, handler_key, ciphertext string) (string, error) {
+	handler_key_value := do_unembed(grammar, ciphertext, handler_key)
+	h := tgConfigs[grammar].handler(handler_key)
 
-    to_execute := conf[grammar].Handler(handler_key)
-    return to_execute.decode(marionette_state, handler_key_value)
+	buf, err := h.cipher.decrypt(fsm, []byte(handler_key_value))
+	return string(buf), err
 }
 
-var regex_cache_ = {}
-var fte_cache_ = {}
+type tgConfig struct {
+	grammar  string
+	handlers []*tgHandler
+}
 
-type RankerCrypter struct {
+func (c *tgConfig) handler(name string) *tgHandler {
+	for _, h := range c.handlers {
+		if h.name == name {
+			return h
+		}
+	}
+	return nil
+}
+
+type tgHandler struct {
+	name   string
+	cipher tgCipher
+}
+
+type tgCipher interface {
+	capacity() int
+	encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error)
+	decrypt(fsm *FSM, cipher []byte) (plaintext []byte, err error)
+}
+
+var _ tgCipher = &rankerCipher{}
+
+type rankerCipher struct {
 	regex   string
-	dfa     *fte.DFA // NOT NEEDED
-	encoder *fte.DFAEncoder
+	encoder *fte.DFA
 }
 
-func NewRankerCrypter(regex string, msg_len int) *RankerCrypter {
-	c := &RankerCrypter{regex: regex}
-
-	// TODO: Generate or retrieve dfa/encoder from cache.
-	// regex_key = regex + str(msg_len)
-	// if not regex_cache_.get(regex_key):
-	//     dfa = regex2dfa.regex2dfa(regex)
-	//     cDFA = fte.cDFA.DFA(dfa, msg_len)
-	//     encoder = fte.dfa.DFA(cDFA, msg_len)
-	//     regex_cache_[regex_key] = (dfa, encoder)
-	// (self.dfa_, self.encoder_) = regex_cache_[regex_key]
-
-	return c
+func newRankerCipher(regex string, msg_len int) *rankerCipher {
+	return &rankerCipher{
+		regex:   regex,
+		encoder: fte.NewDFA(regex, msg_len),
+	}
 }
 
-func (c *RankerCrypter) Capacity() int {
+func (c *rankerCipher) capacity() int {
 	return c.encoder.Capacity()
 }
 
-func (c *RankerCrypter) encode(fsm *FSM, template string, data []byte) (ciphertext string) {
-	to_embed_as_int = fte.bit_ops.bytes_to_long(dat)
-	return self.encoder_.unrank(to_embed_as_int)
+func (c *rankerCipher) encrypt(fsm *FSM, template string, data []byte) (ciphertext []byte, err error) {
+	return c.encoder.Unrank(binary.BigEndian.Uint32(data))
 }
 
-func (c *RankerCrypter) decode(self, marionette_state, ciphertext string) (plaintext string) {
-	plaintext = self.encoder_.rank(ciphertext)
-	plaintext = fte.bit_ops.long_to_bytes(plaintext, c.Capacity()/8)
-	return plaintext
+func (c *rankerCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
+	rank, err := c.encoder_.Rank(ciphertext)
+	if err != nil {
+		return nil, err
+	}
+	plaintext = make([]byte, 4)
+	binary.BigEndian.PutUint32(plaintext, uint32(rank)) // c.Capacity()/8
+	return plaintext, nil
 }
 
-type FteCrypter struct {
+var _ tgCipher = &fteCipher{}
+
+type fteCipher struct {
 	regex       string
 	useCapacity bool
 	encoder     *fte.Cipher
 }
 
-func NewFteCrypter(regex string, msg_len int, useCapacity bool) *FteCrypter {
-	c := &FteCrypter{regex: regex}
-
-	// TODO: Generate or retrieve dfa/encoder from cache.
-	// fte_key = regex + str(msg_len)
-	// if not fte_cache_.get(fte_key):
-	//     dfa = regex2dfa.regex2dfa(regex)
-	//     encrypter = fte.encoder.DfaEncoder(dfa, msg_len)
-	//     fte_cache_[fte_key] = (dfa, encrypter)
-	// (self.dfa_, self.fte_encrypter_) = fte_cache_[fte_key]
-
-	return c
+func newFTECipher(regex string, msg_len int, useCapacity bool) *fteCipher {
+	return &fteCipher{
+		regex:       regex,
+		useCapacity: useCapacity,
+		encoder:     fte.NewCipher(regex, msg_len),
+	}
 }
 
-func (c *FteCrypter) Capacity() int {
+func (c *fteCipher) capacity() int {
 	if !c.useCapacity && strings.HasSuffix(c.regex_, ".+") {
 		return (1 << 18)
 	}
 
-	return c.fte_encrypter_.getCapacity() - fte._COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte._CTXT_EXPANSION
-
+	return c.encoder.getCapacity() - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
 }
 
-func (c *FteCrypter) Encode(fsm *FSM, template string, data []byte) (ciphertext string) {
-	return self.fte_encrypter_.encode(data)
+func (c *fteCipher) encrypt(fsm *FSM, template string, data []byte) (ciphertext []byte, err error) {
+	return c.encoder.encode(data)
 }
 
-func (c *FteCrypter) decode(self, marionette_state, ciphertext string) string {
-	return self.fte_encrypter_.decode(ciphertext)
+func (c *fteCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
+	return c.encoder.decode(ciphertext)
 }
 
-type HttpContentLengthCrypter struct{}
+var _ tgCipher = &httpContentLengthCipher{}
 
-func (c *HttpContentLengthCrypter) Capacity() int {
+type httpContentLengthCipher struct{}
+
+func (c *httpContentLengthCipher) capacity() int {
 	return 0
 }
 
-func (c *HttpContentLengthCrypter) encode(fsm *FSM, template string, data []byte) string {
+func (c *httpContentLengthCipher) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	a := strings.SplitN(template, "\r\n\r\n", 2)
 	if len(a) == 1 {
 		return 0
 	}
-	return strconv.Itoa(len(a[1]))
+	return strconv.Itoa(len(a[1])), nil
 }
 
-func (c *HttpContentLengthCrypter) decode(fsm *FSM, ciphertext string) string {
-	return ""
+func (c *httpContentLengthCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
+	return nil, nil
 }
 
-type Pop3ContentLengthCrypter struct{}
+var _ tgCipher = &pop3ContentLengthCipher{}
 
-func (c *Pop3ContentLengthCrypter) Capacity() int {
+type pop3ContentLengthCipher struct{}
+
+func (c *pop3ContentLengthCipher) capacity() int {
 	return 0
 }
 
-func (c *Pop3ContentLengthCrypter) encode(fsm *FSM, template string, data []byte) string {
+func (c *pop3ContentLengthCipher) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	a := strings.SplitN(template, "\n", 2)
 	if len(a) == 1 {
-		return 0
+		return []byte("0"), nil
 	}
-	return strconv.Itoa(len(a[1]))
+	return []byte(strconv.Itoa(len(a[1]))), nil
 }
 
-func (c *Pop3ContentLengthCrypter) decode(fsm *FSM, ciphertext string) string {
-	return ""
+func (c *pop3ContentLengthCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
+	return nil, nil
 }
 
-type SetFTPPasvX struct{}
+var _ tgCipher = &setFTPPasvXCipher{}
 
-func (c *SetFTPPasvX) Capacity(self) int {
+type setFTPPasvXCipher struct{}
+
+func (c *setFTPPasvXCipher) capacity() int {
 	return 0
 }
 
-func (c *SetFTPPasvX) encode(fsm *FSM, template string, data []byte) string {
+func (c *setFTPPasvXCipher) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	i := fsm.Var("ftp_pasv_port").(int)
-	return strconv.Itoa(i / 256)
+	return strconv.Itoa(i / 256), nil
 }
 
-func (c *SetFTPPasvX) decode(fsm *FSM, ciphertext string) string {
+func (c *setFTPPasvXCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
 	i, _ := strconv.Atoi(ciphertext)
 	fsm.SetVar("ftp_pasv_port_x", i)
-	return ""
+	return nil, nil
 }
 
-type SetFTPPasvY struct{}
+var _ tgCipher = &setFTPPasvYCipher{}
 
-func (c *SetFTPPasvY) Capacity() int {
+type setFTPPasvYCipher struct{}
+
+func (c *setFTPPasvYCipher) capacity() int {
 	return 0
 }
 
-func (c *SetFTPPasvY) encode(fsm *FSM, template string, data []byte) string {
+func (c *setFTPPasvYCipher) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	i := fsm.Var("ftp_pasv_port").(int)
-	return strconv.Itoa(i % 256)
+	return strconv.Itoa(i % 256), nil
 }
 
-func (c *SetFTPPasvY) decode(fsm *FSM, ciphertext string) string {
+func (c *setFTPPasvYCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
 	ftp_pasv_port_x := fsm.Var("ftp_pasv_port").(int)
 	ftp_pasv_port_y, _ := strconv.Atoi(ciphertext)
 
 	fsm.SetVar("ftp_pasv_port", ftp_pasv_port_x*256+ftp_pasv_port_y)
-	return ""
+	return nil, nil
 }
 
-type SetDnsTransactionId struct{}
+var _ tgCipher = &setDNSTransactionIDCipher{}
 
-func (c *SetDnsTransactionId) capacity() int {
+type setDNSTransactionIDCipher struct{}
+
+func (c *setDNSTransactionIDCipher) capacity() int {
 	return 0
 }
 
-func (c *SetDnsTransactionId) encode(fsm *FSM, template string, data []byte) string {
+func (c *setDNSTransactionIDCipher) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	var dns_transaction_id string
 	if v := fsm.Var("dns_transaction_id"); v != nil {
 		dns_transaction_id = v.(string)
@@ -292,21 +326,23 @@ func (c *SetDnsTransactionId) encode(fsm *FSM, template string, data []byte) str
 		dns_transaction_id = string([]rune{rune(rand.Intn(253) + 1), rune(rand.Intn(253) + 1)})
 		fsm.SetVar("dns_transaction_id", dns_transaction_id)
 	}
-	return dns_transaction_id
+	return []byte(dns_transaction_id), nil
 }
 
-func (c *SetDnsTransactionId) decode(fsm *FSM, ciphertext string) string {
-	marionette_state.set_local("dns_transaction_id", ciphertext)
-	return ""
+func (c *setDNSTransactionIDCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
+	fsm.SetVar("dns_transaction_id", string(ciphertext))
+	return nil, nil
 }
 
-type SetDnsDomain struct{}
+var _ tgCipher = &setDNSDomainCipher{}
 
-func (c *SetDnsDomain) capacity() int {
+type setDNSDomainCipher struct{}
+
+func (c *setDNSDomainCipher) capacity() int {
 	return 0
 }
 
-func (c *SetDnsDomain) encode(fsm *FSM, template string, data []byte) string {
+func (c *setDNSDomainCipher) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	var dns_domain string
 	if v := fsm.Var("dns_domain"); v != nil {
 		dns_domain = v.(string)
@@ -325,21 +361,23 @@ func (c *SetDnsDomain) encode(fsm *FSM, template string, data []byte) string {
 		dns_domain = string(buf)
 		fsm.SetVar("dns_domain", dns_domain)
 	}
-	return dns_domain
+	return []byte(dns_domain), nil
 }
 
-func (c *SetDnsDomain) decode(fsm *FSM, ciphertext string) string {
-	marionette_state.set_local("dns_domain", ctxt)
-	return None
+func (c *setDNSDomainCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
+	fsm.SetVar("dns_domain", string(ciphertext))
+	return nil, nil
 }
 
-type SetDnsIp struct{}
+var _ tgCipher = &setDNSIPCipher{}
 
-func (c *SetDnsIp) capacity() int {
+type setDNSIPCipher struct{}
+
+func (c *setDNSIPCipher) capacity() int {
 	return 0
 }
 
-func (c *SetDnsIp) encode(fsm *FSM, template string, data []byte) string {
+func (c *setDNSIPCipher) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	var dns_ip string
 	if v := fsm.Var("dns_ip"); v != nil {
 		dns_ip = v.(string)
@@ -350,348 +388,325 @@ func (c *SetDnsIp) encode(fsm *FSM, template string, data []byte) string {
 	return dns_ip
 }
 
-func (c *SetDnsIp) decode(fsm *FSM, ciphertext string) string {
-	marionette_state.set_local("dns_ip", ciphertext)
-	return ""
+func (c *setDNSIPCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
+	fsm.set_local("dns_ip", string(ciphertext))
+	return nil, nil
 }
-
 
 var amazon_msg_lens []int
 
-func init() { 
+func init() {
 	for _, item := range []struct {
-		n int
+		n      int
 		weight int
 	}{
-		{n: 2049:  weight:1},
-		{n: 2052:  weight:2},
-		{n: 2054:  weight:2},
-		{n: 2057:  weight:3},
-		{n: 2058:  weight:2},
-		{n: 2059:  weight:1},
-		{n: 2065:  weight:1},
-		{n: 17429: weight:1},
-		{n: 3098:  weight:1},
-		{n: 687:   weight:3},
-		{n: 2084:  weight:1},
-		{n: 42:    weight:58},
-		{n: 43:    weight:107},
-		{n: 9260:  weight:1},
-		{n: 11309: weight:1},
-		{n: 11829: weight:1},
-		{n: 9271:  weight:1},
-		{n: 6154:  weight:1},
-		{n: 64:    weight:15},
-		{n: 1094:  weight:1},
-		{n: 12376: weight:1},
-		{n: 89:    weight:1},
-		{n: 10848: weight:1},
-		{n: 5223:  weight:1},
-		{n: 69231: weight:1},
-		{n: 7795:  weight:1},
-		{n: 2678:  weight:1},
-		{n: 8830:  weight:1},
-		{n: 29826: weight:1},
-		{n: 16006: weight:10},
-		{n: 8938:  weight:1},
-		{n: 17055: weight:2},
-		{n: 87712: weight:1},
-		{n: 23202: weight:1},
-		{n: 7441:  weight:1},
-		{n: 17681: weight:1},
-		{n: 12456: weight:1},
-		{n: 41132: weight:1},
-		{n: 25263: weight:6},
-		{n: 689:   weight:1},
-		{n: 9916:  weight:1},
-		{n: 10101: weight:2},
-		{n: 1730:  weight:1},
-		{n: 10948: weight:1},
-		{n: 26826: weight:1},
-		{n: 6357:  weight:1},
-		{n: 13021: weight:2},
-		{n: 1246:  weight:4},
-		{n: 19683: weight:1},
-		{n: 1765:  weight:1},
-		{n: 1767:  weight:1},
-		{n: 1768:  weight:1},
-		{n: 1769:  weight:4},
-		{n: 1770:  weight:6},
-		{n: 1771:  weight:3},
-		{n: 1772:  weight:2},
-		{n: 1773:  weight:4},
-		{n: 1774:  weight:4},
-		{n: 1775:  weight:1},
-		{n: 1776:  weight:1},
-		{n: 1779:  weight:1},
-		{n: 40696: weight:1},
-		{n: 767:   weight:1},
-		{n: 17665: weight:1},
-		{n: 27909: weight:1},
-		{n: 12550: weight:1},
-		{n: 5385:  weight:1},
-		{n: 16651: weight:1},
-		{n: 5392:  weight:1},
-		{n: 26385: weight:1},
-		{n: 12056: weight:1},
-		{n: 41245: weight:2},
-		{n: 13097: weight:1},
-		{n: 15152: weight:1},
-		{n: 310:   weight:1},
-		{n: 40759: weight:1},
-		{n: 9528:  weight:1},
-		{n: 8000:  weight:7},
-		{n: 471:   weight:1},
-		{n: 15180: weight:1},
-		{n: 14158: weight:3},
-		{n: 37719: weight:2},
-		{n: 1895:  weight:1},
-		{n: 31082: weight:1},
-		{n: 19824: weight:1},
-		{n: 30956: weight:1},
-		{n: 18807: weight:1},
-		{n: 11095: weight:1},
-		{n: 37756: weight:2},
-		{n: 746:   weight:1},
-		{n: 10475: weight:1},
-		{n: 4332:  weight:1},
-		{n: 35730: weight:1},
-		{n: 11667: weight:1},
-		{n: 16788: weight:1},
-		{n: 12182: weight:4},
-		{n: 39663: weight:1},
-		{n: 9126:  weight:1},
-		{n: 35760: weight:1},
-		{n: 12735: weight:1},
-		{n: 6594:  weight:1},
-		{n: 451:   weight:15},
-		{n: 19402: weight:1},
-		{n: 463:   weight:3},
-		{n: 10193: weight:1},
-		{n: 16853: weight:6},
-		{n: 982:   weight:1},
-		{n: 15865: weight:1},
-		{n: 2008:  weight:2},
-		{n: 476:   weight:1},
-		{n: 13655: weight:1},
-		{n: 10213: weight:1},
-		{n: 10737: weight:1},
-		{n: 15858: weight:1},
-		{n: 2035:  weight:6},
-		{n: 2039:  weight:1},
-		{n: 2041:  weight:2},
+		{n: 2049, weight: 1},
+		{n: 2052, weight: 2},
+		{n: 2054, weight: 2},
+		{n: 2057, weight: 3},
+		{n: 2058, weight: 2},
+		{n: 2059, weight: 1},
+		{n: 2065, weight: 1},
+		{n: 17429, weight: 1},
+		{n: 3098, weight: 1},
+		{n: 687, weight: 3},
+		{n: 2084, weight: 1},
+		{n: 42, weight: 58},
+		{n: 43, weight: 107},
+		{n: 9260, weight: 1},
+		{n: 11309, weight: 1},
+		{n: 11829, weight: 1},
+		{n: 9271, weight: 1},
+		{n: 6154, weight: 1},
+		{n: 64, weight: 15},
+		{n: 1094, weight: 1},
+		{n: 12376, weight: 1},
+		{n: 89, weight: 1},
+		{n: 10848, weight: 1},
+		{n: 5223, weight: 1},
+		{n: 69231, weight: 1},
+		{n: 7795, weight: 1},
+		{n: 2678, weight: 1},
+		{n: 8830, weight: 1},
+		{n: 29826, weight: 1},
+		{n: 16006, weight: 10},
+		{n: 8938, weight: 1},
+		{n: 17055, weight: 2},
+		{n: 87712, weight: 1},
+		{n: 23202, weight: 1},
+		{n: 7441, weight: 1},
+		{n: 17681, weight: 1},
+		{n: 12456, weight: 1},
+		{n: 41132, weight: 1},
+		{n: 25263, weight: 6},
+		{n: 689, weight: 1},
+		{n: 9916, weight: 1},
+		{n: 10101, weight: 2},
+		{n: 1730, weight: 1},
+		{n: 10948, weight: 1},
+		{n: 26826, weight: 1},
+		{n: 6357, weight: 1},
+		{n: 13021, weight: 2},
+		{n: 1246, weight: 4},
+		{n: 19683, weight: 1},
+		{n: 1765, weight: 1},
+		{n: 1767, weight: 1},
+		{n: 1768, weight: 1},
+		{n: 1769, weight: 4},
+		{n: 1770, weight: 6},
+		{n: 1771, weight: 3},
+		{n: 1772, weight: 2},
+		{n: 1773, weight: 4},
+		{n: 1774, weight: 4},
+		{n: 1775, weight: 1},
+		{n: 1776, weight: 1},
+		{n: 1779, weight: 1},
+		{n: 40696, weight: 1},
+		{n: 767, weight: 1},
+		{n: 17665, weight: 1},
+		{n: 27909, weight: 1},
+		{n: 12550, weight: 1},
+		{n: 5385, weight: 1},
+		{n: 16651, weight: 1},
+		{n: 5392, weight: 1},
+		{n: 26385, weight: 1},
+		{n: 12056, weight: 1},
+		{n: 41245, weight: 2},
+		{n: 13097, weight: 1},
+		{n: 15152, weight: 1},
+		{n: 310, weight: 1},
+		{n: 40759, weight: 1},
+		{n: 9528, weight: 1},
+		{n: 8000, weight: 7},
+		{n: 471, weight: 1},
+		{n: 15180, weight: 1},
+		{n: 14158, weight: 3},
+		{n: 37719, weight: 2},
+		{n: 1895, weight: 1},
+		{n: 31082, weight: 1},
+		{n: 19824, weight: 1},
+		{n: 30956, weight: 1},
+		{n: 18807, weight: 1},
+		{n: 11095, weight: 1},
+		{n: 37756, weight: 2},
+		{n: 746, weight: 1},
+		{n: 10475, weight: 1},
+		{n: 4332, weight: 1},
+		{n: 35730, weight: 1},
+		{n: 11667, weight: 1},
+		{n: 16788, weight: 1},
+		{n: 12182, weight: 4},
+		{n: 39663, weight: 1},
+		{n: 9126, weight: 1},
+		{n: 35760, weight: 1},
+		{n: 12735, weight: 1},
+		{n: 6594, weight: 1},
+		{n: 451, weight: 15},
+		{n: 19402, weight: 1},
+		{n: 463, weight: 3},
+		{n: 10193, weight: 1},
+		{n: 16853, weight: 6},
+		{n: 982, weight: 1},
+		{n: 15865, weight: 1},
+		{n: 2008, weight: 2},
+		{n: 476, weight: 1},
+		{n: 13655, weight: 1},
+		{n: 10213, weight: 1},
+		{n: 10737, weight: 1},
+		{n: 15858, weight: 1},
+		{n: 2035, weight: 6},
+		{n: 2039, weight: 1},
+		{n: 2041, weight: 2},
 	} {
-		for i := 0; i<item.weight; i++ {
+		for i := 0; i < item.weight; i++ {
 			amazon_msg_lens = append(amazon_msg_lens, item.n)
 		}
 	}
 }
 
-cont MIN_PTXT_LEN = fte.encoder.DfaEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTTEXT + fte.encrypter.Encrypter._CTXT_EXPANSION + 32
+const MIN_PTXT_LEN = fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT + fte.CTXT_EXPANSION + 32
 
-type AmazonMsgLensHandler struct {}
+type amazonMsgLensHandler struct{}
 
-func NewAmazonMsgLensHandler(regex string) *AmazonMsgLensHandler {
-        // key = self.regex_ + str(self.min_len_)
-        // if not fte_cache_.get(key):
-        //     dfa = regex2dfa.regex2dfa(self.regex_)
-        //     encoder = fte.encoder.DfaEncoder(dfa, self.min_len_)
-        //     fte_cache_[key] = (dfa, encoder)
-
-	return &AmazonMsgLensHandler {
-		min_len: MIN_PTXT_LEN,
-		max_len_: 1 << 18,
+func newAmazonMsgLensHandler(regex string) *amazonMsgLensHandler {
+	h := &amazonMsgLensHandler{
+		min_len:     MIN_PTXT_LEN,
+		max_len_:    1 << 18,
 		target_len_: 0.0,
-	    regex_: regex,
+		regex_:      regex,
 	}
+
+	key := fteKey{regex_, h.min_len_}
+	if encoder := fte_cache_[key]; encoder == nil {
+		encoder = fte.NewCipher(regex, h.min_len_)
+		fte_cache_[key] = encoder
+	}
+	return h
 }
 
-func    (h *AmazonMsgLensHandler) capacity() int {
-       h.target_len_ = amazon_msg_lens[rand.Intn(amazon_msg_lens)]
-       if h.target_len_ < h.min_len_ {
-           return 0
-       } else if  h.target_len_ > h.max_len_ {
-           // We do this to prevent unranking really large slices
-           // in practice this is probably bad since it unnaturally caps
-           // our message sizes to whatever FTE can support
-           h.target_len_ = h.max_len_
-           return h.max_len_
-	   } 
-       n := h.target_len_ - fte.encoder.DfaEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTTEXT
-       n -= fte.encrypter.Encrypter._CTXT_EXPANSION
-       // n = int(ptxt_len * 8.0)-1
-       return n
+func (h *amazonMsgLensHandler) capacity() int {
+	h.target_len_ = amazon_msg_lens[rand.Intn(amazon_msg_lens)]
+	if h.target_len_ < h.min_len_ {
+		return 0
+	} else if h.target_len_ > h.max_len_ {
+		// We do this to prevent unranking really large slices
+		// in practice this is probably bad since it unnaturally caps
+		// our message sizes to whatever FTE can support
+		h.target_len_ = h.max_len_
+		return h.max_len_
+	}
+	n := h.target_len_ - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT
+	n -= fte.CTXT_EXPANSION
+	// n = int(ptxt_len * 8.0)-1
+	return n
 }
 
-   func    (h *AmazonMsgLensHandler)  encode( marionette_state, template, to_embed) {
-       if h.target_len_ < h.min_len_ || h.target_len_ > h.max_len_ {
-           key := h.regex_ + str(h.target_len_)
-           if not regex_cache_.get(key) {
-               dfa := regex2dfa.regex2dfa(h.regex_)
-               cdfa_obj := fte.cDFA.DFA(dfa, h.target_len_)
-               encoder := fte.dfa.DFA(cdfa_obj, h.target_len_)
-               regex_cache_[key] = encoder
+func (h *amazonMsgLensHandler) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
+	if h.target_len_ < h.min_len_ || h.target_len_ > h.max_len_ {
+		key := regexKey{h.regex_, h.target_len_}
+		encoder := regex_cache_[key]
+		if encoder == nil {
+			encoder := fte.NewDFA(h.regex_, h.target_len_)
+			if err := encoder.Open(); err != nil {
+				return nil, err
 			}
-           encoder := regex_cache_[key]
-
-           to_unrank := random.Intn(encoder.getNumWordsInSlice(h.target_len_))
-           return encoder.unrank(to_unrank)
+			regex_cache_[key] = encoder
 		}
-       
-           key := h.regex_ + str(h.min_len_)
-           encoder := fte_cache_[key]
 
-           ciphertext := encoder.encode(to_embed)
+		to_unrank := random.Intn(encoder.getNumWordsInSlice(h.target_len_))
+		return encoder.unrank(to_unrank), nil
+	}
 
-           if len(ciphertext) != h.target_len_ {
-               return fmt.Errorf("Could not find ciphertext of len %d (%d)" , h.target_len_, len(ciphertext))
-           }
-
-       return ciphertext
+	encoder := fte_cache_[fteKey{h.regex_, h.min_len_}]
+	ciphertext, err = encoder.encode(to_embed)
+	if err != nil {
+		return nil, err
+	} else if len(ciphertext) != h.target_len_ {
+		return nil, fmt.Errorf("Could not find ciphertext of len %d (%d)", h.target_len_, len(ciphertext))
+	}
+	return ciphertext, nil
 }
 
-
-   func    (h *AmazonMsgLensHandler)  decode(self, marionette_state, ctxt) {
-       if len(ctxt) < self.min_len_ {
-       	return ""
-       }
-       key := self.regex_ + str(self.min_len_)
-        encoder = fte_cache_[key]
-
-       plaintext := encoder.decode(ctxt)
-       return plaintext
-}
-
-type tgConfig struct {
-	Grammar  string
-	Handlers []*tgHandler
-}
-
-type tgHandler struct {
-	Name    string
-	Crypter tgCrypter
-}
-
-type tgCrypter interface {
-	Capacity() int
-	Encrypt(fsm *FSM, template string, data []byte) string
+func (h *amazonMsgLensHandler) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
+	if len(ciphertext) < h.min_len_ {
+		return nil, nil
+	}
+	encoder := fte_cache_[fteCacheKey{h.regex_, h.min_len_}]
+	return encoder.decode(ciphertext)
 }
 
 var tgConfigs = map[string]*tgConfig{
 	"http_request_keep_alive": &tgConfig{
-		Grammar: "http_request_keep_alive",
-		Handlers: []*tgHandler{
-			{Name: "URL", Crypter: RankerCrypter(`[a-zA-Z0-9\?\-\.\&]+`, 2048)},
+		grammar: "http_request_keep_alive",
+		handlers: []*tgHandler{
+			{name: "URL", cipher: newRankerCipher(`[a-zA-Z0-9\?\-\.\&]+`, 2048)},
 		},
 	},
 
 	"http_response_keep_alive": &tgConfig{
-		Grammar: "http_response_keep_alive",
-		Handlers: []*tgHandler{
-			{Name: "HTTP-RESPONSE-BODY", Crypter: FteCrypter(".+", 128, false)},
-			{Name: "CONTENT-LENGTH", Crypter: HttpContentLengthCrypter()},
+		grammar: "http_response_keep_alive",
+		handlers: []*tgHandler{
+			{name: "HTTP-RESPONSE-BODY", cipher: newFTECipher(".+", 128, false)},
+			{name: "CONTENT-LENGTH", cipher: &httpContentLengthCipher{}},
 		},
 	},
 
 	"http_request_close": &tgConfig{
-		Grammar:  "http_request_close",
-		Handlers: []*tgHandler{{Name: "URL", Crypter: RankerCrypter(`[a-zA-Z0-9\?\-\.\&]+`, 2048)}},
+		grammar:  "http_request_close",
+		handlers: []*tgHandler{{name: "URL", cipher: newRankerCipher(`[a-zA-Z0-9\?\-\.\&]+`, 2048)}},
 	},
 
 	"http_response_close": &tgConfig{
-		Grammar: "http_response_close",
-		Handlers: []*tgHandler{
-			{Name: "HTTP-RESPONSE-BODY", Crypter: FteCrypter(`.+`, 128, false)},
-			{Name: "CONTENT-LENGTH", Crypter: HttpContentLengthCrypter()},
+		grammar: "http_response_close",
+		handlers: []*tgHandler{
+			{name: "HTTP-RESPONSE-BODY", cipher: newFTECipher(`.+`, 128, false)},
+			{name: "CONTENT-LENGTH", cipher: &httpContentLengthCipher{}},
 		},
 	},
 
 	"pop3_message_response": &tgConfig{
-		Grammar: "pop3_message_response",
-		Handlers: []*tgHandler{
-			{Name: "POP3-RESPONSE-BODY", Crypter: RankerCrypter(`[a-zA-Z0-9]+`, 2048)},
-			{Name: "CONTENT-LENGTH", Crypter: Pop3ContentLengthCrypter()},
+		grammar: "pop3_message_response",
+		handlers: []*tgHandler{
+			{name: "POP3-RESPONSE-BODY", cipher: newRankerCipher(`[a-zA-Z0-9]+`, 2048)},
+			{name: "CONTENT-LENGTH", cipher: &pop3ContentLengthCipher{}},
 		},
 	},
 
 	"pop3_password": &tgConfig{
-		Grammar:  "pop3_password",
-		Handlers: []*tgHandler{{Name: "PASSWORD", Crypter: RankerCrypter(`[a-zA-Z0-9]+`, 256)}},
+		grammar:  "pop3_password",
+		handlers: []*tgHandler{{name: "PASSWORD", cipher: newRankerCipher(`[a-zA-Z0-9]+`, 256)}},
 	},
 
 	"http_request_keep_alive_with_msg_lens": &tgConfig{
-		Grammar:  "http_request_keep_alive",
-		Handlers: []*tgHandler{{Name: "URL", Crypter: FteCrypter(`[a-zA-Z0-9\?\-\.\&]+`, 2048, true)}},
+		grammar:  "http_request_keep_alive",
+		handlers: []*tgHandler{{name: "URL", cipher: newFTECipher(`[a-zA-Z0-9\?\-\.\&]+`, 2048, true)}},
 	},
 
 	"http_response_keep_alive_with_msg_lens": &tgConfig{
-		Grammar:      "http_response_keep_alive",
-		HandlerOrder: []string{"HTTP-RESPONSE-BODY", "CONTENT-LENGTH"},
-		Handlers: []*tgHandler{
-			{Name: "HTTP-RESPONSE-BODY", Crypter: FteCrypter(`.+`, 2048, true)},
-			{Name: "CONTENT-LENGTH", Crypter: HttpContentLengthCrypter()},
+		grammar: "http_response_keep_alive",
+		handlers: []*tgHandler{
+			{name: "HTTP-RESPONSE-BODY", cipher: newFTECipher(`.+`, 2048, true)},
+			{name: "CONTENT-LENGTH", cipher: &httpContentLengthCipher{}},
 		},
 	},
 
 	"http_amazon_request": &tgConfig{
-		Grammar:  "http_request_keep_alive",
-		Handlers: []*tgHandler{{Name: "URL", Crypter: RankerCrypter(`[a-zA-Z0-9\?\-\.\&]+`, 2048)}},
+		grammar:  "http_request_keep_alive",
+		handlers: []*tgHandler{{name: "URL", cipher: newRankerCipher(`[a-zA-Z0-9\?\-\.\&]+`, 2048)}},
 	},
 
 	"http_amazon_response": &tgConfig{
-		Grammar: "http_response_keep_alive",
-		Handlers: []*tgHandler{
-			{Name: "HTTP-RESPONSE-BODY", Crypter: AmazonMsgLensHandler(`.+`)},
-			{Name: "CONTENT-LENGTH", Crypter: HttpContentLengthCrypter()},
+		grammar: "http_response_keep_alive",
+		handlers: []*tgHandler{
+			{name: "HTTP-RESPONSE-BODY", cipher: newAmazonMsgLensHandler(`.+`)},
+			{name: "CONTENT-LENGTH", cipher: &httpContentLengthCipher{}},
 		},
 	},
 
 	"ftp_entering_passive": &tgConfig{
-		Grammar: "ftp_entering_passive",
-		Handlers: []*tgHandler{
-			{Name: "FTP_PASV_PORT_X", Crypter: SetFTPPasvX()},
-			{Name: "FTP_PASV_PORT_Y", Crypter: SetFTPPasvY()},
+		grammar: "ftp_entering_passive",
+		handlers: []*tgHandler{
+			{name: "FTP_PASV_PORT_X", cipher: &setFTPPasvXCipher{}},
+			{name: "FTP_PASV_PORT_Y", cipher: &setFTPPasvYCipher{}},
 		},
 	},
 
 	"dns_request": &tgConfig{
-		Grammar: "dns_request",
-		Handlers: []*tgHandler{
-			{Name: "DNS_TRANSACTION_ID", Crypter: SetDnsTransactionId()},
-			{Name: "DNS_DOMAIN", Crypter: SetDnsDomain()},
+		grammar: "dns_request",
+		handlers: []*tgHandler{
+			{name: "DNS_TRANSACTION_ID", cipher: &setDNSTransactionIDCipher{}},
+			{name: "DNS_DOMAIN", cipher: &setDNSDomainCipher{}},
 		},
 	},
 
 	"dns_response": &tgConfig{
-		Grammar: "dns_response",
-		Handlers: []*tgHandler{
-			{Name: "DNS_TRANSACTION_ID", Crypter: SetDnsTransactionId()},
-			{Name: "DNS_DOMAIN", Crypter: SetDnsDomain()},
-			{Name: "DNS_IP", Crypter: SetDnsIp()},
+		grammar: "dns_response",
+		handlers: []*tgHandler{
+			{name: "DNS_TRANSACTION_ID", cipher: &setDNSTransactionIDCipher{}},
+			{name: "DNS_DOMAIN", cipher: &setDNSDomainCipher{}},
+			{name: "DNS_IP", cipher: &setDNSIPCipher{}},
 		},
 	},
 }
 
-func  parse(grammar, msg) {
-    if strings.HasPrefix(grammar, "http_response") || grammar == "http_amazon_response" {
-        return http_response_parser(msg)
-    } else if strings.HasPrefix(grammar, "http_request") || grammar == "http_amazon_request" {
-        return http_request_parser(msg)
-    } else if strings.HasPrefix(grammar, "pop3_message_response") {
-        return pop3_parser(msg)
-    } else if strings.HasPrefix(grammar, "pop3_password") {
-        return pop3_password_parser(msg)
-    } else if strings.HasPrefix(grammar, "ftp_entering_passive") {
-        return ftp_entering_passive_parser(msg)
-    } else if strings.HasPrefix(grammar, "dns_request") {
-        return dns_request_parser(msg)
-    } else if strings.HasPrefix(grammar, "dns_response") {
-        return dns_response_parser(msg)
-    }
-    return ""
+func parse(grammar, msg string) map[string]string {
+	if strings.HasPrefix(grammar, "http_response") || grammar == "http_amazon_response" {
+		return http_response_parser(msg)
+	} else if strings.HasPrefix(grammar, "http_request") || grammar == "http_amazon_request" {
+		return http_request_parser(msg)
+	} else if strings.HasPrefix(grammar, "pop3_message_response") {
+		return pop3_parser(msg)
+	} else if strings.HasPrefix(grammar, "pop3_password") {
+		return pop3_password_parser(msg)
+	} else if strings.HasPrefix(grammar, "ftp_entering_passive") {
+		return ftp_entering_passive_parser(msg)
+	} else if strings.HasPrefix(grammar, "dns_request") {
+		return dns_request_parser(msg)
+	} else if strings.HasPrefix(grammar, "dns_response") {
+		return dns_response_parser(msg)
+	}
+	return make(map[string]string)
 }
-
-
 
 var templates = map[string][]string{
 	"http_request_keep_alive": []string{
@@ -745,196 +760,188 @@ var templates = map[string][]string{
 }
 
 func get_http_header(header_name, msg string) string {
-    lines := msg.split("\r\n")
-    for _, line := range lines[1:len(lines)-2] {        
-        if a := strings.Split(line, ": ", 2); a[0] == header_name {
-            if len(a) > 1 {
-            	return a[1]
-        	}
-        	return ""
-        }
+	lines := msg.split("\r\n")
+	for _, line := range lines[1 : len(lines)-2] {
+		if a := strings.Split(line, ": ", 2); a[0] == header_name {
+			if len(a) > 1 {
+				return a[1]
+			}
+			return ""
+		}
 	}
-    return ""
+	return ""
 }
 
-
-func http_request_parser(msg string) map[string]interface{} {
-    if !strings.HasPrefix( msg.startswith("GET") ) {
-        return nil
-    } else if !strings.HasSuffix(msg, "\r\n\r\n") {
-        return nil
-    }
-
+func http_request_parser(msg string) map[string]string {
+	if !strings.HasPrefix(msg.startswith("GET")) {
+		return nil
+	} else if !strings.HasSuffix(msg, "\r\n\r\n") {
+		return nil
+	}
 
 	lines := lineBreakRegex.Split(msg)
 	segments := strings.Split(lines[0][:len(lines[0])-9], "/")
 
-    if strings.HasPrefix(msg, "GET http") {
-        return map[string]interface{}{"URL": strings.Join(segments[3:], "/")}
-    } 
-    return map[string]interface{}{"URL": strings.Join(segments[1:], "/")}
+	if strings.HasPrefix(msg, "GET http") {
+		return map[string]string{"URL": strings.Join(segments[3:], "/")}
+	}
+	return map[string]string{"URL": strings.Join(segments[1:], "/")}
 }
 
 var lineBreakRegex = regexp.MustCompile(`\r\n`)
 
+func http_response_parser(msg) map[string]string {
+	if !strings.HasPrefix(msg, "HTTP") {
+		return nil
+	}
 
-func http_response_parser(msg)map[string]interface{} {
-    if !strings.HasPrefix(msg, "HTTP") {
-        return nil
-    }
+	m := make(map[string]string)
+	m["CONTENT-LENGTH"] = get_http_header("Content-Length", msg)
+	m["COOKIE"] = get_http_header("Cookie", msg)
+	if a := strings.Split(msg < "\r\n\r\n"); len(a) > 1 {
+		m["HTTP-RESPONSE-BODY"] = a[1]
+	} else {
+		m["HTTP-RESPONSE-BODY"] = ""
+	}
 
-    m :=  make(map[string]interface{})
-    m["CONTENT-LENGTH"], _ = strconv.Atoi(get_http_header("Content-Length", msg))
-    m["COOKIE"] = get_http_header("Cookie", msg)
-    if a := strings.Split(msg< "\r\n\r\n"); len(a) > 1 {
-        m["HTTP-RESPONSE-BODY"] = a[1]
-    } else {
-        m["HTTP-RESPONSE-BODY"] = ""
-       }
+	if m["CONTENT-LENGTH"] != len(m["HTTP-RESPONSE-BODY"]) {
+		return nil
+	}
 
-    if m["CONTENT-LENGTH"] != len(m["HTTP-RESPONSE-BODY"]) {
-        return nil
-    }
-
-    return m
+	return m
 }
 
+func pop3_parser(msg) map[string]string {
+	a := strings.Split(msg, "\n\n")
+	if len(a) < 2 {
+		return make(map[string]string)
+	}
 
-
-func pop3_parser(msg) map[string]interface{} {
-    a := strings.Split(msg, "\n\n"); 
-    if len(a) < 2 {
-    	return make(map[string]interface{})
-    }
-    
-    body := a[1]
+	body := a[1]
 	if !strings.HasSuffix(body, "\n.\n") {
-    	return fmt.Errorf("invalid POP3-RESPONSE-BODY")
-    }
-    body = strings.TrimSuffix(body ,"\n.\n")
-    
+		return fmt.Errorf("invalid POP3-RESPONSE-BODY")
+	}
+	body = strings.TrimSuffix(body, "\n.\n")
 
-    return map[string]interface{}{
+	return map[string]string{
 		"POP3-RESPONSE-BODY": body,
-		"CONTENT-LENGTH": len(body),
-    }
+		"CONTENT-LENGTH":     strconv.Itoa(len(body)),
+	}
 }
 
-func pop3_password_parser(msg) map[string]interface{} {
-    if  !strings.HasSuffix(msg, "\n") {
-    	return nil
-    }
-    return map[string]interface{}{
-    	"PASSWORD": msg[5:len(msg)-1],
-    }
+func pop3_password_parser(msg) map[string]string {
+	if !strings.HasSuffix(msg, "\n") {
+		return nil
+	}
+	return map[string]string{
+		"PASSWORD": msg[5 : len(msg)-1],
+	}
 }
 
-func ftp_entering_passive_parser(msg) map[string]interface{} {
-    if !strings.HasPrefix(msg, "227 Entering Passive Mode (") || !strings.HasSuffix(msg, ").\n") {
-    	return make(map[string]interface{})
-    }
+func ftp_entering_passive_parser(msg) map[string]string {
+	if !strings.HasPrefix(msg, "227 Entering Passive Mode (") || !strings.HasSuffix(msg, ").\n") {
+		return make(map[string]string)
+	}
 
 	a := msg.split(',')
 	if len(a) < 6 {
-		return make(map[string]interface{})
+		return make(map[string]string)
 	}
 
-	return map[string]interface{}{
-        "FTP_PASV_PORT_X": int(a[4]),
-        "FTP_PASV_PORT_Y": int(a[5][:len(a[5])-3]),
+	return map[string]string{
+		"FTP_PASV_PORT_X": a[4],
+		"FTP_PASV_PORT_Y": a[5][:len(a[5])-3],
 	}
 }
 
-
 func validate_dns_domain(msg string, dns_response bool) string {
-    delim, splitN :=  "\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00", 2
-    if dns_response {
-        delim, splitN =  "\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00", 3
-    } 
+	delim, splitN := "\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00", 2
+	if dns_response {
+		delim, splitN = "\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00", 3
+	}
 
-    tmp_domain_split1 := strings.Split(msg, delim)
-    if len(tmp_domain_split1) != 2 {
-        return ""
-    }
+	tmp_domain_split1 := strings.Split(msg, delim)
+	if len(tmp_domain_split1) != 2 {
+		return ""
+	}
 
-    tmp_domain_split2 := strings.Split(tmp_domain_split1[1], "\x00\x01\x00\x01")
-    if len(tmp_domain_split2) != splitN {
-        return ""
-    }
+	tmp_domain_split2 := strings.Split(tmp_domain_split1[1], "\x00\x01\x00\x01")
+	if len(tmp_domain_split2) != splitN {
+		return ""
+	}
 
-    tmp_domain := tmp_domain_split2[0]
+	tmp_domain := tmp_domain_split2[0]
 
-    // Check for valid prepended length
-    // Remove trailing tld prepended length (1), tld (3) and trailing null (1) = 5
-    if int(tmp_domain[0]) != len(tmp_domain[1:len(tmp_domain)-5]) {
-        return ""
-    } else if int(tmp_domain[-5]) != 3 {
-        return ""
-    }
+	// Check for valid prepended length
+	// Remove trailing tld prepended length (1), tld (3) and trailing null (1) = 5
+	if int(tmp_domain[0]) != len(tmp_domain[1:len(tmp_domain)-5]) {
+		return ""
+	} else if int(tmp_domain[-5]) != 3 {
+		return ""
+	}
 
-    // Check for valid TLD
-    if !strings.HasSuffix(tmp_domain, "com\x00") && !strings.HasSuffix(tmp_domain, "net\x00") && !strings.HasSuffix(tmp_domain, "org\x00") {
-    	return ""
-    }
-    
-    // Check for valid domain characters
-    if ! domainRegex.MatchString(tmp_domain[1:len(tmp_domain)-5]) {
-        return ""
-    }
+	// Check for valid TLD
+	if !strings.HasSuffix(tmp_domain, "com\x00") && !strings.HasSuffix(tmp_domain, "net\x00") && !strings.HasSuffix(tmp_domain, "org\x00") {
+		return ""
+	}
 
-    return tmp_domain
+	// Check for valid domain characters
+	if !domainRegex.MatchString(tmp_domain[1 : len(tmp_domain)-5]) {
+		return ""
+	}
+
+	return tmp_domain
 }
 
 var domainRegex = regexp.MustCompile(`^[\w\d]+$`)
 
+func validate_dns_ip(msg string) string {
+	tmp_ip_split := strings.Split(msg, "\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x02\x00\x04")
+	if len(tmp_ip_split) != 2 {
+		return ""
+	}
 
-func validate_dns_ip(msg string)  string {
-    tmp_ip_split := strings.Split(msg, "\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x02\x00\x04")
-    if len(tmp_ip_split) != 2 {
-        return ""
-    }
-    
-    tmp_ip := tmp_ip_split[1]
-    if len(tmp_ip) != 4 {
-        return ""
-    }
-    return tmp_ip
+	tmp_ip := tmp_ip_split[1]
+	if len(tmp_ip) != 4 {
+		return ""
+	}
+	return tmp_ip
 }
 
-func dns_request_parser(msg string)  map[string]interface{} {
-    if !strings.Contains(msg, "\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00") {
-        return make(map[string]interface{})
-    }
+func dns_request_parser(msg string) map[string]string {
+	if !strings.Contains(msg, "\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00") {
+		return make(map[string]string)
+	}
 
-    tmp_domain := validate_dns_domain(msg, false)
-    if tmp_domain == "" {
-        return make(map[string]interface{})
-    }
+	tmp_domain := validate_dns_domain(msg, false)
+	if tmp_domain == "" {
+		return make(map[string]string)
+	}
 
-    return map[string]interface{}{
-        "DNS_TRANSACTION_ID": msg[:2],
-    	"DNS_DOMAIN": tmp_domain,
-    }
+	return map[string]string{
+		"DNS_TRANSACTION_ID": msg[:2],
+		"DNS_DOMAIN":         tmp_domain,
+	}
 }
 
-func dns_response_parser(msg string)   map[string]interface{} {
-    if !strings.Contains(msgm "\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00") {
-        return make(map[string]interface{})
-    }
+func dns_response_parser(msg string) map[string]string {
+	if !strings.Contains(msg, "\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00") {
+		return make(map[string]string)
+	}
 
-    tmp_domain := validate_dns_domain(msg, True)
-    if tmp_domain == "" {
-        return return make(map[string]interface{})
-    }
+	tmp_domain := validate_dns_domain(msg, True)
+	if tmp_domain == "" {
+		return make(map[string]string)
+	}
 
-    tmp_ip := validate_dns_ip(msg)
-    if tmp_ip == "" {
-    	return return make(map[string]interface{})
-    }
+	tmp_ip := validate_dns_ip(msg)
+	if tmp_ip == "" {
+		return make(map[string]string)
+	}
 
-    return map[string]interface{}{
-        "DNS_TRANSACTION_ID": msg[:2],
-        "DNS_DOMAIN": tmp_domain,
-        "DNS_IP": tmp_ip,
-    }
+	return map[string]string{
+		"DNS_TRANSACTION_ID": msg[:2],
+		"DNS_DOMAIN":         tmp_domain,
+		"DNS_IP":             tmp_ip,
+	}
 }
