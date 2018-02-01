@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"os/exec"
 	"strconv"
@@ -89,56 +90,86 @@ func (dfa *DFA) Capacity() int {
 	return (dfa.capacity / 8)
 }
 
-// Encrypt encrypts plaintext into ciphertext.
-func (dfa *DFA) Encrypt(plaintext []byte) (ciphertext []byte, err error) {
+// Rank maps s into an integer ranking.
+func (dfa *DFA) Rank(s string) (rank *big.Int, err error) {
 	dfa.mu.Lock()
 	defer dfa.mu.Unlock()
 
-	if _, err := fmt.Fprintf(dfa.stdin, "E%09d%x", len(plaintext), plaintext); err != nil {
-		return nil, fmt.Errorf("fte.DFA.Encrypt(): cannot write to stdin: %s", err)
+	if _, err := fmt.Fprintf(dfa.stdin, "R%09d%x", len(s), s); err != nil {
+		return nil, fmt.Errorf("fte.DFA.Rank(): cannot write to stdin: %s", err)
 	}
 
 	line, err := dfa.bufout.ReadBytes('\n')
 	if err != nil {
-		return nil, fmt.Errorf("fte.DFA.Encrypt(): cannot read from stdout: %s", err)
+		return nil, fmt.Errorf("fte.DFA.Rank(): cannot read from stdout: %s", err)
 	}
 
-	// Line is split into <plaintext,capacity>.
+	// Line is split into <rank,capacity>.
 	segments := bytes.SplitN(line, []byte(":"), 2)
 
-	if ciphertext, err = hex.DecodeString(string(bytes.TrimSpace(segments[0]))); err != nil {
-		return nil, fmt.Errorf("fte.DFA.Encrypt(): cannot decode ciphertext hex: %s", err)
+	rank = &big.Int{}
+	if _, ok := rank.SetString(string(bytes.TrimSpace(segments[0])), 10); !ok {
+		return nil, fmt.Errorf("fte.DFA.Rank(): cannot decode big.Int: %q", bytes.TrimSpace(segments[0]))
 	}
 	if dfa.capacity, err = strconv.Atoi(string(bytes.TrimSpace(segments[1]))); err != nil {
-		return nil, fmt.Errorf("fte.DFA.Encrypt(): cannot convert capacity to int: %s", err)
+		return nil, fmt.Errorf("fte.DFA.Rank(): cannot convert capacity to int: %s", err)
 	}
-	return ciphertext, nil
+	return rank, nil
 }
 
-// Decrypt decrypts ciphertext into plaintext.
-func (dfa *DFA) Decrypt(ciphertext []byte) (plaintext []byte, err error) {
+// Unrank reverses the map from an integer to a string.
+func (dfa *DFA) Unrank(rank *big.Int) (ret string, err error) {
 	dfa.mu.Lock()
 	defer dfa.mu.Unlock()
 
-	if _, err := fmt.Fprintf(dfa.stdin, "D%09d%x", len(ciphertext), ciphertext); err != nil {
-		return nil, fmt.Errorf("fte.DFA.Decrypt(): cannot write to stdin: %s", err)
+	req := rank.String()
+	if _, err := fmt.Fprintf(dfa.stdin, "U%09d%x", len(req), req); err != nil {
+		return "", fmt.Errorf("fte.DFA.Unrank(): cannot write to stdin: %s", err)
 	}
 
 	line, err := dfa.bufout.ReadBytes('\n')
 	if err != nil {
-		return nil, fmt.Errorf("fte.DFA.Decrypt(): cannot read from stdout: %s", err)
+		return "", fmt.Errorf("fte.DFA.Unrank(): cannot read from stdout: %s", err)
 	}
 
 	// Line is split into <plaintext,capacity>.
 	segments := bytes.SplitN(line, []byte(":"), 2)
 
-	if plaintext, err = hex.DecodeString(string(bytes.TrimSpace(segments[0]))); err != nil {
-		return nil, fmt.Errorf("fte.DFA.Decrypt(): cannot decode plaintext hex: %s", err)
+	var retBytes []byte
+	if retBytes, err = hex.DecodeString(string(bytes.TrimSpace(segments[0]))); err != nil {
+		return "", fmt.Errorf("fte.DFA.Unrank(): cannot decode hex: %s", err)
 	}
-	if dfa.capacity, err = strconv.Atoi(string(bytes.TrimSpace(segments[2]))); err != nil {
-		return nil, fmt.Errorf("fte.DFA.Decrypt(): cannot convert capacity to int: %s", err)
+	if dfa.capacity, err = strconv.Atoi(string(bytes.TrimSpace(segments[1]))); err != nil {
+		return "", fmt.Errorf("fte.DFA.Unrank(): cannot convert capacity to int: %s", err)
 	}
-	return plaintext, nil
+	return string(retBytes), nil
+}
+
+// NumWordsInSlice executes DFA.getNumWordsInSlice.
+func (dfa *DFA) NumWordsInSlice(n int) (numWords int, err error) {
+	dfa.mu.Lock()
+	defer dfa.mu.Unlock()
+
+	req := strconv.Itoa(n)
+	if _, err := fmt.Fprintf(dfa.stdin, "N%09d%x", len(req), req); err != nil {
+		return 0, fmt.Errorf("fte.DFA.NumWordsInSlice(): cannot write to stdin: %s", err)
+	}
+
+	line, err := dfa.bufout.ReadBytes('\n')
+	if err != nil {
+		return 0, fmt.Errorf("fte.DFA.NumWordsInSlice(): cannot read from stdout: %s", err)
+	}
+
+	// Line is split into <numWords,capacity>.
+	segments := bytes.SplitN(line, []byte(":"), 2)
+
+	if numWords, err = strconv.Atoi(string(bytes.TrimSpace(segments[0]))); err != nil {
+		return 0, fmt.Errorf("fte.DFA.NumWordsInSlice(): cannot decode numWords to int: %s", err)
+	}
+	if dfa.capacity, err = strconv.Atoi(string(bytes.TrimSpace(segments[1]))); err != nil {
+		return 0, fmt.Errorf("fte.DFA.NumWordsInSlice(): cannot convert capacity to int: %s", err)
+	}
+	return numWords, nil
 }
 
 const dfaProgram = `
@@ -154,18 +185,25 @@ dfa = regex2dfa.regex2dfa(regex)
 cDFA = fte.cDFA.DFA(dfa, msg_len)
 encoder = fte.dfa.DFA(cDFA, msg_len)
 
-def encode(payload):
-	raise Exception(encoder.rank(payload))
-	ciphertext = bytearray(encoder.rank(payload))
-	sys.stdout.write(binascii.hexlify(ciphertext))
+def rank(payload):
+	ret = encoder.rank(payload)
+	sys.stdout.write(ret)
 	sys.stdout.write(":")
 	sys.stdout.write(str(encoder.getCapacity()))
 	sys.stdout.write("\n")
 	sys.stdout.flush()
 
-def decode(payload):
-	[plaintext, remainder] = encoder.unrank(payload)
-	sys.stdout.write(binascii.hexlify(plaintext))
+def unrank(payload):
+	str = encoder.unrank(int(payload))
+	sys.stdout.write(binascii.hexlify(str))
+	sys.stdout.write(":")
+	sys.stdout.write(str(encoder.getCapacity()))
+	sys.stdout.write("\n")
+	sys.stdout.flush()
+
+def num_words_in_slice(payload):
+	num_words = encoder.getNumWordsInSlice(int(payload))
+	sys.stdout.write(num_words)
 	sys.stdout.write(":")
 	sys.stdout.write(str(encoder.getCapacity()))
 	sys.stdout.write("\n")
@@ -175,13 +213,15 @@ while True:
 	cmd = sys.stdin.read(1)
 	if cmd == "":
 		break
-	assert cmd == 'E' or cmd == 'D'
+	assert cmd == 'R' or cmd == 'U' or cmd == 'N'
 
 	sz = int(sys.stdin.read(9))
 	payload = binascii.unhexlify(sys.stdin.read(sz*2))
 
-	if cmd == 'E':
-		encode(payload)
+	if cmd == 'R':
+		rank(payload)
+	elif cmd == 'U':
+		unrank(payload)
 	else:
-		decode(payload)
+		num_words_in_slice(payload)
 `

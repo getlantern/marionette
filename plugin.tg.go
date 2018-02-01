@@ -1,10 +1,12 @@
 package marionette
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 	"math/rand"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/redjack/marionette/fte"
@@ -185,17 +187,22 @@ func (c *rankerCipher) capacity() int {
 }
 
 func (c *rankerCipher) encrypt(fsm *FSM, template string, data []byte) (ciphertext []byte, err error) {
-	return c.encoder.Unrank(binary.BigEndian.Uint32(data))
-}
+	rank := &big.Int{}
+	rank.SetBytes(data)
 
-func (c *rankerCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
-	rank, err := c.encoder_.Rank(ciphertext)
+	ret, err := c.encoder.Unrank(rank)
 	if err != nil {
 		return nil, err
 	}
-	plaintext = make([]byte, 4)
-	binary.BigEndian.PutUint32(plaintext, uint32(rank)) // c.Capacity()/8
-	return plaintext, nil
+	return []byte(ret), nil
+}
+
+func (c *rankerCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
+	rank, err := c.encoder.Rank(string(ciphertext))
+	if err != nil {
+		return nil, err
+	}
+	return rank.Bytes(), nil
 }
 
 var _ tgCipher = &fteCipher{}
@@ -210,24 +217,24 @@ func newFTECipher(regex string, msg_len int, useCapacity bool) *fteCipher {
 	return &fteCipher{
 		regex:       regex,
 		useCapacity: useCapacity,
-		encoder:     fte.NewCipher(regex, msg_len),
+		encoder:     fte.NewCipher(regex),
 	}
 }
 
 func (c *fteCipher) capacity() int {
-	if !c.useCapacity && strings.HasSuffix(c.regex_, ".+") {
+	if !c.useCapacity && strings.HasSuffix(c.regex, ".+") {
 		return (1 << 18)
 	}
-
-	return c.encoder.getCapacity() - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
+	return c.encoder.Capacity() - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
 }
 
 func (c *fteCipher) encrypt(fsm *FSM, template string, data []byte) (ciphertext []byte, err error) {
-	return c.encoder.encode(data)
+	return c.encoder.Encrypt(data)
 }
 
 func (c *fteCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
-	return c.encoder.decode(ciphertext)
+	plaintext, _, err = c.encoder.Decrypt(ciphertext)
+	return plaintext, err
 }
 
 var _ tgCipher = &httpContentLengthCipher{}
@@ -241,9 +248,9 @@ func (c *httpContentLengthCipher) capacity() int {
 func (c *httpContentLengthCipher) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	a := strings.SplitN(template, "\r\n\r\n", 2)
 	if len(a) == 1 {
-		return 0
+		return []byte("0"), nil
 	}
-	return strconv.Itoa(len(a[1])), nil
+	return []byte(strconv.Itoa(len(a[1]))), nil
 }
 
 func (c *httpContentLengthCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
@@ -280,11 +287,11 @@ func (c *setFTPPasvXCipher) capacity() int {
 
 func (c *setFTPPasvXCipher) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	i := fsm.Var("ftp_pasv_port").(int)
-	return strconv.Itoa(i / 256), nil
+	return []byte(strconv.Itoa(i / 256)), nil
 }
 
 func (c *setFTPPasvXCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
-	i, _ := strconv.Atoi(ciphertext)
+	i, _ := strconv.Atoi(string(ciphertext))
 	fsm.SetVar("ftp_pasv_port_x", i)
 	return nil, nil
 }
@@ -299,12 +306,12 @@ func (c *setFTPPasvYCipher) capacity() int {
 
 func (c *setFTPPasvYCipher) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	i := fsm.Var("ftp_pasv_port").(int)
-	return strconv.Itoa(i % 256), nil
+	return []byte(strconv.Itoa(i % 256)), nil
 }
 
 func (c *setFTPPasvYCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
 	ftp_pasv_port_x := fsm.Var("ftp_pasv_port").(int)
-	ftp_pasv_port_y, _ := strconv.Atoi(ciphertext)
+	ftp_pasv_port_y, _ := strconv.Atoi(string(ciphertext))
 
 	fsm.SetVar("ftp_pasv_port", ftp_pasv_port_x*256+ftp_pasv_port_y)
 	return nil, nil
@@ -351,12 +358,12 @@ func (c *setDNSDomainCipher) encrypt(fsm *FSM, template string, plaintext []byte
 		tlds := []string{"com", "net", "org"}
 
 		buf := make([]rune, rand.Intn(60)+3+1)
-		buf[0] = len(buf) - 1 // name length
+		buf[0] = rune(len(buf) - 1) // name length
 		for i := 1; i < len(buf); i++ {
 			buf[i] = available[rand.Intn(len(available))]
 		}
 		buf = append(buf, 3) // tld length
-		buf = append(buf, tlds[rand.Intn(len(tlds))]...)
+		buf = append(buf, []rune(tlds[rand.Intn(len(tlds))])...)
 
 		dns_domain = string(buf)
 		fsm.SetVar("dns_domain", dns_domain)
@@ -385,11 +392,11 @@ func (c *setDNSIPCipher) encrypt(fsm *FSM, template string, plaintext []byte) (c
 		dns_ip = string([]rune{rune(rand.Intn(253) + 1), rune(rand.Intn(253) + 1), rune(rand.Intn(253) + 1), rune(rand.Intn(253) + 1)})
 		fsm.SetVar("dns_ip", dns_ip)
 	}
-	return dns_ip
+	return []byte(dns_ip), nil
 }
 
 func (c *setDNSIPCipher) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
-	fsm.set_local("dns_ip", string(ciphertext))
+	fsm.SetVar("dns_ip", string(ciphertext))
 	return nil, nil
 }
 
@@ -526,73 +533,84 @@ func init() {
 
 const MIN_PTXT_LEN = fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT + fte.CTXT_EXPANSION + 32
 
-type amazonMsgLensHandler struct{}
+type amazonMsgLensHandler struct {
+	min_len    int
+	max_len    int
+	target_len int
+	regex      string
+	encoder    *fte.Cipher
+	dfas       map[dfaKey]*fte.DFA
+}
 
 func newAmazonMsgLensHandler(regex string) *amazonMsgLensHandler {
-	h := &amazonMsgLensHandler{
-		min_len:     MIN_PTXT_LEN,
-		max_len_:    1 << 18,
-		target_len_: 0.0,
-		regex_:      regex,
+	return &amazonMsgLensHandler{
+		min_len:    MIN_PTXT_LEN,
+		max_len:    1 << 18,
+		target_len: 0,
+		regex:      regex,
+		encoder:    fte.NewCipher(regex),
+		dfas:       make(map[dfaKey]*fte.DFA),
 	}
-
-	key := fteKey{regex_, h.min_len_}
-	if encoder := fte_cache_[key]; encoder == nil {
-		encoder = fte.NewCipher(regex, h.min_len_)
-		fte_cache_[key] = encoder
-	}
-	return h
 }
 
 func (h *amazonMsgLensHandler) capacity() int {
-	h.target_len_ = amazon_msg_lens[rand.Intn(amazon_msg_lens)]
-	if h.target_len_ < h.min_len_ {
+	h.target_len = amazon_msg_lens[rand.Intn(len(amazon_msg_lens))]
+	if h.target_len < h.min_len {
 		return 0
-	} else if h.target_len_ > h.max_len_ {
+	} else if h.target_len > h.max_len {
 		// We do this to prevent unranking really large slices
 		// in practice this is probably bad since it unnaturally caps
 		// our message sizes to whatever FTE can support
-		h.target_len_ = h.max_len_
-		return h.max_len_
+		h.target_len = h.max_len
+		return h.max_len
 	}
-	n := h.target_len_ - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT
+	n := h.target_len - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT
 	n -= fte.CTXT_EXPANSION
 	// n = int(ptxt_len * 8.0)-1
 	return n
 }
 
 func (h *amazonMsgLensHandler) encrypt(fsm *FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
-	if h.target_len_ < h.min_len_ || h.target_len_ > h.max_len_ {
-		key := regexKey{h.regex_, h.target_len_}
-		encoder := regex_cache_[key]
-		if encoder == nil {
-			encoder := fte.NewDFA(h.regex_, h.target_len_)
-			if err := encoder.Open(); err != nil {
-				return nil, err
-			}
-			regex_cache_[key] = encoder
+	if h.target_len < h.min_len || h.target_len > h.max_len {
+		key := dfaKey{h.regex, h.target_len}
+		dfa := h.dfas[key]
+		if dfa == nil {
+			dfa = fte.NewDFA(h.regex, h.target_len)
+			h.dfas[key] = dfa
 		}
 
-		to_unrank := random.Intn(encoder.getNumWordsInSlice(h.target_len_))
-		return encoder.unrank(to_unrank), nil
+		numWords, err := dfa.NumWordsInSlice(h.target_len)
+		if err != nil {
+			return nil, err
+		}
+
+		ret, err := dfa.Unrank(big.NewInt(rand.Int63n(int64(numWords))))
+		if err != nil {
+			return nil, err
+		}
+		return []byte(ret), nil
 	}
 
-	encoder := fte_cache_[fteKey{h.regex_, h.min_len_}]
-	ciphertext, err = encoder.encode(to_embed)
+	ciphertext, err = h.encoder.Encrypt(plaintext)
 	if err != nil {
 		return nil, err
-	} else if len(ciphertext) != h.target_len_ {
-		return nil, fmt.Errorf("Could not find ciphertext of len %d (%d)", h.target_len_, len(ciphertext))
+	} else if len(ciphertext) != h.target_len {
+		return nil, fmt.Errorf("Could not find ciphertext of len %d (%d)", h.target_len, len(ciphertext))
 	}
 	return ciphertext, nil
 }
 
 func (h *amazonMsgLensHandler) decrypt(fsm *FSM, ciphertext []byte) (plaintext []byte, err error) {
-	if len(ciphertext) < h.min_len_ {
+	if len(ciphertext) < h.min_len {
 		return nil, nil
 	}
-	encoder := fte_cache_[fteCacheKey{h.regex_, h.min_len_}]
-	return encoder.decode(ciphertext)
+	plaintext, _, err = h.encoder.Decrypt(ciphertext)
+	return plaintext, err
+}
+
+type dfaKey struct {
+	regex string
+	n     int
 }
 
 var tgConfigs = map[string]*tgConfig{
@@ -760,9 +778,9 @@ var templates = map[string][]string{
 }
 
 func get_http_header(header_name, msg string) string {
-	lines := msg.split("\r\n")
+	lines := strings.Split(msg, "\r\n")
 	for _, line := range lines[1 : len(lines)-2] {
-		if a := strings.Split(line, ": ", 2); a[0] == header_name {
+		if a := strings.SplitN(line, ": ", 2); a[0] == header_name {
 			if len(a) > 1 {
 				return a[1]
 			}
@@ -773,13 +791,13 @@ func get_http_header(header_name, msg string) string {
 }
 
 func http_request_parser(msg string) map[string]string {
-	if !strings.HasPrefix(msg.startswith("GET")) {
+	if !strings.HasPrefix(msg, "GET") {
 		return nil
 	} else if !strings.HasSuffix(msg, "\r\n\r\n") {
 		return nil
 	}
 
-	lines := lineBreakRegex.Split(msg)
+	lines := lineBreakRegex.Split(msg, -1)
 	segments := strings.Split(lines[0][:len(lines[0])-9], "/")
 
 	if strings.HasPrefix(msg, "GET http") {
@@ -790,28 +808,27 @@ func http_request_parser(msg string) map[string]string {
 
 var lineBreakRegex = regexp.MustCompile(`\r\n`)
 
-func http_response_parser(msg) map[string]string {
+func http_response_parser(msg string) map[string]string {
 	if !strings.HasPrefix(msg, "HTTP") {
-		return nil
+		return make(map[string]string)
 	}
 
 	m := make(map[string]string)
 	m["CONTENT-LENGTH"] = get_http_header("Content-Length", msg)
 	m["COOKIE"] = get_http_header("Cookie", msg)
-	if a := strings.Split(msg < "\r\n\r\n"); len(a) > 1 {
+	if a := strings.Split(msg, "\r\n\r\n"); len(a) > 1 {
 		m["HTTP-RESPONSE-BODY"] = a[1]
 	} else {
 		m["HTTP-RESPONSE-BODY"] = ""
 	}
 
-	if m["CONTENT-LENGTH"] != len(m["HTTP-RESPONSE-BODY"]) {
-		return nil
+	if m["CONTENT-LENGTH"] != strconv.Itoa(len(m["HTTP-RESPONSE-BODY"])) {
+		return make(map[string]string)
 	}
-
 	return m
 }
 
-func pop3_parser(msg) map[string]string {
+func pop3_parser(msg string) map[string]string {
 	a := strings.Split(msg, "\n\n")
 	if len(a) < 2 {
 		return make(map[string]string)
@@ -819,7 +836,7 @@ func pop3_parser(msg) map[string]string {
 
 	body := a[1]
 	if !strings.HasSuffix(body, "\n.\n") {
-		return fmt.Errorf("invalid POP3-RESPONSE-BODY")
+		panic(fmt.Errorf("invalid POP3-RESPONSE-BODY"))
 	}
 	body = strings.TrimSuffix(body, "\n.\n")
 
@@ -829,7 +846,7 @@ func pop3_parser(msg) map[string]string {
 	}
 }
 
-func pop3_password_parser(msg) map[string]string {
+func pop3_password_parser(msg string) map[string]string {
 	if !strings.HasSuffix(msg, "\n") {
 		return nil
 	}
@@ -838,12 +855,12 @@ func pop3_password_parser(msg) map[string]string {
 	}
 }
 
-func ftp_entering_passive_parser(msg) map[string]string {
+func ftp_entering_passive_parser(msg string) map[string]string {
 	if !strings.HasPrefix(msg, "227 Entering Passive Mode (") || !strings.HasSuffix(msg, ").\n") {
 		return make(map[string]string)
 	}
 
-	a := msg.split(',')
+	a := strings.Split(msg, ",")
 	if len(a) < 6 {
 		return make(map[string]string)
 	}
@@ -876,7 +893,7 @@ func validate_dns_domain(msg string, dns_response bool) string {
 	// Remove trailing tld prepended length (1), tld (3) and trailing null (1) = 5
 	if int(tmp_domain[0]) != len(tmp_domain[1:len(tmp_domain)-5]) {
 		return ""
-	} else if int(tmp_domain[-5]) != 3 {
+	} else if int(tmp_domain[len(tmp_domain)-5]) != 3 {
 		return ""
 	}
 
@@ -929,7 +946,7 @@ func dns_response_parser(msg string) map[string]string {
 		return make(map[string]string)
 	}
 
-	tmp_domain := validate_dns_domain(msg, True)
+	tmp_domain := validate_dns_domain(msg, true)
 	if tmp_domain == "" {
 		return make(map[string]string)
 	}
