@@ -186,16 +186,16 @@ cDFA = fte.cDFA.DFA(dfa, msg_len)
 encoder = fte.dfa.DFA(cDFA, msg_len)
 
 def rank(payload):
-	ret = encoder.rank(payload)
-	sys.stdout.write(ret)
+	ret = encoder.rank(payload.encode('utf8'))
+	sys.stdout.write(str(ret))
 	sys.stdout.write(":")
 	sys.stdout.write(str(encoder.getCapacity()))
 	sys.stdout.write("\n")
 	sys.stdout.flush()
 
 def unrank(payload):
-	str = encoder.unrank(int(payload))
-	sys.stdout.write(binascii.hexlify(str))
+	v = encoder.unrank(int(payload))
+	sys.stdout.write(binascii.hexlify(v))
 	sys.stdout.write(":")
 	sys.stdout.write(str(encoder.getCapacity()))
 	sys.stdout.write("\n")

@@ -18,21 +18,21 @@ func TestDFA(t *testing.T) {
 	msg1 := strings.Repeat("B", 2048)
 
 	// Encode/decode first message.
-	if ciphertext, err := dfa.Encrypt([]byte(msg0)); err != nil {
+	if rank, err := dfa.Rank(msg0); err != nil {
 		t.Fatal(err)
-	} else if plaintext, err := dfa.Decrypt(ciphertext); err != nil {
+	} else if other, err := dfa.Unrank(rank); err != nil {
 		t.Fatal(err)
-	} else if string(plaintext) != msg0 {
-		t.Fatalf("unexpected plaintext: %q", plaintext)
+	} else if other != msg0 {
+		t.Fatalf("unexpected unrank: %q", other)
 	}
 
 	// Encode/decode second message.
-	if ciphertext, err := dfa.Encrypt([]byte(msg1)); err != nil {
+	if rank, err := dfa.Rank(msg1); err != nil {
 		t.Fatal(err)
-	} else if plaintext, err := dfa.Decrypt(ciphertext); err != nil {
+	} else if other, err := dfa.Unrank(rank); err != nil {
 		t.Fatal(err)
-	} else if string(plaintext) != `foo bar` {
-		t.Fatalf("unexpected plaintext: %q", plaintext)
+	} else if other != msg1 {
+		t.Fatalf("unexpected unrank: %q", other)
 	}
 
 	if err := dfa.Close(); err != nil {
