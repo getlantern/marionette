@@ -150,11 +150,8 @@ func (c *Cell) UnmarshalBinary(data []byte) (err error) {
 
 	// Read payload.
 	c.Payload = make([]byte, payloadN)
-	if _, err := r.Read(c.Payload); err != nil {
-		return err
-	}
-
-	return nil
+	_, err = r.Read(c.Payload)
+	return err
 }
 
 type Cells []*Cell

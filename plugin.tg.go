@@ -10,9 +10,10 @@ import (
 	"strings"
 
 	"github.com/redjack/marionette/fte"
+	"go.uber.org/zap"
 )
 
-func TGSendPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+func tgSendPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	logger := fsm.logger()
 
 	if len(args) < 1 {
@@ -47,58 +48,73 @@ func TGSendPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	return true, nil
 }
 
-/*
-def recv(channel, marionette_state, input_args):
-    retval = False
-    grammar = input_args[0]
+func tgRecvPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+	logger := fsm.logger()
 
-    try:
-        ctxt = channel.recv()
-
-        if parser(grammar, ctxt):
-            cell_str = ''
-            for handler_key in conf[grammar]["handler_order"]:
-                tmp_str = execute_handler_receiver(marionette_state,
-                                                   grammar, handler_key, ctxt)
-                if tmp_str:
-                    cell_str += tmp_str
-
-            if not cell_str:
-                retval = True
-            else:
-                ##
-                cell_obj = marionette_tg.record_layer.unserialize(cell_str)
-                assert cell_obj.get_model_uuid() == marionette_state.get_local(
-                    "model_uuid")
-
-                marionette_state.set_local(
-                    "model_instance_id", cell_obj.get_model_instance_id())
-                ##
-
-                if marionette_state.get_local("model_instance_id"):
-                    marionette_state.get_global(
-                        "multiplexer_incoming").push(cell_str)
-                    retval = True
-    except socket.timeout as e:
-        pass
-    except socket.error as e:
-        pass
-    except marionette_tg.record_layer.UnserializeException as e:
-        pass
-
-    if not retval:
-        channel.rollback()
-
-    return retval
-
-*/
-
-func get_grammar_capacity(grammar string) int {
-	var n int
-	for _, h := range tgConfigs[grammar].handlers {
-		n += h.cipher.capacity()
+	if len(args) < 1 {
+		return false, errors.New("tg.send: not enough arguments")
 	}
-	return n
+
+	grammar, ok := args[0].(string)
+	if !ok {
+		return false, errors.New("tg.send: invalid grammar argument type")
+	}
+
+	logger.Debug("tg.recv: reading buffer", zap.String("grammar", grammar))
+
+	// Retrieve data from the connection.
+	ciphertext, err := fsm.ReadBuffer()
+	if err != nil {
+		return false, err
+	}
+
+	logger.Debug("tg.recv: buffer read", zap.Int("n", len(ciphertext)))
+
+	// Verify incoming data can be parsed by the grammar.
+	if parse(grammar, string(ciphertext)) == nil {
+		logger.Debug("tg.recv: cannot parse buffer")
+		return false, nil
+	}
+
+	// Execute each handler against the data.
+	var cell_str string
+	for _, h := range tgConfigs[grammar].handlers {
+		logger.Debug("tg.recv: handle buffer", zap.String("name", h.name))
+		s, err := execute_handler_receiver(fsm, grammar, h.name, string(ciphertext))
+		if err != nil {
+			return false, err
+		} else if s != "" {
+			cell_str += s
+		}
+	}
+
+	// If any handlers matched and returned data then decode data as a cell.
+	if len(cell_str) > 0 {
+		logger.Debug("tg.recv: decoding buffer")
+		var cell Cell
+		if err := cell.UnmarshalBinary([]byte(cell_str)); err != nil {
+			return false, err
+		}
+		logger.Debug("tg.recv: buffer decoded", zap.Int("n", len(cell.Payload)))
+
+		assert(cell.UUID == fsm.UUID())
+		fsm.InstanceID = cell.InstanceID
+
+		if fsm.InstanceID == 0 {
+			return false, nil
+		}
+
+		if err := fsm.streams.Enqueue(&cell); err != nil {
+			return false, err
+		}
+	}
+
+	// Clear FSM's read buffer on success.
+	fsm.SetReadBuffer(nil)
+
+	logger.Debug("tg.recv: recv complete")
+
+	return true, nil
 }
 
 func do_embed(template, handler_key, value string) string {
@@ -723,7 +739,7 @@ func parse(grammar, msg string) map[string]string {
 	} else if strings.HasPrefix(grammar, "dns_response") {
 		return dns_response_parser(msg)
 	}
-	return make(map[string]string)
+	return nil
 }
 
 var templates = map[string][]string{
@@ -810,7 +826,7 @@ var lineBreakRegex = regexp.MustCompile(`\r\n`)
 
 func http_response_parser(msg string) map[string]string {
 	if !strings.HasPrefix(msg, "HTTP") {
-		return make(map[string]string)
+		return nil
 	}
 
 	m := make(map[string]string)
@@ -823,7 +839,7 @@ func http_response_parser(msg string) map[string]string {
 	}
 
 	if m["CONTENT-LENGTH"] != strconv.Itoa(len(m["HTTP-RESPONSE-BODY"])) {
-		return make(map[string]string)
+		return nil
 	}
 	return m
 }
@@ -831,12 +847,12 @@ func http_response_parser(msg string) map[string]string {
 func pop3_parser(msg string) map[string]string {
 	a := strings.Split(msg, "\n\n")
 	if len(a) < 2 {
-		return make(map[string]string)
+		return nil
 	}
 
 	body := a[1]
 	if !strings.HasSuffix(body, "\n.\n") {
-		panic(fmt.Errorf("invalid POP3-RESPONSE-BODY"))
+		return nil
 	}
 	body = strings.TrimSuffix(body, "\n.\n")
 
@@ -850,19 +866,17 @@ func pop3_password_parser(msg string) map[string]string {
 	if !strings.HasSuffix(msg, "\n") {
 		return nil
 	}
-	return map[string]string{
-		"PASSWORD": msg[5 : len(msg)-1],
-	}
+	return map[string]string{"PASSWORD": msg[5 : len(msg)-1]}
 }
 
 func ftp_entering_passive_parser(msg string) map[string]string {
 	if !strings.HasPrefix(msg, "227 Entering Passive Mode (") || !strings.HasSuffix(msg, ").\n") {
-		return make(map[string]string)
+		return nil
 	}
 
 	a := strings.Split(msg, ",")
 	if len(a) < 6 {
-		return make(map[string]string)
+		return nil
 	}
 
 	return map[string]string{
@@ -927,12 +941,12 @@ func validate_dns_ip(msg string) string {
 
 func dns_request_parser(msg string) map[string]string {
 	if !strings.Contains(msg, "\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00") {
-		return make(map[string]string)
+		return nil
 	}
 
 	tmp_domain := validate_dns_domain(msg, false)
 	if tmp_domain == "" {
-		return make(map[string]string)
+		return nil
 	}
 
 	return map[string]string{
@@ -943,17 +957,17 @@ func dns_request_parser(msg string) map[string]string {
 
 func dns_response_parser(msg string) map[string]string {
 	if !strings.Contains(msg, "\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00") {
-		return make(map[string]string)
+		return nil
 	}
 
 	tmp_domain := validate_dns_domain(msg, true)
 	if tmp_domain == "" {
-		return make(map[string]string)
+		return nil
 	}
 
 	tmp_ip := validate_dns_ip(msg)
 	if tmp_ip == "" {
-		return make(map[string]string)
+		return nil
 	}
 
 	return map[string]string{

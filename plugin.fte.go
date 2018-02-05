@@ -10,13 +10,13 @@ import (
 
 const MaxCellLength = 262144
 
-// FTESendPlugin send data to a connection.
-func FTESendPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+// fteSendSyncPlugin send data to a connection.
+func fteSendSyncPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	return fteSendPlugin(fsm, args, true)
 }
 
-// FTESendAsyncPlugin send data to a connection without blocking.
-func FTESendAsyncPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+// fteSendAsyncPlugin send data to a connection without blocking.
+func fteSendAsyncPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	return fteSendPlugin(fsm, args, false)
 }
 
@@ -91,13 +91,13 @@ func fteSendPlugin(fsm *FSM, args []interface{}, blocking bool) (success bool, e
 	return true, nil
 }
 
-// FTERecvPlugin receives data from a connection.
-func FTERecvPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+// fteRecvSyncPlugin receives data from a connection.
+func fteRecvSyncPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	return fteRecvPlugin(fsm, args)
 }
 
 // FTERecvAsyncPlugin receives data from a connection without blocking.
-func FTERecvAsyncPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+func fteRecvAsyncPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	return fteRecvPlugin(fsm, args)
 }
 
@@ -147,7 +147,6 @@ func fteRecvPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	}
 
 	logger.Info("fte.recv: received cell", zap.Int("n", len(cell.Payload)))
-	fmt.Println(string(cell.Payload))
 
 	assert(fsm.UUID() == cell.UUID)
 	initRequired := fsm.InstanceID == 0

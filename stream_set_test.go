@@ -61,6 +61,8 @@ func TestStreamSet_Enqueue(t *testing.T) {
 			t.Fatal(err)
 		} else if string(buf) != "foobaz" {
 			t.Fatalf("unexpected stream data: %s", buf)
+		} else if !callbackInvoked {
+			t.Fatal("expected callback invocation")
 		}
 	})
 

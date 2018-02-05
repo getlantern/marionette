@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-func IOPutsPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+func ioPutsPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	if fsm.conn == nil {
 		return false, nil
 	}
@@ -36,7 +36,7 @@ func IOPutsPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	return true, nil
 }
 
-func IOGetsPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+func ioGetsPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	if fsm.conn == nil {
 		return false, nil
 	}

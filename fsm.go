@@ -213,15 +213,6 @@ func (fsm *FSM) init() (err error) {
 	return nil
 }
 
-func (fsm *FSM) next_transition(src_state, dst_state string) *mar.Transition {
-	for _, transition := range fsm.transitions[src_state] {
-		if transition.Destination == dst_state {
-			return transition
-		}
-	}
-	return nil
-}
-
 func (fsm *FSM) evalActions(actions []*mar.Action) (bool, error) {
 	logger := fsm.logger()
 

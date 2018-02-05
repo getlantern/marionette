@@ -5,8 +5,8 @@ import (
 	"net"
 )
 
-// ChannelBindPlugin binds the variable specified in the first argument to a port.
-func ChannelBindPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+// channelBindPlugin binds the variable specified in the first argument to a port.
+func channelBindPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	if len(args) < 1 {
 		return false, errors.New("channel.bind: not enough arguments")
 	}

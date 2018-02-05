@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func ModelSleepPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+func modelSleepPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	if len(args) < 1 {
 		return false, errors.New("model.sleep: not enough arguments")
 	}
@@ -60,7 +60,7 @@ func ModelSleepPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	return true, nil
 }
 
-func ModelSpawnPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+func modelSpawnPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
 	panic("TODO")
 }
 

@@ -13,23 +13,24 @@ func FindPlugin(module, method string) PluginFunc {
 
 var pluginRegistry = map[string]map[string]PluginFunc{
 	"channel": map[string]PluginFunc{
-		"bind": ChannelBindPlugin,
+		"bind": channelBindPlugin,
 	},
 	"fte": map[string]PluginFunc{
-		"send_async": FTESendAsyncPlugin,
-		"recv_async": FTERecvAsyncPlugin,
-		"send":       FTESendPlugin,
-		"recv":       FTERecvPlugin,
+		"send_async": fteSendAsyncPlugin,
+		"recv_async": fteRecvAsyncPlugin,
+		"send":       fteSendSyncPlugin,
+		"recv":       fteRecvSyncPlugin,
 	},
 	"io": map[string]PluginFunc{
-		"puts": IOPutsPlugin,
-		"gets": IOGetsPlugin,
+		"puts": ioPutsPlugin,
+		"gets": ioGetsPlugin,
 	},
 	"model": map[string]PluginFunc{
-		"sleep": ModelSleepPlugin,
-		"spawn": ModelSpawnPlugin,
+		"sleep": modelSleepPlugin,
+		"spawn": modelSpawnPlugin,
 	},
 	"tg": map[string]PluginFunc{
-		"send": TGSendPlugin,
+		"send": tgSendPlugin,
+		"recv": tgRecvPlugin,
 	},
 }
