@@ -1,17 +1,7 @@
 package marionette
 
-type PluginFunc func(fsm *FSM, args []interface{}) (success bool, err error)
-
-// FindPlugin returns a plugin function by module & name.
-func FindPlugin(module, method string) PluginFunc {
-	m := pluginRegistry[module]
-	if m == nil {
-		return nil
-	}
-	return m[method]
-}
-
-var pluginRegistry = map[string]map[string]PluginFunc{
+/*
+{
 	"channel": map[string]PluginFunc{
 		"bind": channelBindPlugin,
 	},
@@ -34,3 +24,4 @@ var pluginRegistry = map[string]map[string]PluginFunc{
 		"recv": tgRecvPlugin,
 	},
 }
+*/

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/redjack/marionette"
+	_ "github.com/redjack/marionette/plugins"
 )
 
 func init() {

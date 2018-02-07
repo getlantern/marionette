@@ -1,12 +1,18 @@
-package marionette
+package channel
 
 import (
 	"errors"
 	"net"
+
+	"github.com/redjack/marionette"
 )
 
-// channelBindPlugin binds the variable specified in the first argument to a port.
-func channelBindPlugin(fsm *FSM, args []interface{}) (success bool, err error) {
+func init() {
+	marionette.RegisterPlugin("channel", "bind", Bind)
+}
+
+// Bind binds the variable specified in the first argument to a port.
+func Bind(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
 	if len(args) < 1 {
 		return false, errors.New("channel.bind: not enough arguments")
 	}

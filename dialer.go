@@ -32,10 +32,9 @@ func NewDialer(doc *mar.Document, addr string) (*Dialer, error) {
 		return nil, err
 	}
 
-	fsm := NewFSM(doc, PartyClient)
-	fsm.conn = conn
-	fsm.streams.LocalAddr = conn.LocalAddr()
-	fsm.streams.RemoteAddr = conn.RemoteAddr()
+	fsm := NewFSM(doc, PartyClient, conn)
+	fsm.StreamSet().LocalAddr = conn.LocalAddr()
+	fsm.StreamSet().RemoteAddr = conn.RemoteAddr()
 
 	// Run execution in a separate goroutine.
 	d := &Dialer{fsm: fsm}
@@ -71,7 +70,7 @@ func (d *Dialer) Dial() (net.Conn, error) {
 	if d.Closed() {
 		return nil, ErrDialerClosed
 	}
-	return d.fsm.streams.Create(), nil
+	return d.fsm.StreamSet().Create(), nil
 }
 
 func (d *Dialer) execute(ctx context.Context) {

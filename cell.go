@@ -8,6 +8,7 @@ import (
 
 const (
 	CellHeaderSize = 25
+	MaxCellLength  = 262144
 )
 
 const (
