@@ -2,6 +2,7 @@ package marionette
 
 import (
 	"errors"
+	"io"
 
 	"github.com/redjack/marionette"
 	"go.uber.org/zap"
@@ -11,8 +12,9 @@ func init() {
 	marionette.RegisterPlugin("tg", "recv", Recv)
 }
 
-func Recv(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
-	logger := fsm.Logger()
+func Recv(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
+	conn := fsm.Conn()
 
 	if len(args) < 1 {
 		return false, errors.New("tg.send: not enough arguments")
@@ -26,7 +28,7 @@ func Recv(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
 	logger.Debug("tg.recv: reading buffer", zap.String("grammar", grammar))
 
 	// Retrieve data from the connection.
-	ciphertext, err := fsm.ReadBuffer()
+	ciphertext, err := conn.Peek(-1)
 	if err != nil {
 		return false, err
 	}
@@ -61,9 +63,9 @@ func Recv(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
 		logger.Debug("tg.recv: buffer decoded", zap.Int("n", len(cell.Payload)))
 
 		assert(cell.UUID == fsm.UUID())
-		fsm.InstanceID = cell.InstanceID
+		fsm.SetInstanceID(cell.InstanceID)
 
-		if fsm.InstanceID == 0 {
+		if fsm.InstanceID() == 0 {
 			return false, nil
 		}
 
@@ -73,7 +75,9 @@ func Recv(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
 	}
 
 	// Clear FSM's read buffer on success.
-	fsm.SetReadBuffer(nil)
+	if _, err := conn.Seek(int64(len(ciphertext)), io.SeekCurrent); err != nil {
+		return false, err
+	}
 
 	logger.Debug("tg.recv: recv complete")
 

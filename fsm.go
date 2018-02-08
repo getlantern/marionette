@@ -15,19 +15,63 @@ import (
 	"go.uber.org/zap"
 )
 
+// ErrNoTransition is returned from FSM.Next() when no transition is available.
 var ErrNoTransition = errors.New("no matching transition")
 
-type FSM struct {
+// FSM represents an interface for the Marionette state machine.
+type FSM interface {
+	// Document & FSM identifiers.
+	UUID() int
+	SetInstanceID(int)
+	InstanceID() int
+
+	// Party & network port.
+	Party() string
+	Port() int
+
+	// The current state in the FSM.
+	State() string
+
+	// Returns true if State() == 'dead'
+	Dead() bool
+
+	// Moves to the next available state.
+	// Returns ErrNoTransition if there is no state to move to.
+	Next(ctx context.Context) error
+
+	// Moves through the entire state machine until it reaches 'dead' state.
+	Execute(ctx context.Context) error
+
+	// Restarts the FSM so it can be reused.
+	Reset()
+
+	// Returns an FTE cipher from the cache or creates a new one.
+	Cipher(regex string, msgLen int) (*fte.Cipher, error)
+
+	// Returns the network connection attached to the FSM.
+	Conn() *BufferedConn
+
+	// Returns the stream set attached to the FSM.
+	StreamSet() *StreamSet
+
+	// Sets and retrieves key/values from the FSM.
+	SetVar(key string, value interface{})
+	Var(key string) interface{}
+}
+
+// Ensure implementation implements interface.
+var _ FSM = &fsm{}
+
+// fsm is the default implementation of the FSM.
+type fsm struct {
 	doc       *mar.Document
 	party     string
+	conn      *BufferedConn
 	streamSet *StreamSet
 
 	state string
 	stepN int
 	rand  *rand.Rand
-
-	conn net.Conn // channel
-	buf  []byte   // connection buffer
 
 	// Lookup of transitions by src state.
 	transitions map[string][]*mar.Transition
@@ -36,18 +80,17 @@ type FSM struct {
 	ciphers map[cipherKey]*fte.Cipher
 
 	// Set by the first sender and used to seed PRNG.
-	InstanceID int
+	instanceID int
 }
 
 // NewFSM returns a new FSM. If party is the first sender then the instance id is set.
-func NewFSM(doc *mar.Document, party string, conn net.Conn) *FSM {
-	fsm := &FSM{
+func NewFSM(doc *mar.Document, party string, conn net.Conn, streamSet *StreamSet) FSM {
+	fsm := &fsm{
 		doc:         doc,
 		party:       party,
-		conn:        conn,
-		streamSet:   NewStreamSet(),
+		conn:        NewBufferedConn(conn),
+		streamSet:   streamSet,
 		transitions: make(map[string][]*mar.Transition),
-		buf:         make([]byte, 0, MaxCellLength),
 	}
 	fsm.Reset()
 
@@ -58,62 +101,67 @@ func NewFSM(doc *mar.Document, party string, conn net.Conn) *FSM {
 
 	// The initial sender generates the instance ID.
 	if party == doc.FirstSender() {
-		fsm.InstanceID = int(rand.Int31())
-		fsm.rand = rand.New(rand.NewSource(int64(fsm.InstanceID)))
+		fsm.instanceID = int(rand.Int31())
+		fsm.rand = rand.New(rand.NewSource(int64(fsm.instanceID)))
 	}
 
 	return fsm
 }
 
-func (fsm *FSM) Reset() {
+func (fsm *fsm) Reset() {
 	fsm.state = "start"
 	fsm.vars = make(map[string]interface{})
 
 	for _, c := range fsm.ciphers {
 		if err := c.Close(); err != nil {
-			fsm.Logger().Error("cannot close cipher", zap.Error(err))
+			fsm.logger().Error("cannot close cipher", zap.Error(err))
 		}
 	}
 	fsm.ciphers = make(map[cipherKey]*fte.Cipher)
 }
 
-func (fsm *FSM) UUID() int {
-	return fsm.doc.UUID
-}
+// UUID returns the computed MAR document UUID.
+func (fsm *fsm) UUID() int { return fsm.doc.UUID }
+
+// InstanceID returns the ID for this specific FSM.
+func (fsm *fsm) InstanceID() int { return fsm.instanceID }
+
+// SetInstanceID sets the ID for the FSM.
+func (fsm *fsm) SetInstanceID(id int) { fsm.instanceID = id }
 
 // State returns the current state of the FSM.
-func (fsm *FSM) State() string {
-	return fsm.state
-}
+func (fsm *fsm) State() string { return fsm.state }
+
+// Conn returns the connection the FSM was initialized with.
+func (fsm *fsm) Conn() *BufferedConn { return fsm.conn }
+
+// StreamSet returns the stream set the FSM was initialized with.
+func (fsm *fsm) StreamSet() *StreamSet { return fsm.streamSet }
+
+// Party returns "client" or "server" depending on who is initializing the FSM.
+func (fsm *fsm) Party() string { return fsm.party }
 
 // Port returns the port from the underlying document.
 // If port is a named port then it is looked up in the local variables.
-func (fsm *FSM) Port() int {
+func (fsm *fsm) Port() int {
 	if port, err := strconv.Atoi(fsm.doc.Port); err == nil {
 		return port
 	}
 
-	// port, _ := fsm.locals[fsm.doc.Port].(int)
-	// return port
-	panic("TODO")
+	if v := fsm.Var(fsm.doc.Port); v != nil {
+		s, _ := v.(string)
+		port, _ := strconv.Atoi(s)
+		return port
+	}
+
+	return 0
 }
-
-// Logger returns the current logger for the FSM.
-func (fsm *FSM) Logger() *zap.Logger {
-	return Logger.With(zap.String("party", fsm.party))
-}
-
-// StreamSet returns the FSM's stream set.
-func (fsm *FSM) StreamSet() *StreamSet { return fsm.streamSet }
-
-// Conn returns the underlying network connection.
-func (fsm *FSM) Conn() net.Conn { return fsm.conn }
 
 // Dead returns true when the FSM is complete.
-func (fsm *FSM) Dead() bool { return fsm.state == "dead" }
+func (fsm *fsm) Dead() bool { return fsm.state == "dead" }
 
 // Execute runs the the FSM to completion.
-func (fsm *FSM) Execute(ctx context.Context) error {
+func (fsm *fsm) Execute(ctx context.Context) error {
 	fsm.Reset()
 
 	for !fsm.Dead() {
@@ -127,10 +175,8 @@ func (fsm *FSM) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (fsm *FSM) Next(ctx context.Context) (err error) {
-	assert(fsm.conn != nil)
-
-	logger := fsm.Logger()
+func (fsm *fsm) Next(ctx context.Context) (err error) {
+	logger := fsm.logger()
 	logger.Debug("fsm: Next()", zap.String("state", fsm.state))
 
 	// Generate a new PRNG once we have an instance ID.
@@ -156,8 +202,8 @@ func (fsm *FSM) Next(ctx context.Context) (err error) {
 	return nil
 }
 
-func (fsm *FSM) next() (nextState string, err error) {
-	logger := fsm.Logger()
+func (fsm *fsm) next() (nextState string, err error) {
+	logger := fsm.logger()
 
 	// Find all possible transitions from the current state.
 	transitions := mar.FilterTransitionsBySource(fsm.doc.Transitions, fsm.state)
@@ -202,16 +248,16 @@ func (fsm *FSM) next() (nextState string, err error) {
 }
 
 // init initializes the PRNG if we now have a instance id.
-func (fsm *FSM) init() (err error) {
-	if fsm.rand != nil || fsm.InstanceID == 0 {
+func (fsm *fsm) init() (err error) {
+	if fsm.rand != nil || fsm.instanceID == 0 {
 		return nil
 	}
 
-	logger := fsm.Logger()
+	logger := fsm.logger()
 	logger.Debug("fsm: initializing fsm")
 
 	// Create new PRNG.
-	fsm.rand = rand.New(rand.NewSource(int64(fsm.InstanceID)))
+	fsm.rand = rand.New(rand.NewSource(int64(fsm.instanceID)))
 
 	// Restart FSM from the beginning and iterate until the current step.
 	fsm.state = "start"
@@ -225,8 +271,8 @@ func (fsm *FSM) init() (err error) {
 	return nil
 }
 
-func (fsm *FSM) evalActions(actions []*mar.Action) (bool, error) {
-	logger := fsm.Logger()
+func (fsm *fsm) evalActions(actions []*mar.Action) (bool, error) {
+	logger := fsm.logger()
 
 	if len(actions) == 0 {
 		logger.Debug("fsm: no actions, matched")
@@ -245,7 +291,7 @@ func (fsm *FSM) evalActions(actions []*mar.Action) (bool, error) {
 			}
 
 			// Only evaluate action if buffer matches.
-			buf, err := fsm.ReadBuffer()
+			buf, err := fsm.conn.Peek(-1)
 			if err != nil {
 				return false, err
 			} else if !re.Match(buf) {
@@ -265,47 +311,16 @@ func (fsm *FSM) evalActions(actions []*mar.Action) (bool, error) {
 	return false, nil
 }
 
-func (fsm *FSM) evalAction(action *mar.Action) (bool, error) {
+func (fsm *fsm) evalAction(action *mar.Action) (bool, error) {
 	fn := FindPlugin(action.Module, action.Method)
 	if fn == nil {
 		return false, fmt.Errorf("fsm.evalAction(): action not found: %s", action.Name())
 	}
-	fsm.Logger().Debug("fsm: execute plugin", zap.String("name", action.Name()))
+	fsm.logger().Debug("fsm: execute plugin", zap.String("name", action.Name()))
 	return fn(fsm, action.ArgValues())
 }
 
-// ReadBuffer reads available data into the read buffer and returns the buffer.
-func (fsm *FSM) ReadBuffer() ([]byte, error) {
-	// Buffer full, exit.
-	if len(fsm.buf) == cap(fsm.buf) {
-		fsm.Logger().Debug("fsm: buffer full")
-		return fsm.buf, nil
-	}
-
-	// Read from connection with any available buffer space.
-	if err := fsm.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond)); err != nil {
-		return nil, err
-	}
-	n, err := fsm.conn.Read(fsm.buf[len(fsm.buf):cap(fsm.buf)])
-	if err != nil {
-		if isTimeoutError(err) {
-			return fsm.buf, nil
-		}
-		return fsm.buf, err
-	}
-	fsm.buf = fsm.buf[:len(fsm.buf)+int(n)]
-
-	return fsm.buf, nil
-}
-
-// SetReadBuffer copies p to the buffer.
-func (fsm *FSM) SetReadBuffer(p []byte) {
-	assert(len(p) < cap(fsm.buf))
-	fsm.buf = fsm.buf[:len(p)]
-	copy(fsm.buf, p)
-}
-
-func (fsm *FSM) Var(key string) interface{} {
+func (fsm *fsm) Var(key string) interface{} {
 	switch key {
 	case "model_instance_id":
 		return fsm.InstanceID
@@ -318,13 +333,13 @@ func (fsm *FSM) Var(key string) interface{} {
 	}
 }
 
-func (fsm *FSM) SetVar(key string, value interface{}) {
+func (fsm *fsm) SetVar(key string, value interface{}) {
 	fsm.vars[key] = value
 }
 
 // Cipher returns a cipher with the given settings.
 // If no cipher exists then a new one is created and returned.
-func (fsm *FSM) Cipher(regex string, msgLen int) (_ *fte.Cipher, err error) {
+func (fsm *fsm) Cipher(regex string, msgLen int) (_ *fte.Cipher, err error) {
 	key := cipherKey{regex, msgLen}
 	cipher := fsm.ciphers[key]
 	if cipher != nil {
@@ -340,17 +355,11 @@ func (fsm *FSM) Cipher(regex string, msgLen int) (_ *fte.Cipher, err error) {
 	return cipher, nil
 }
 
+func (fsm *fsm) logger() *zap.Logger {
+	return Logger.With(zap.String("party", fsm.party))
+}
+
 type cipherKey struct {
 	regex  string
 	msgLen int
-}
-
-// isTimeoutError returns true if the error is a timeout error.
-func isTimeoutError(err error) bool {
-	if err, ok := err.(interface {
-		Timeout() bool
-	}); ok && err.Timeout() {
-		return true
-	}
-	return false
 }

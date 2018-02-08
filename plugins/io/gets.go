@@ -1,6 +1,7 @@
 package marionette
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"io"
@@ -12,7 +13,7 @@ func init() {
 	marionette.RegisterPlugin("io", "gets", Gets)
 }
 
-func Gets(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
+func Gets(fsm marionette.FSM, args []interface{}) (success bool, err error) {
 	conn := fsm.Conn()
 	if conn == nil {
 		return false, nil
@@ -26,18 +27,19 @@ func Gets(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
 		return false, errors.New("io.gets: invalid argument type")
 	}
 
-	// Read enough bytes to see if our expected data comes through.
-	buf := make([]byte, len(exp))
-	if _, err := io.ReadFull(conn, buf); err != nil {
-		fsm.SetReadBuffer(buf)
+	// Read buffer to see if our expected data comes through.
+	buf, err := conn.Peek(len(exp))
+	if err == bufio.ErrBufferFull {
+		return false, nil
+	} else if err != nil {
 		return false, err
-	}
-
-	// If bytes don't equal what we expect then shift them back on the buffer.
-	if !bytes.Equal([]byte(exp), buf) {
-		fsm.SetReadBuffer(buf)
+	} else if !bytes.Equal([]byte(exp), buf) {
 		return false, nil
 	}
 
+	// Move buffer forward.
+	if _, err := conn.Seek(int64(len(buf)), io.SeekCurrent); err != nil {
+		return false, err
+	}
 	return true, nil
 }

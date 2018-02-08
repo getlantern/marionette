@@ -129,30 +129,30 @@ func (l *Listener) accept() {
 			return
 		}
 
-		fsm := NewFSM(l.doc, PartyServer, conn)
-		fsm.StreamSet().LocalAddr = conn.LocalAddr()
-		fsm.StreamSet().RemoteAddr = conn.RemoteAddr()
-		fsm.StreamSet().OnNewStream = l.onNewStream
+		streamSet := NewStreamSet()
+		streamSet.OnNewStream = l.onNewStream
+
+		fsm := NewFSM(l.doc, PartyServer, conn, streamSet)
 
 		// Run execution in a separate goroutine.
 		l.wg.Add(1)
-		go func() { defer l.wg.Done(); l.execute(context.Background(), fsm) }()
+		go func() { defer l.wg.Done(); l.execute(context.Background(), fsm, conn) }()
 	}
 }
 
-func (l *Listener) execute(ctx context.Context, fsm *FSM) {
+func (l *Listener) execute(ctx context.Context, fsm FSM, conn net.Conn) {
 	Logger.Debug("server fsm executing")
 	defer Logger.Debug("server fsm execution complete")
 
-	l.addConn(fsm.conn)
-	defer l.removeConn(fsm.conn)
+	l.addConn(conn)
+	defer l.removeConn(conn)
 
 	for !l.Closed() {
 		if err := fsm.Execute(ctx); err != nil {
 			if !l.Closed() {
 				Logger.Debug("server fsm execution error", zap.Error(err))
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(1 * time.Millisecond)
 		}
 	}
 }

@@ -14,17 +14,17 @@ func init() {
 }
 
 // Send sends data to a connection.
-func Send(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
+func Send(fsm marionette.FSM, args []interface{}) (success bool, err error) {
 	return send(fsm, args, true)
 }
 
 // SendAsync send data to a connection without blocking.
-func SendAsync(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
+func SendAsync(fsm marionette.FSM, args []interface{}) (success bool, err error) {
 	return send(fsm, args, false)
 }
 
-func send(fsm *marionette.FSM, args []interface{}, blocking bool) (success bool, err error) {
-	logger := fsm.Logger()
+func send(fsm marionette.FSM, args []interface{}, blocking bool) (success bool, err error) {
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
 
 	if len(args) < 2 {
 		return false, errors.New("fte.send: not enough arguments")
@@ -64,7 +64,7 @@ func send(fsm *marionette.FSM, args []interface{}, blocking bool) (success bool,
 	}
 
 	// Assign fsm data to cell.
-	cell.UUID, cell.InstanceID = fsm.UUID(), fsm.InstanceID
+	cell.UUID, cell.InstanceID = fsm.UUID(), fsm.InstanceID()
 
 	logger.Info("fte.send: marshaling cell", zap.Int("n", len(cell.Payload)))
 

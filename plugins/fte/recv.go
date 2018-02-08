@@ -2,6 +2,7 @@ package marionette
 
 import (
 	"errors"
+	"io"
 
 	"github.com/redjack/marionette"
 	"go.uber.org/zap"
@@ -13,17 +14,17 @@ func init() {
 }
 
 // Recv receives data from a connection.
-func Recv(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
+func Recv(fsm marionette.FSM, args []interface{}) (success bool, err error) {
 	return recv(fsm, args)
 }
 
 // RecvAsync receives data from a connection without blocking.
-func RecvAsync(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
+func RecvAsync(fsm marionette.FSM, args []interface{}) (success bool, err error) {
 	return recv(fsm, args)
 }
 
-func recv(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
-	logger := fsm.Logger()
+func recv(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
 
 	if len(args) < 2 {
 		return false, errors.New("fte.send: not enough arguments")
@@ -41,7 +42,8 @@ func recv(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
 	logger.Debug("fte.recv: reading buffer")
 
 	// Retrieve data from the connection.
-	ciphertext, err := fsm.ReadBuffer()
+	conn := fsm.Conn()
+	ciphertext, err := conn.Peek(-1)
 	if err != nil {
 		return false, err
 	} else if len(ciphertext) == 0 {
@@ -70,8 +72,8 @@ func recv(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
 	logger.Info("fte.recv: received cell", zap.Int("n", len(cell.Payload)))
 
 	assert(fsm.UUID() == cell.UUID)
-	initRequired := fsm.InstanceID == 0
-	fsm.InstanceID = cell.InstanceID
+	initRequired := fsm.InstanceID() == 0
+	fsm.SetInstanceID(cell.InstanceID)
 	if initRequired || cell.StreamID == 0 {
 		return false, nil
 	}
@@ -81,8 +83,10 @@ func recv(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
 		return false, err
 	}
 
-	// Push any additional bytes back onto the FSM's read buffer.
-	fsm.SetReadBuffer(remainder)
+	// Move buffer forward by bytes consumed by the cipher.
+	if _, err := conn.Seek(int64(len(ciphertext)-len(remainder)), io.SeekCurrent); err != nil {
+		return false, err
+	}
 
 	return true, nil
 }

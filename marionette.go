@@ -2,7 +2,6 @@ package marionette
 
 import (
 	"math/rand"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -28,7 +27,7 @@ var Logger = zap.NewNop()
 var Rand = func() *rand.Rand { return rand.New(rand.NewSource(time.Now().UnixNano())) }
 
 // PluginFunc represents a plugin in the MAR language.
-type PluginFunc func(fsm *FSM, args []interface{}) (success bool, err error)
+type PluginFunc func(fsm FSM, args []interface{}) (success bool, err error)
 
 // FindPlugin returns a plugin function by module & name.
 func FindPlugin(module, method string) PluginFunc {
@@ -50,14 +49,6 @@ type pluginKey struct {
 }
 
 var plugins = make(map[pluginKey]PluginFunc)
-
-// StripFormatVersion removes any version specified on a format.
-func StripFormatVersion(format string) string {
-	if i := strings.Index(format, ":"); i != -1 {
-		return format[:i]
-	}
-	return format
-}
 
 func assert(condition bool) {
 	if !condition {

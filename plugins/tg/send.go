@@ -11,14 +11,15 @@ import (
 
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/fte"
+	"go.uber.org/zap"
 )
 
 func init() {
 	marionette.RegisterPlugin("tg", "send", Send)
 }
 
-func Send(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
-	logger := fsm.Logger()
+func Send(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
 
 	if len(args) < 1 {
 		return false, errors.New("tg.send: not enough arguments")
@@ -61,7 +62,7 @@ func do_unembed(grammar, ciphertext, handler_key string) string {
 	return m[handler_key]
 }
 
-func execute_handler_sender(fsm *marionette.FSM, grammar string, handler *tgHandler, template string) (string, error) {
+func execute_handler_sender(fsm marionette.FSM, grammar string, handler *tgHandler, template string) (string, error) {
 	// Encode data from streams if there is capacity in the handler.
 	var data []byte
 	if capacity := handler.cipher.capacity(); capacity > 0 {
@@ -71,7 +72,7 @@ func execute_handler_sender(fsm *marionette.FSM, grammar string, handler *tgHand
 		}
 
 		// Assign ids and marshal to bytes.
-		cell.UUID, cell.InstanceID = fsm.UUID(), fsm.InstanceID
+		cell.UUID, cell.InstanceID = fsm.UUID(), fsm.InstanceID()
 
 		var err error
 		if data, err = cell.MarshalBinary(); err != nil {
@@ -86,7 +87,7 @@ func execute_handler_sender(fsm *marionette.FSM, grammar string, handler *tgHand
 	return do_embed(template, handler.name, string(value_to_embed)), nil
 }
 
-func execute_handler_receiver(fsm *marionette.FSM, grammar, handler_key, ciphertext string) (string, error) {
+func execute_handler_receiver(fsm marionette.FSM, grammar, handler_key, ciphertext string) (string, error) {
 	handler_key_value := do_unembed(grammar, ciphertext, handler_key)
 	h := tgConfigs[grammar].handler(handler_key)
 
@@ -115,8 +116,8 @@ type tgHandler struct {
 
 type tgCipher interface {
 	capacity() int
-	encrypt(fsm *marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error)
-	decrypt(fsm *marionette.FSM, cipher []byte) (plaintext []byte, err error)
+	encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error)
+	decrypt(fsm marionette.FSM, cipher []byte) (plaintext []byte, err error)
 }
 
 var _ tgCipher = &rankerCipher{}
@@ -137,7 +138,7 @@ func (c *rankerCipher) capacity() int {
 	return c.encoder.Capacity()
 }
 
-func (c *rankerCipher) encrypt(fsm *marionette.FSM, template string, data []byte) (ciphertext []byte, err error) {
+func (c *rankerCipher) encrypt(fsm marionette.FSM, template string, data []byte) (ciphertext []byte, err error) {
 	rank := &big.Int{}
 	rank.SetBytes(data)
 
@@ -148,7 +149,7 @@ func (c *rankerCipher) encrypt(fsm *marionette.FSM, template string, data []byte
 	return []byte(ret), nil
 }
 
-func (c *rankerCipher) decrypt(fsm *marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
+func (c *rankerCipher) decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
 	rank, err := c.encoder.Rank(string(ciphertext))
 	if err != nil {
 		return nil, err
@@ -179,11 +180,11 @@ func (c *fteCipher) capacity() int {
 	return c.encoder.Capacity() - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
 }
 
-func (c *fteCipher) encrypt(fsm *marionette.FSM, template string, data []byte) (ciphertext []byte, err error) {
+func (c *fteCipher) encrypt(fsm marionette.FSM, template string, data []byte) (ciphertext []byte, err error) {
 	return c.encoder.Encrypt(data)
 }
 
-func (c *fteCipher) decrypt(fsm *marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
+func (c *fteCipher) decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
 	plaintext, _, err = c.encoder.Decrypt(ciphertext)
 	return plaintext, err
 }
@@ -196,7 +197,7 @@ func (c *httpContentLengthCipher) capacity() int {
 	return 0
 }
 
-func (c *httpContentLengthCipher) encrypt(fsm *marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
+func (c *httpContentLengthCipher) encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	a := strings.SplitN(template, "\r\n\r\n", 2)
 	if len(a) == 1 {
 		return []byte("0"), nil
@@ -204,7 +205,7 @@ func (c *httpContentLengthCipher) encrypt(fsm *marionette.FSM, template string, 
 	return []byte(strconv.Itoa(len(a[1]))), nil
 }
 
-func (c *httpContentLengthCipher) decrypt(fsm *marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
+func (c *httpContentLengthCipher) decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
 	return nil, nil
 }
 
@@ -216,7 +217,7 @@ func (c *pop3ContentLengthCipher) capacity() int {
 	return 0
 }
 
-func (c *pop3ContentLengthCipher) encrypt(fsm *marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
+func (c *pop3ContentLengthCipher) encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	a := strings.SplitN(template, "\n", 2)
 	if len(a) == 1 {
 		return []byte("0"), nil
@@ -224,7 +225,7 @@ func (c *pop3ContentLengthCipher) encrypt(fsm *marionette.FSM, template string, 
 	return []byte(strconv.Itoa(len(a[1]))), nil
 }
 
-func (c *pop3ContentLengthCipher) decrypt(fsm *marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
+func (c *pop3ContentLengthCipher) decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
 	return nil, nil
 }
 
@@ -236,12 +237,12 @@ func (c *setFTPPasvXCipher) capacity() int {
 	return 0
 }
 
-func (c *setFTPPasvXCipher) encrypt(fsm *marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
+func (c *setFTPPasvXCipher) encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	i := fsm.Var("ftp_pasv_port").(int)
 	return []byte(strconv.Itoa(i / 256)), nil
 }
 
-func (c *setFTPPasvXCipher) decrypt(fsm *marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
+func (c *setFTPPasvXCipher) decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
 	i, _ := strconv.Atoi(string(ciphertext))
 	fsm.SetVar("ftp_pasv_port_x", i)
 	return nil, nil
@@ -255,12 +256,12 @@ func (c *setFTPPasvYCipher) capacity() int {
 	return 0
 }
 
-func (c *setFTPPasvYCipher) encrypt(fsm *marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
+func (c *setFTPPasvYCipher) encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	i := fsm.Var("ftp_pasv_port").(int)
 	return []byte(strconv.Itoa(i % 256)), nil
 }
 
-func (c *setFTPPasvYCipher) decrypt(fsm *marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
+func (c *setFTPPasvYCipher) decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
 	ftp_pasv_port_x := fsm.Var("ftp_pasv_port").(int)
 	ftp_pasv_port_y, _ := strconv.Atoi(string(ciphertext))
 
@@ -276,7 +277,7 @@ func (c *setDNSTransactionIDCipher) capacity() int {
 	return 0
 }
 
-func (c *setDNSTransactionIDCipher) encrypt(fsm *marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
+func (c *setDNSTransactionIDCipher) encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	var dns_transaction_id string
 	if v := fsm.Var("dns_transaction_id"); v != nil {
 		dns_transaction_id = v.(string)
@@ -287,7 +288,7 @@ func (c *setDNSTransactionIDCipher) encrypt(fsm *marionette.FSM, template string
 	return []byte(dns_transaction_id), nil
 }
 
-func (c *setDNSTransactionIDCipher) decrypt(fsm *marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
+func (c *setDNSTransactionIDCipher) decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
 	fsm.SetVar("dns_transaction_id", string(ciphertext))
 	return nil, nil
 }
@@ -300,7 +301,7 @@ func (c *setDNSDomainCipher) capacity() int {
 	return 0
 }
 
-func (c *setDNSDomainCipher) encrypt(fsm *marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
+func (c *setDNSDomainCipher) encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	var dns_domain string
 	if v := fsm.Var("dns_domain"); v != nil {
 		dns_domain = v.(string)
@@ -322,7 +323,7 @@ func (c *setDNSDomainCipher) encrypt(fsm *marionette.FSM, template string, plain
 	return []byte(dns_domain), nil
 }
 
-func (c *setDNSDomainCipher) decrypt(fsm *marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
+func (c *setDNSDomainCipher) decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
 	fsm.SetVar("dns_domain", string(ciphertext))
 	return nil, nil
 }
@@ -335,7 +336,7 @@ func (c *setDNSIPCipher) capacity() int {
 	return 0
 }
 
-func (c *setDNSIPCipher) encrypt(fsm *marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
+func (c *setDNSIPCipher) encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	var dns_ip string
 	if v := fsm.Var("dns_ip"); v != nil {
 		dns_ip = v.(string)
@@ -346,7 +347,7 @@ func (c *setDNSIPCipher) encrypt(fsm *marionette.FSM, template string, plaintext
 	return []byte(dns_ip), nil
 }
 
-func (c *setDNSIPCipher) decrypt(fsm *marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
+func (c *setDNSIPCipher) decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
 	fsm.SetVar("dns_ip", string(ciphertext))
 	return nil, nil
 }
@@ -521,7 +522,7 @@ func (h *amazonMsgLensHandler) capacity() int {
 	return n
 }
 
-func (h *amazonMsgLensHandler) encrypt(fsm *marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
+func (h *amazonMsgLensHandler) encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	if h.target_len < h.min_len || h.target_len > h.max_len {
 		key := dfaKey{h.regex, h.target_len}
 		dfa := h.dfas[key]
@@ -551,7 +552,7 @@ func (h *amazonMsgLensHandler) encrypt(fsm *marionette.FSM, template string, pla
 	return ciphertext, nil
 }
 
-func (h *amazonMsgLensHandler) decrypt(fsm *marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
+func (h *amazonMsgLensHandler) decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
 	if len(ciphertext) < h.min_len {
 		return nil, nil
 	}

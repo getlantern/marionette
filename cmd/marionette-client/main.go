@@ -46,7 +46,7 @@ func run() error {
 
 	// Strip off format version.
 	// TODO: Split version.
-	format := marionette.StripFormatVersion(config.General.Format)
+	format := mar.StripFormatVersion(config.General.Format)
 
 	// Read MAR file.
 	data := mar.Format(format, "")

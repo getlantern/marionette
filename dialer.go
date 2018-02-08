@@ -18,26 +18,26 @@ var (
 
 // Dialer represents a client-side dialer that communicates over the marionette protocol.
 type Dialer struct {
-	mu  sync.RWMutex
-	fsm *FSM
+	mu        sync.RWMutex
+	fsm       FSM
+	streamSet *StreamSet
 
 	closed bool
 	wg     sync.WaitGroup
 }
 
 // NewDialer returns a new instance of Dialer.
-func NewDialer(doc *mar.Document, addr string) (*Dialer, error) {
+func NewDialer(doc *mar.Document, addr string, streamSet *StreamSet) (*Dialer, error) {
 	conn, err := net.Dial(doc.Transport, net.JoinHostPort(addr, doc.Port))
 	if err != nil {
 		return nil, err
 	}
 
-	fsm := NewFSM(doc, PartyClient, conn)
-	fsm.StreamSet().LocalAddr = conn.LocalAddr()
-	fsm.StreamSet().RemoteAddr = conn.RemoteAddr()
-
 	// Run execution in a separate goroutine.
-	d := &Dialer{fsm: fsm}
+	d := &Dialer{
+		fsm:       NewFSM(doc, PartyClient, conn, streamSet),
+		streamSet: streamSet,
+	}
 	d.wg.Add(1)
 	go func() { defer d.wg.Done(); d.execute(context.Background()) }()
 	return d, nil
@@ -49,11 +49,7 @@ func (d *Dialer) Close() (err error) {
 	d.closed = true
 	d.mu.Unlock()
 
-	if e := d.fsm.conn.Close(); e != nil && err == nil {
-		err = e
-	}
 	d.wg.Wait()
-
 	return err
 }
 
@@ -70,7 +66,7 @@ func (d *Dialer) Dial() (net.Conn, error) {
 	if d.Closed() {
 		return nil, ErrDialerClosed
 	}
-	return d.fsm.StreamSet().Create(), nil
+	return d.streamSet.Create(), nil
 }
 
 func (d *Dialer) execute(ctx context.Context) {
@@ -82,7 +78,7 @@ func (d *Dialer) execute(ctx context.Context) {
 			if !d.Closed() {
 				Logger.Debug("client execution error", zap.Error(err))
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(1 * time.Millisecond)
 		}
 	}
 }

@@ -2,7 +2,6 @@ package marionette
 
 import (
 	"math/rand"
-	"net"
 	"sync"
 )
 
@@ -10,11 +9,6 @@ type StreamSet struct {
 	mu      sync.Mutex
 	streams map[int]*Stream
 
-	// Network address information injected into each new stream.
-	LocalAddr  net.Addr
-	RemoteAddr net.Addr
-
-	// Callback invoked whenever a stream is created.
 	OnNewStream func(*Stream)
 }
 
@@ -55,8 +49,6 @@ func (ss *StreamSet) create(id int) *Stream {
 	}
 
 	stream := NewStream(id)
-	stream.localAddr = ss.LocalAddr
-	stream.remoteAddr = ss.RemoteAddr
 	ss.streams[stream.id] = stream
 
 	// Execute callback, if exists.

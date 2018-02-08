@@ -209,12 +209,18 @@ type IntegrationTest struct {
 	mu sync.Mutex
 	wg sync.WaitGroup
 
+	ClientStreamSet *marionette.StreamSet
+	ServerStreamSet *marionette.StreamSet
+
 	Listener *marionette.Listener
 	Dialer   *marionette.Dialer
 }
 
 func MustOpenIntegrationTest(program []byte) *IntegrationTest {
-	tt := &IntegrationTest{}
+	tt := &IntegrationTest{
+		ClientStreamSet: marionette.NewStreamSet(),
+		ServerStreamSet: marionette.NewStreamSet(),
+	}
 
 	ln, err := marionette.Listen(mar.MustParse(marionette.PartyServer, program), "")
 	if err != nil {
@@ -222,7 +228,7 @@ func MustOpenIntegrationTest(program []byte) *IntegrationTest {
 	}
 	tt.Listener = ln
 
-	d, err := marionette.NewDialer(mar.MustParse(marionette.PartyClient, program), "127.0.0.1")
+	d, err := marionette.NewDialer(mar.MustParse(marionette.PartyClient, program), "127.0.0.1", tt.ClientStreamSet)
 	if err != nil {
 		tt.Listener.Close()
 		panic(err)

@@ -12,7 +12,7 @@ func init() {
 }
 
 // Bind binds the variable specified in the first argument to a port.
-func Bind(fsm *marionette.FSM, args []interface{}) (success bool, err error) {
+func Bind(fsm marionette.FSM, args []interface{}) (success bool, err error) {
 	if len(args) < 1 {
 		return false, errors.New("channel.bind: not enough arguments")
 	}
