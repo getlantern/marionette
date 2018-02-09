@@ -1,4 +1,4 @@
-package marionette
+package tg
 
 import (
 	"errors"

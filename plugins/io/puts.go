@@ -1,4 +1,4 @@
-package marionette
+package io
 
 import (
 	"errors"
@@ -11,11 +11,6 @@ func init() {
 }
 
 func Puts(fsm marionette.FSM, args []interface{}) (success bool, err error) {
-	conn := fsm.Conn()
-	if conn == nil {
-		return false, nil
-	}
-
 	if len(args) < 1 {
 		return false, errors.New("io.puts: not enough arguments")
 	}
@@ -27,11 +22,9 @@ func Puts(fsm marionette.FSM, args []interface{}) (success bool, err error) {
 
 	// Keep attempting to send even if there are timeouts.
 	for len(data) > 0 {
-		n, err := conn.Write([]byte(data))
+		n, err := fsm.Conn().Write([]byte(data))
 		data = data[n:]
-		if e, ok := err.(interface {
-			Timeout() bool
-		}); ok && e.Timeout() {
+		if isTimeoutError(err) {
 			continue
 		} else if err != nil {
 			return false, err
@@ -39,4 +32,14 @@ func Puts(fsm marionette.FSM, args []interface{}) (success bool, err error) {
 	}
 
 	return true, nil
+}
+
+// isTimeoutError returns true if the error is a timeout error.
+func isTimeoutError(err error) bool {
+	if err, ok := err.(interface {
+		Timeout() bool
+	}); ok && err.Timeout() {
+		return true
+	}
+	return false
 }

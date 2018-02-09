@@ -88,7 +88,7 @@ func NewFSM(doc *mar.Document, party string, conn net.Conn, streamSet *StreamSet
 	fsm := &fsm{
 		doc:         doc,
 		party:       party,
-		conn:        NewBufferedConn(conn),
+		conn:        NewBufferedConn(conn, MaxCellLength),
 		streamSet:   streamSet,
 		transitions: make(map[string][]*mar.Transition),
 	}

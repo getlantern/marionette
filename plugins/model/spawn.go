@@ -1,4 +1,4 @@
-package marionette
+package model
 
 import (
 	"github.com/redjack/marionette"

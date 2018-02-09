@@ -12,10 +12,10 @@ type BufferedConn struct {
 	buf []byte
 }
 
-func NewBufferedConn(conn net.Conn) *BufferedConn {
+func NewBufferedConn(conn net.Conn, bufferSize int) *BufferedConn {
 	return &BufferedConn{
 		Conn: conn,
-		buf:  make([]byte, 0, MaxCellLength),
+		buf:  make([]byte, 0, bufferSize),
 	}
 }
 
@@ -27,14 +27,14 @@ func (conn *BufferedConn) Read(p []byte) (int, error) {
 // Peek returns the current read buffer.
 func (conn *BufferedConn) Peek(n int) ([]byte, error) {
 	// Read into buffer if it isn't full yet.
-	if len(conn.buf) == cap(conn.buf) {
+	if len(conn.buf) != cap(conn.buf) {
 		// Limit deadline to only read what is available.
 		if err := conn.SetReadDeadline(time.Now().Add(1 * time.Microsecond)); err != nil {
 			return nil, err
 		}
 
 		// Read onto the end of the buffer.
-		n, err := conn.Read(conn.buf[len(conn.buf):cap(conn.buf)])
+		n, err := conn.Conn.Read(conn.buf[len(conn.buf):cap(conn.buf)])
 		if err != nil {
 			if isTimeoutError(err) {
 				return conn.buf, nil

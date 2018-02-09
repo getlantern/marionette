@@ -1,4 +1,4 @@
-package marionette
+package fte
 
 import (
 	"errors"
