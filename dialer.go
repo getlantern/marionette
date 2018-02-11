@@ -35,7 +35,7 @@ func NewDialer(doc *mar.Document, addr string, streamSet *StreamSet) (*Dialer, e
 
 	// Run execution in a separate goroutine.
 	d := &Dialer{
-		fsm:       NewFSM(doc, PartyClient, conn, streamSet),
+		fsm:       NewFSM(doc, "", PartyClient, conn, streamSet),
 		streamSet: streamSet,
 	}
 	d.wg.Add(1)

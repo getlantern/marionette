@@ -51,6 +51,9 @@ type FSM interface {
 	// Returns the network connection attached to the FSM.
 	Conn() *BufferedConn
 
+	// Listen opens a new listener to accept data and drains into the buffer.
+	Listen() (int, error)
+
 	// Returns the stream set attached to the FSM.
 	StreamSet() *StreamSet
 
@@ -64,10 +67,13 @@ var _ FSM = &fsm{}
 
 // fsm is the default implementation of the FSM.
 type fsm struct {
-	doc       *mar.Document
-	party     string
+	doc   *mar.Document
+	host  string
+	party string
+
 	conn      *BufferedConn
 	streamSet *StreamSet
+	listeners []net.Listener
 
 	state string
 	stepN int
@@ -84,9 +90,10 @@ type fsm struct {
 }
 
 // NewFSM returns a new FSM. If party is the first sender then the instance id is set.
-func NewFSM(doc *mar.Document, party string, conn net.Conn, streamSet *StreamSet) FSM {
+func NewFSM(doc *mar.Document, host, party string, conn net.Conn, streamSet *StreamSet) FSM {
 	fsm := &fsm{
 		doc:         doc,
+		host:        host,
 		party:       party,
 		conn:        NewBufferedConn(conn, MaxCellLength),
 		streamSet:   streamSet,
@@ -118,6 +125,13 @@ func (fsm *fsm) Reset() {
 		}
 	}
 	fsm.ciphers = make(map[cipherKey]*fte.Cipher)
+
+	for _, ln := range fsm.listeners {
+		if err := ln.Close(); err != nil {
+			fsm.logger().Error("cannot close listener", zap.Error(err))
+		}
+	}
+	fsm.listeners = nil
 }
 
 // UUID returns the computed MAR document UUID.
@@ -137,6 +151,9 @@ func (fsm *fsm) Conn() *BufferedConn { return fsm.conn }
 
 // StreamSet returns the stream set the FSM was initialized with.
 func (fsm *fsm) StreamSet() *StreamSet { return fsm.streamSet }
+
+// Host returns the hostname the FSM was initialized with.
+func (fsm *fsm) Host() string { return fsm.host }
 
 // Party returns "client" or "server" depending on who is initializing the FSM.
 func (fsm *fsm) Party() string { return fsm.party }
@@ -353,6 +370,34 @@ func (fsm *fsm) Cipher(regex string, msgLen int) (_ *fte.Cipher, err error) {
 
 	fsm.ciphers[key] = cipher
 	return cipher, nil
+}
+
+func (fsm *fsm) Listen() (port int, err error) {
+	ln, err := net.Listen("tcp", fsm.host)
+	if err != nil {
+		return 0, err
+	}
+	fsm.listeners = append(fsm.listeners, ln)
+
+	go fsm.handleListener(ln)
+
+	return ln.Addr().(*net.TCPAddr).Port, nil
+}
+
+func (fsm *fsm) handleListener(ln net.Listener) {
+	defer ln.Close()
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		go fsm.handleConn(conn)
+	}
+}
+
+func (fsm *fsm) handleConn(conn net.Conn) {
+	panic("TODO: Drain connection into buffer?")
 }
 
 func (fsm *fsm) logger() *zap.Logger {

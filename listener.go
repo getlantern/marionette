@@ -20,6 +20,7 @@ var (
 // Listener listens on a port and communicates over the marionette protocol.
 type Listener struct {
 	mu         sync.RWMutex
+	iface      string
 	ln         net.Listener
 	conns      map[net.Conn]struct{}
 	doc        *mar.Document
@@ -50,6 +51,7 @@ func Listen(doc *mar.Document, iface string) (*Listener, error) {
 	}
 	l := &Listener{
 		ln:         ln,
+		iface:      iface,
 		doc:        doc,
 		conns:      make(map[net.Conn]struct{}),
 		newStreams: make(chan *Stream),
@@ -132,7 +134,7 @@ func (l *Listener) accept() {
 		streamSet := NewStreamSet()
 		streamSet.OnNewStream = l.onNewStream
 
-		fsm := NewFSM(l.doc, PartyServer, conn, streamSet)
+		fsm := NewFSM(l.doc, l.iface, PartyServer, conn, streamSet)
 
 		// Run execution in a separate goroutine.
 		l.wg.Add(1)

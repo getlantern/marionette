@@ -2,7 +2,6 @@ package channel
 
 import (
 	"errors"
-	"net"
 
 	"github.com/redjack/marionette"
 )
@@ -29,17 +28,14 @@ func Bind(fsm marionette.FSM, args []interface{}) (success bool, err error) {
 		}
 	}
 
-	// Create a new connection.
-	const host = "127.0.0.1" // TODO: Pass in.
-	conn, err := net.Dial("tcp", net.JoinHostPort(host, "0"))
+	// Create a new connection on a random port.
+	port, err := fsm.Listen()
 	if err != nil {
 		return false, err
 	}
 
 	// Save port number to variables.
-	fsm.SetVar(name, conn.LocalAddr().(*net.TCPAddr).Port)
-
-	// TODO: Store connections so we can close them.
+	fsm.SetVar(name, port)
 
 	return true, nil
 }
