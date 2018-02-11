@@ -14,16 +14,16 @@ func init() {
 }
 
 // Recv receives data from a connection.
-func Recv(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func Recv(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	return recv(fsm, args)
 }
 
 // RecvAsync receives data from a connection without blocking.
-func RecvAsync(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func RecvAsync(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	return recv(fsm, args)
 }
 
-func recv(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func recv(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
 
 	if len(args) < 2 {

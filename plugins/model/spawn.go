@@ -8,7 +8,7 @@ func init() {
 	marionette.RegisterPlugin("model", "spawn", Spawn)
 }
 
-func Spawn(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func Spawn(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	panic("TODO")
 }
 

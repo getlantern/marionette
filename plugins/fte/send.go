@@ -2,7 +2,6 @@ package fte
 
 import (
 	"errors"
-	"time"
 
 	"github.com/redjack/marionette"
 	"go.uber.org/zap"
@@ -14,12 +13,12 @@ func init() {
 }
 
 // Send sends data to a connection.
-func Send(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func Send(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	return send(fsm, args, true)
 }
 
 // SendAsync send data to a connection without blocking.
-func SendAsync(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func SendAsync(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	return send(fsm, args, false)
 }
 
@@ -49,6 +48,8 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) (success bool, 
 	// If synchronous, send an empty cell if there is no data.
 	var cell *marionette.Cell
 	for {
+		notify := fsm.StreamSet().WriteNotify()
+
 		logger.Debug("fte.send: dequeuing cell")
 		cell = fsm.StreamSet().Dequeue(cipher.Capacity())
 		if cell != nil {
@@ -59,8 +60,8 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) (success bool, 
 			break
 		}
 
-		// TODO: Synchronize using a channel.
-		time.Sleep(100 * time.Millisecond)
+		// Wait until new data is available if blocking.
+		<-notify
 	}
 
 	// Assign fsm data to cell.

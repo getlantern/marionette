@@ -1,6 +1,7 @@
 package marionette
 
 import (
+	"math/big"
 	"math/rand"
 	"time"
 
@@ -27,7 +28,7 @@ var Logger = zap.NewNop()
 var Rand = func() *rand.Rand { return rand.New(rand.NewSource(time.Now().UnixNano())) }
 
 // PluginFunc represents a plugin in the MAR language.
-type PluginFunc func(fsm FSM, args []interface{}) (success bool, err error)
+type PluginFunc func(fsm FSM, args ...interface{}) (success bool, err error)
 
 // FindPlugin returns a plugin function by module & name.
 func FindPlugin(module, method string) PluginFunc {
@@ -49,6 +50,21 @@ type pluginKey struct {
 }
 
 var plugins = make(map[pluginKey]PluginFunc)
+
+// Cipher represents the interface to the FTE Cipher.
+type Cipher interface {
+	Capacity() int
+	Encrypt(plaintext []byte) (ciphertext []byte, err error)
+	Decrypt(ciphertext []byte) (plaintext, remainder []byte, err error)
+}
+
+// Ranker represents the interface to the DFA Ranker.
+type Ranker interface {
+	Capacity() int
+	Rank(s string) (rank *big.Int, err error)
+	Unrank(rank *big.Int) (ret string, err error)
+	NumWordsInSlice(n int) (numWords int, err error)
+}
 
 func assert(condition bool) {
 	if !condition {

@@ -10,7 +10,7 @@ func init() {
 	marionette.RegisterPlugin("io", "puts", Puts)
 }
 
-func Puts(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func Puts(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	if len(args) < 1 {
 		return false, errors.New("io.puts: not enough arguments")
 	}

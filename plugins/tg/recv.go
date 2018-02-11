@@ -12,7 +12,7 @@ func init() {
 	marionette.RegisterPlugin("tg", "recv", Recv)
 }
 
-func Recv(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func Recv(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
 	conn := fsm.Conn()
 

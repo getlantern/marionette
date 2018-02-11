@@ -46,7 +46,7 @@ type FSM interface {
 	Reset()
 
 	// Returns an FTE cipher from the cache or creates a new one.
-	Cipher(regex string, msgLen int) (*fte.Cipher, error)
+	Cipher(regex string, msgLen int) (Cipher, error)
 
 	// Returns the network connection attached to the FSM.
 	Conn() *BufferedConn
@@ -334,7 +334,7 @@ func (fsm *fsm) evalAction(action *mar.Action) (bool, error) {
 		return false, fmt.Errorf("fsm.evalAction(): action not found: %s", action.Name())
 	}
 	fsm.logger().Debug("fsm: execute plugin", zap.String("name", action.Name()))
-	return fn(fsm, action.ArgValues())
+	return fn(fsm, action.ArgValues()...)
 }
 
 func (fsm *fsm) Var(key string) interface{} {
@@ -356,7 +356,7 @@ func (fsm *fsm) SetVar(key string, value interface{}) {
 
 // Cipher returns a cipher with the given settings.
 // If no cipher exists then a new one is created and returned.
-func (fsm *fsm) Cipher(regex string, msgLen int) (_ *fte.Cipher, err error) {
+func (fsm *fsm) Cipher(regex string, msgLen int) (_ Cipher, err error) {
 	key := cipherKey{regex, msgLen}
 	cipher := fsm.ciphers[key]
 	if cipher != nil {

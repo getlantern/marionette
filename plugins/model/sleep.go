@@ -14,7 +14,7 @@ func init() {
 	marionette.RegisterPlugin("model", "sleep", Sleep)
 }
 
-func Sleep(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func Sleep(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	if len(args) < 1 {
 		return false, errors.New("model.sleep: not enough arguments")
 	}

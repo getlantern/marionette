@@ -14,7 +14,7 @@ func init() {
 	marionette.RegisterPlugin("io", "gets", Gets)
 }
 
-func Gets(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func Gets(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	if len(args) < 1 {
 		return false, errors.New("io.gets: not enough arguments")
 	}

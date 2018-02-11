@@ -18,7 +18,7 @@ func init() {
 	marionette.RegisterPlugin("tg", "send", Send)
 }
 
-func Send(fsm marionette.FSM, args []interface{}) (success bool, err error) {
+func Send(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
 
 	if len(args) < 1 {
