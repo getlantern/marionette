@@ -20,12 +20,18 @@ func Recv(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 		return false, errors.New("tg.send: not enough arguments")
 	}
 
-	grammar, ok := args[0].(string)
+	name, ok := args[0].(string)
 	if !ok {
-		return false, errors.New("tg.send: invalid grammar argument type")
+		return false, errors.New("tg.send: invalid grammar name argument type")
 	}
 
-	logger.Debug("tg.recv: reading buffer", zap.String("grammar", grammar))
+	logger.Debug("tg.recv: reading buffer", zap.String("grammar", name))
+
+	// Retrieve grammar by name.
+	grammar := grammars[name]
+	if grammar == nil {
+		return false, errors.New("tg.send: grammar not found")
+	}
 
 	// Retrieve data from the connection.
 	ciphertext, err := conn.Peek(-1)
@@ -36,28 +42,29 @@ func Recv(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	logger.Debug("tg.recv: buffer read", zap.Int("n", len(ciphertext)))
 
 	// Verify incoming data can be parsed by the grammar.
-	if parse(grammar, string(ciphertext)) == nil {
+	m := Parse(grammar.Name, string(ciphertext))
+	if m == nil {
 		logger.Debug("tg.recv: cannot parse buffer")
 		return false, nil
 	}
 
-	// Execute each handler against the data.
-	var cell_str string
-	for _, h := range tgConfigs[grammar].handlers {
-		logger.Debug("tg.recv: handle buffer", zap.String("name", h.name))
-		s, err := execute_handler_receiver(fsm, grammar, h.name, string(ciphertext))
-		if err != nil {
+	// Execute each cipher against the data.
+	var data []byte
+	for _, cipher := range grammar.Ciphers {
+		logger.Debug("tg.recv: handle buffer", zap.String("name", cipher.Key()))
+
+		if buf, err := cipher.Decrypt(fsm, []byte(m[cipher.Key()])); err != nil {
 			return false, err
-		} else if s != "" {
-			cell_str += s
+		} else if len(buf) != 0 {
+			data = append(data, buf...)
 		}
 	}
 
 	// If any handlers matched and returned data then decode data as a cell.
-	if len(cell_str) > 0 {
+	if len(data) > 0 {
 		logger.Debug("tg.recv: decoding buffer")
 		var cell marionette.Cell
-		if err := cell.UnmarshalBinary([]byte(cell_str)); err != nil {
+		if err := cell.UnmarshalBinary(data); err != nil {
 			return false, err
 		}
 		logger.Debug("tg.recv: buffer decoded", zap.Int("n", len(cell.Payload)))
