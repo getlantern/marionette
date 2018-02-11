@@ -34,10 +34,9 @@ func (c *HTTPContentLengthCipher) Decrypt(fsm marionette.FSM, ciphertext []byte)
 	return nil, nil
 }
 
-func parseHTTPHeader(header_name, msg string) string {
-	lines := strings.Split(msg, "\r\n")
-	for _, line := range lines[1 : len(lines)-2] {
-		if a := strings.SplitN(line, ": ", 2); a[0] == header_name {
+func httpHeaderValue(hdrs []string, key string) string {
+	for _, hdr := range hdrs {
+		if a := strings.SplitN(hdr, ": ", 2); a[0] == key {
 			if len(a) > 1 {
 				return a[1]
 			}
@@ -47,31 +46,34 @@ func parseHTTPHeader(header_name, msg string) string {
 	return ""
 }
 
-func parseHTTPRequest(msg string) map[string]string {
-	if !strings.HasPrefix(msg, "GET") {
+func parseHTTPRequest(data string) map[string]string {
+	if !strings.HasPrefix(data, "GET") {
 		return nil
-	} else if !strings.HasSuffix(msg, "\r\n\r\n") {
+	} else if !strings.HasSuffix(data, "\r\n\r\n") {
 		return nil
 	}
 
-	lines := lineBreakRegex.Split(msg, -1)
+	lines := lineBreakRegex.Split(data, -1)
 	segments := strings.Split(lines[0][:len(lines[0])-9], "/")
 
-	if strings.HasPrefix(msg, "GET http") {
+	if strings.HasPrefix(data, "GET http") {
 		return map[string]string{"URL": strings.Join(segments[3:], "/")}
 	}
 	return map[string]string{"URL": strings.Join(segments[1:], "/")}
 }
 
-func parseHTTPResponse(msg string) map[string]string {
-	if !strings.HasPrefix(msg, "HTTP") {
+func parseHTTPResponse(data string) map[string]string {
+	if !strings.HasPrefix(data, "HTTP") {
 		return nil
 	}
 
+	hdrs := strings.Split(data, "\r\n")
+	hdrs = hdrs[1 : len(hdrs)-2]
+
 	m := make(map[string]string)
-	m["CONTENT-LENGTH"] = parseHTTPHeader("Content-Length", msg)
-	m["COOKIE"] = parseHTTPHeader("Cookie", msg)
-	if a := strings.Split(msg, "\r\n\r\n"); len(a) > 1 {
+	m["CONTENT-LENGTH"] = httpHeaderValue(hdrs, "Content-Length")
+	m["COOKIE"] = httpHeaderValue(hdrs, "Cookie")
+	if a := strings.Split(data, "\r\n\r\n"); len(a) > 1 {
 		m["HTTP-RESPONSE-BODY"] = a[1]
 	} else {
 		m["HTTP-RESPONSE-BODY"] = ""

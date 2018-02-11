@@ -19,17 +19,6 @@ type Cipher interface {
 	Decrypt(fsm marionette.FSM, cipher []byte) (plaintext []byte, err error)
 }
 
-/*
-func (c *tgConfig) handler(name string) *tgHandler {
-	for _, h := range c.handlers {
-		if h.name == name {
-			return h
-		}
-	}
-	return nil
-}
-*/
-
 var grammars = make(map[string]*Grammar)
 
 // RegisterGrammar adds grammar to the registry.
@@ -180,20 +169,20 @@ func init() {
 	})
 }
 
-func Parse(grammar, data string) map[string]string {
-	if strings.HasPrefix(grammar, "http_response") || grammar == "http_amazon_response" {
+func Parse(name, data string) map[string]string {
+	if strings.HasPrefix(name, "http_response") || name == "http_amazon_response" {
 		return parseHTTPResponse(data)
-	} else if strings.HasPrefix(grammar, "http_request") || grammar == "http_amazon_request" {
+	} else if strings.HasPrefix(name, "http_request") || name == "http_amazon_request" {
 		return parseHTTPRequest(data)
-	} else if strings.HasPrefix(grammar, "pop3_message_response") {
+	} else if strings.HasPrefix(name, "pop3_message_response") {
 		return parsePOP3(data)
-	} else if strings.HasPrefix(grammar, "pop3_password") {
+	} else if strings.HasPrefix(name, "pop3_password") {
 		return parsePOP3Password(data)
-	} else if strings.HasPrefix(grammar, "ftp_entering_passive") {
+	} else if strings.HasPrefix(name, "ftp_entering_passive") {
 		return parseFTPEnteringPassive(data)
-	} else if strings.HasPrefix(grammar, "dns_request") {
+	} else if strings.HasPrefix(name, "dns_request") {
 		return parseDNSRequest(data)
-	} else if strings.HasPrefix(grammar, "dns_response") {
+	} else if strings.HasPrefix(name, "dns_response") {
 		return parseDNSResponse(data)
 	}
 	return nil
