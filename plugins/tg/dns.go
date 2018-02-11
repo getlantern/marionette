@@ -109,44 +109,6 @@ func (c *SetDNSIPCipher) Decrypt(fsm marionette.FSM, ciphertext []byte) (plainte
 	return nil, nil
 }
 
-func parseDNSDomain(data string, isResponse bool) string {
-	delim, splitN := "\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00", 2
-	if isResponse {
-		delim, splitN = "\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00", 3
-	}
-
-	a0 := strings.Split(data, delim)
-	if len(a0) != 2 {
-		return ""
-	}
-
-	a1 := strings.Split(a0[1], "\x00\x01\x00\x01")
-	if len(a1) != splitN {
-		return ""
-	}
-
-	// Check for valid prepended length
-	// Remove trailing tld prepended length (1), tld (3) and trailing null (1) = 5
-	domain := a1[0]
-	if int(domain[0]) != len(domain[1:len(domain)-5]) {
-		return ""
-	} else if int(domain[len(domain)-5]) != 3 {
-		return ""
-	}
-
-	// Check for valid TLD
-	if !strings.HasSuffix(domain, "com\x00") && !strings.HasSuffix(domain, "net\x00") && !strings.HasSuffix(domain, "org\x00") {
-		return ""
-	}
-
-	// Check for valid domain characters
-	if !domainRegex.MatchString(domain[1 : len(domain)-5]) {
-		return ""
-	}
-
-	return domain
-}
-
 func parseDNSRequest(data string) map[string]string {
 	if !strings.Contains(data, "\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00") {
 		return nil
@@ -183,6 +145,44 @@ func parseDNSResponse(data string) map[string]string {
 		"DNS_DOMAIN":         domain,
 		"DNS_IP":             ip,
 	}
+}
+
+func parseDNSDomain(data string, isResponse bool) string {
+	delim, splitN := "\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00", 2
+	if isResponse {
+		delim, splitN = "\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00", 3
+	}
+
+	a0 := strings.Split(data, delim)
+	if len(a0) != 2 {
+		return ""
+	}
+
+	a1 := strings.Split(a0[1], "\x00\x01\x00\x01")
+	if len(a1) != splitN {
+		return ""
+	}
+
+	// Check for valid prepended length
+	// Remove trailing tld prepended length (1), tld (3) and trailing null (1) = 5
+	domain := a1[0]
+	if int(domain[0]) != len(domain[1:len(domain)-5]) {
+		return ""
+	} else if domain[len(domain)-5] != 3 {
+		return ""
+	}
+
+	// Check for valid TLD
+	if !strings.HasSuffix(domain, "com\x00") && !strings.HasSuffix(domain, "net\x00") && !strings.HasSuffix(domain, "org\x00") {
+		return ""
+	}
+
+	// Check for valid domain characters
+	if !domainRegex.MatchString(domain[1 : len(domain)-5]) {
+		return ""
+	}
+
+	return domain
 }
 
 func parseDNSIP(data string) string {
