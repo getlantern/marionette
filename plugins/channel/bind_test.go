@@ -36,7 +36,7 @@ func TestBind(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		var conn mock.Conn
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if _, err := channel.Bind(&fsm, nil); err == nil || err.Error() != `channel.bind: not enough arguments` {
+		if _, err := channel.Bind(&fsm); err == nil || err.Error() != `channel.bind: not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})

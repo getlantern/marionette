@@ -36,9 +36,9 @@ func Puts(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 
 // isTimeoutError returns true if the error is a timeout error.
 func isTimeoutError(err error) bool {
-	if err, ok := err.(interface {
-		Timeout() bool
-	}); ok && err.Timeout() {
+	if err == nil {
+		return false
+	} else if err, ok := err.(interface{ Timeout() bool }); ok && err.Timeout() {
 		return true
 	}
 	return false

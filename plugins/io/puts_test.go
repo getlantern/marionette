@@ -58,7 +58,7 @@ func TestPuts(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		var conn mock.Conn
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if _, err := io.Puts(&fsm, nil); err == nil || err.Error() != `io.puts: not enough arguments` {
+		if _, err := io.Puts(&fsm); err == nil || err.Error() != `io.puts: not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})

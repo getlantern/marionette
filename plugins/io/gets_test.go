@@ -20,7 +20,7 @@ func TestGets(t *testing.T) {
 		}
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 
-		if ok, err := io.Gets(&fsm, []interface{}{"foo"}); err != nil {
+		if ok, err := io.Gets(&fsm, "foo"); err != nil {
 			t.Fatal(err)
 		} else if !ok {
 			t.Fatal("expected success")
@@ -30,7 +30,7 @@ func TestGets(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		var conn mock.Conn
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if _, err := io.Gets(&fsm, nil); err == nil || err.Error() != `io.gets: not enough arguments` {
+		if _, err := io.Gets(&fsm); err == nil || err.Error() != `io.gets: not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -38,25 +38,8 @@ func TestGets(t *testing.T) {
 	t.Run("ErrInvalidArgument", func(t *testing.T) {
 		var conn mock.Conn
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if _, err := io.Gets(&fsm, []interface{}{123}); err == nil || err.Error() != `io.gets: invalid argument type` {
+		if _, err := io.Gets(&fsm, 123); err == nil || err.Error() != `io.gets: invalid argument type` {
 			t.Fatalf("unexpected error: %q", err)
-		}
-	})
-
-	// Ensure failure returned but not an error if there are not enough bytes.
-	t.Run("ErrBufferFull", func(t *testing.T) {
-		var conn mock.Conn
-		conn.SetReadDeadlineFn = func(_ time.Time) error { return nil }
-		conn.ReadFn = func(p []byte) (int, error) {
-			copy(p, []byte("fo"))
-			return 2, nil
-		}
-		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-
-		if ok, err := io.Gets(&fsm, []interface{}{"foo"}); err != nil {
-			t.Fatal(err)
-		} else if ok {
-			t.Fatal("expected failure")
 		}
 	})
 
@@ -68,7 +51,7 @@ func TestGets(t *testing.T) {
 		conn.ReadFn = func(p []byte) (int, error) { return 0, errMarker }
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 
-		if _, err := io.Gets(&fsm, []interface{}{"foo"}); err != errMarker {
+		if _, err := io.Gets(&fsm, "foo"); err != errMarker {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})
@@ -83,7 +66,7 @@ func TestGets(t *testing.T) {
 		}
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 
-		if _, err := io.Gets(&fsm, []interface{}{"foo"}); err == nil || err.Error() != `io.gets: unexpected data: "bar"` {
+		if _, err := io.Gets(&fsm, "foo"); err == nil || err.Error() != `io.gets: unexpected data: "bar"` {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})

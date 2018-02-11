@@ -1,10 +1,8 @@
 package marionette
 
 import (
-	"bufio"
 	"io"
 	"net"
-	"time"
 )
 
 type BufferedConn struct {
@@ -24,32 +22,29 @@ func (conn *BufferedConn) Read(p []byte) (int, error) {
 	panic("BufferedConn.Read(): unavailable, use Peek/Seek")
 }
 
-// Peek returns the current read buffer.
+// Peek returns the first n bytes of the read buffer.
+// If n is -1 then returns available buffer once any bytes are available.
 func (conn *BufferedConn) Peek(n int) ([]byte, error) {
-	// Read into buffer if it isn't full yet.
-	if len(conn.buf) != cap(conn.buf) {
-		// Limit deadline to only read what is available.
-		if err := conn.SetReadDeadline(time.Now().Add(1 * time.Microsecond)); err != nil {
-			return nil, err
+	for {
+		if n >= 0 && len(conn.buf) >= n {
+			return conn.buf[:n], nil
+		} else if n == -1 && len(conn.buf) > 0 {
+			return conn.buf, nil
 		}
 
-		// Read onto the end of the buffer.
-		n, err := conn.Conn.Read(conn.buf[len(conn.buf):cap(conn.buf)])
-		if err != nil {
-			if isTimeoutError(err) {
-				return conn.buf, nil
-			}
+		capacity := cap(conn.buf)
+		if n >= 0 {
+			capacity = n - len(conn.buf)
+		}
+
+		nn, err := conn.Conn.Read(conn.buf[len(conn.buf):capacity])
+		if isTimeoutError(err) {
+			continue
+		} else if err != nil {
 			return conn.buf, err
 		}
-		conn.buf = conn.buf[:len(conn.buf)+int(n)]
+		conn.buf = conn.buf[:len(conn.buf)+nn]
 	}
-
-	if n == -1 {
-		return conn.buf, nil
-	} else if len(conn.buf) < n {
-		return conn.buf, bufio.ErrBufferFull
-	}
-	return conn.buf[:n], nil
 }
 
 // Seek moves the buffer forward a given number of bytes.
@@ -66,9 +61,9 @@ func (conn *BufferedConn) Seek(offset int64, whence int) (int64, error) {
 
 // isTimeoutError returns true if the error is a timeout error.
 func isTimeoutError(err error) bool {
-	if err, ok := err.(interface {
-		Timeout() bool
-	}); ok && err.Timeout() {
+	if err == nil {
+		return false
+	} else if err, ok := err.(interface{ Timeout() bool }); ok && err.Timeout() {
 		return true
 	}
 	return false

@@ -38,6 +38,8 @@ func TestSend(t *testing.T) {
 		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) {
 			if regex != `([a-z0-9]+)` {
 				t.Fatalf("unexpected regex: %s", regex)
+			} else if msgLen != 128 {
+				t.Fatalf("unexected msg len: %d", msgLen)
 			}
 			return &cipher, nil
 		}
@@ -82,7 +84,7 @@ func TestSend(t *testing.T) {
 			}
 		})
 
-		t.Run("msgLen", func(t *testing.T) {
+		t.Run("msg_len", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
 			if _, err := fte.Send(&fsm, "abc", "def"); err == nil || err.Error() != `fte.send: invalid msg_len argument type` {
