@@ -71,6 +71,6 @@ func parseFTPEnteringPassive(msg string) map[string]string {
 
 	return map[string]string{
 		"FTP_PASV_PORT_X": a[4],
-		"FTP_PASV_PORT_Y": a[5][:len(a[5])-3],
+		"FTP_PASV_PORT_Y": strings.TrimSuffix(a[5], ").\n"),
 	}
 }
