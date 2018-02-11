@@ -33,8 +33,8 @@ func (c *POP3ContentLengthCipher) Decrypt(fsm marionette.FSM, ciphertext []byte)
 	return nil, nil
 }
 
-func parsePOP3(msg string) map[string]string {
-	a := strings.Split(msg, "\n\n")
+func parsePOP3(data string) map[string]string {
+	a := strings.Split(data, "\n\n")
 	if len(a) < 2 {
 		return nil
 	}
@@ -51,9 +51,11 @@ func parsePOP3(msg string) map[string]string {
 	}
 }
 
-func parsePOP3Password(msg string) map[string]string {
-	if !strings.HasSuffix(msg, "\n") {
+func parsePOP3Password(data string) map[string]string {
+	if !strings.HasPrefix(data, "PASS ") || !strings.HasSuffix(data, "\n") {
 		return nil
 	}
-	return map[string]string{"PASSWORD": msg[5 : len(msg)-1]}
+	data = strings.TrimPrefix(data, "PASS ")
+	data = strings.TrimSuffix(data, "\n")
+	return map[string]string{"PASSWORD": data}
 }
