@@ -17,12 +17,12 @@ func Recv(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	conn := fsm.Conn()
 
 	if len(args) < 1 {
-		return false, errors.New("tg.send: not enough arguments")
+		return false, errors.New("tg.recv: not enough arguments")
 	}
 
 	name, ok := args[0].(string)
 	if !ok {
-		return false, errors.New("tg.send: invalid grammar name argument type")
+		return false, errors.New("tg.recv: invalid grammar name argument type")
 	}
 
 	logger.Debug("tg.recv: reading buffer", zap.String("grammar", name))
@@ -30,7 +30,7 @@ func Recv(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	// Retrieve grammar by name.
 	grammar := grammars[name]
 	if grammar == nil {
-		return false, errors.New("tg.send: grammar not found")
+		return false, errors.New("tg.recv: grammar not found")
 	}
 
 	// Retrieve data from the connection.
@@ -69,11 +69,15 @@ func Recv(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 		}
 		logger.Debug("tg.recv: buffer decoded", zap.Int("n", len(cell.Payload)))
 
-		assert(cell.UUID == fsm.UUID())
-		fsm.SetInstanceID(cell.InstanceID)
+		if cell.UUID != fsm.UUID() {
+			return false, marionette.ErrUUIDMismatch
+		}
 
 		if fsm.InstanceID() == 0 {
-			return false, nil
+			if cell.InstanceID == 0 {
+				return false, errors.New("msg instance id required")
+			}
+			fsm.SetInstanceID(cell.InstanceID)
 		}
 
 		if err := fsm.StreamSet().Enqueue(&cell); err != nil {
@@ -89,10 +93,4 @@ func Recv(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	logger.Debug("tg.recv: recv complete")
 
 	return true, nil
-}
-
-func assert(condition bool) {
-	if !condition {
-		panic("assertion failed")
-	}
 }

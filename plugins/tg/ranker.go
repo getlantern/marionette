@@ -47,5 +47,16 @@ func (c *RankerCipher) Decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext
 	if err != nil {
 		return nil, err
 	}
-	return rank.Bytes(), nil
+
+	capacity, err := c.Capacity()
+	if err != nil {
+		return nil, err
+	}
+
+	// Pad to capacity.
+	plaintext = rank.Bytes()
+	if len(plaintext) < capacity {
+		plaintext = append(make([]byte, capacity-len(plaintext)), plaintext...)
+	}
+	return plaintext, nil
 }

@@ -15,8 +15,12 @@ import (
 	"go.uber.org/zap"
 )
 
-// ErrNoTransition is returned from FSM.Next() when no transition is available.
-var ErrNoTransition = errors.New("no matching transition")
+var (
+	// ErrNoTransition is returned from FSM.Next() when no transition is available.
+	ErrNoTransition = errors.New("no matching transition")
+
+	ErrUUIDMismatch = errors.New("uuid mismatch")
+)
 
 // FSM represents an interface for the Marionette state machine.
 type FSM interface {
