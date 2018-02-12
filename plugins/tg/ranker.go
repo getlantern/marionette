@@ -8,16 +8,18 @@ import (
 )
 
 type RankerCipher struct {
-	key   string
-	regex string
-	dfa   *fte.DFA
+	key    string
+	regex  string
+	msgLen int
+	dfa    *fte.DFA
 }
 
 func NewRankerCipher(key, regex string, msgLen int) *RankerCipher {
 	return &RankerCipher{
-		key:   key,
-		regex: regex,
-		dfa:   fte.NewDFA(regex, msgLen),
+		key:    key,
+		regex:  regex,
+		msgLen: msgLen,
+		dfa:    fte.NewDFA(regex, msgLen),
 	}
 }
 
@@ -25,7 +27,7 @@ func (c *RankerCipher) Key() string {
 	return c.key
 }
 
-func (c *RankerCipher) Capacity() int {
+func (c *RankerCipher) Capacity() (int, error) {
 	return c.dfa.Capacity()
 }
 

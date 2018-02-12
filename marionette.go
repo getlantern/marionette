@@ -53,7 +53,7 @@ var plugins = make(map[pluginKey]PluginFunc)
 
 // Cipher represents the interface to the FTE Cipher.
 type Cipher interface {
-	Capacity() int
+	Capacity() (int, error)
 	Encrypt(plaintext []byte) (ciphertext []byte, err error)
 	Decrypt(ciphertext []byte) (plaintext, remainder []byte, err error)
 }

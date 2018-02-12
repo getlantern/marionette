@@ -17,8 +17,8 @@ func (c *SetFTPPasvXCipher) Key() string {
 	return "FTP_PASV_PORT_X"
 }
 
-func (c *SetFTPPasvXCipher) Capacity() int {
-	return 0
+func (c *SetFTPPasvXCipher) Capacity() (int, error) {
+	return 0, nil
 }
 
 func (c *SetFTPPasvXCipher) Encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
@@ -42,8 +42,8 @@ func (c *SetFTPPasvYCipher) Key() string {
 	return "FTP_PASV_PORT_Y"
 }
 
-func (c *SetFTPPasvYCipher) Capacity() int {
-	return 0
+func (c *SetFTPPasvYCipher) Capacity() (int, error) {
+	return 0, nil
 }
 
 func (c *SetFTPPasvYCipher) Encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {

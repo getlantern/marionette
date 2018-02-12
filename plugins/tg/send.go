@@ -30,14 +30,13 @@ func Send(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	grammar := grammars[name]
 	if grammar == nil {
 		return false, errors.New("tg.send: grammar not found")
-	} else if len(grammar.Templates) == 0 {
-		return false, fmt.Errorf("tg.send: grammar has no templates: %q", grammar)
 	}
 
 	// Randomly choose template and replace embedded placeholders.
 	ciphertext := grammar.Templates[rand.Intn(len(grammar.Templates))]
+	ciphertext = strings.Replace(ciphertext, "%%SERVER_LISTEN_IP%%", fsm.Host(), -1)
 	for _, cipher := range grammar.Ciphers {
-		if ciphertext, err = execute_handler_sender(fsm, cipher, ciphertext); err != nil {
+		if ciphertext, err = encryptTo(fsm, cipher, ciphertext); err != nil {
 			return false, fmt.Errorf("tg.send: execute handler sender: %q", err)
 		}
 	}
@@ -53,11 +52,13 @@ func Send(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	return true, nil
 }
 
-func execute_handler_sender(fsm marionette.FSM, cipher Cipher, template string) (_ string, err error) {
+func encryptTo(fsm marionette.FSM, cipher Cipher, template string) (_ string, err error) {
 	// Encode data from streams if there is capacity in the handler.
 	var data []byte
-	if capacity := cipher.Capacity(); capacity > 0 {
-		cell := fsm.StreamSet().Dequeue(cipher.Capacity())
+	if capacity, err := cipher.Capacity(); err != nil {
+		return "", err
+	} else if capacity > 0 {
+		cell := fsm.StreamSet().Dequeue(capacity)
 		if cell == nil {
 			cell = marionette.NewCell(0, 0, 0, marionette.NORMAL)
 		}

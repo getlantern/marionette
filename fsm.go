@@ -25,8 +25,9 @@ type FSM interface {
 	SetInstanceID(int)
 	InstanceID() int
 
-	// Party & network port.
+	// Party & networking.
 	Party() string
+	Host() string
 	Port() int
 
 	// The current state in the FSM.

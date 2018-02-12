@@ -27,11 +27,15 @@ func (c *FTECipher) Key() string {
 	return c.key
 }
 
-func (c *FTECipher) Capacity() int {
+func (c *FTECipher) Capacity() (int, error) {
 	if !c.useCapacity && strings.HasSuffix(c.regex, ".+") {
-		return (1 << 18)
+		return (1 << 18), nil
 	}
-	return c.cipher.Capacity() - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
+	capacity, err := c.cipher.Capacity()
+	if err != nil {
+		return 0, err
+	}
+	return capacity - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION, nil
 }
 
 func (c *FTECipher) Encrypt(fsm marionette.FSM, template string, data []byte) (ciphertext []byte, err error) {

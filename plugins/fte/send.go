@@ -51,7 +51,13 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) (success bool, 
 		notify := fsm.StreamSet().WriteNotify()
 
 		logger.Debug("fte.send: dequeuing cell")
-		cell = fsm.StreamSet().Dequeue(cipher.Capacity())
+
+		capacity, err := cipher.Capacity()
+		if err != nil {
+			return false, err
+		}
+
+		cell = fsm.StreamSet().Dequeue(capacity)
 		if cell != nil {
 			break
 		} else if !blocking {

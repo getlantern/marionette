@@ -241,7 +241,7 @@ func (s *Stream) Dequeue(n int) *Cell {
 	if len(s.wbuf) > n {
 		n = len(s.wbuf)
 	}
-	if n += CellHeaderSize; n > MaxCellLength {
+	if n+CellHeaderSize > MaxCellLength {
 		n = MaxCellLength
 	}
 

@@ -14,6 +14,13 @@ func TestDFA(t *testing.T) {
 	}
 	defer dfa.Close()
 
+	// Verify initial capacity.
+	if capacity, err := dfa.Capacity(); err != nil {
+		t.Fatal(err)
+	} else if capacity != 1547 {
+		t.Fatalf("unexpected initial capacity: %d", capacity)
+	}
+
 	msg0 := strings.Repeat("A", 2048)
 	msg1 := strings.Repeat("B", 2048)
 
@@ -37,5 +44,19 @@ func TestDFA(t *testing.T) {
 
 	if err := dfa.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDFA_NumWordsInSlice(t *testing.T) {
+	dfa := fte.NewDFA(`[a-zA-Z0-9\?\-\.\&]+`, 2048)
+	if err := dfa.Open(); err != nil {
+		t.Fatal(err)
+	}
+	defer dfa.Close()
+
+	if n, err := dfa.NumWordsInSlice(2); err != nil {
+		t.Fatal(err)
+	} else if n.String() != `4356` {
+		t.Fatalf("unexpected num: %s", n.String())
 	}
 }

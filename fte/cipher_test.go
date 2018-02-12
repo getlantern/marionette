@@ -13,6 +13,13 @@ func TestCipher(t *testing.T) {
 	}
 	defer cipher.Close()
 
+	// Verify initial capacity.
+	if capacity, err := cipher.Capacity(); err != nil {
+		t.Fatal(err)
+	} else if capacity != 15 {
+		t.Fatalf("unexpected initial capacity: %d", capacity)
+	}
+
 	// Encode/decode first message.
 	if ciphertext, err := cipher.Encrypt([]byte(`test`)); err != nil {
 		t.Fatal(err)

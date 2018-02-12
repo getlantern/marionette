@@ -14,7 +14,7 @@ type Grammar struct {
 
 type Cipher interface {
 	Key() string
-	Capacity() int
+	Capacity() (int, error)
 	Encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error)
 	Decrypt(fsm marionette.FSM, cipher []byte) (plaintext []byte, err error)
 }

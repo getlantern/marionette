@@ -64,6 +64,13 @@ func (c *Cipher) Open() error {
 		return err
 	}
 
+	// Read initial capacity.
+	if line, err := c.bufout.ReadBytes('\n'); err != nil {
+		return fmt.Errorf("fte.Cipher.Open(): cannot read from stdout: %s", err)
+	} else if c.capacity, err = strconv.Atoi(string(bytes.TrimSpace(line))); err != nil {
+		return fmt.Errorf("fte.Cipher.Open(): cannot convert capacity to int: %s", err)
+	}
+
 	return nil
 }
 
@@ -83,15 +90,29 @@ func (c *Cipher) Close() (err error) {
 	return err
 }
 
+func (c *Cipher) init() error {
+	if c.cmd != nil {
+		return nil
+	}
+	return c.Open()
+}
+
 // Capacity returns the capacity left in the encoder.
-func (c *Cipher) Capacity() int {
-	return (c.capacity / 8) - COVERTEXT_HEADER_LEN_CIPHERTTEXT - CTXT_EXPANSION
+func (c *Cipher) Capacity() (int, error) {
+	if err := c.init(); err != nil {
+		return 0, err
+	}
+	return (c.capacity / 8) - COVERTEXT_HEADER_LEN_CIPHERTTEXT - CTXT_EXPANSION, nil
 }
 
 // Encrypt encrypts plaintext into ciphertext.
 func (c *Cipher) Encrypt(plaintext []byte) (ciphertext []byte, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if err := c.init(); err != nil {
+		return nil, err
+	}
 
 	if _, err := fmt.Fprintf(c.stdin, "E%09d%x", len(plaintext), plaintext); err != nil {
 		return nil, fmt.Errorf("fte.Cipher.Encrypt(): cannot write to stdin: %s", err)
@@ -118,6 +139,10 @@ func (c *Cipher) Encrypt(plaintext []byte) (ciphertext []byte, err error) {
 func (c *Cipher) Decrypt(ciphertext []byte) (plaintext, remainder []byte, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if err := c.init(); err != nil {
+		return nil, nil, err
+	}
 
 	if _, err := fmt.Fprintf(c.stdin, "D%09d%x", len(ciphertext), ciphertext); err != nil {
 		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot write to stdin: %s", err)
@@ -151,6 +176,10 @@ import binascii
 
 regex = sys.argv[1]
 encoder = fte.encoder.DfaEncoder(regex2dfa.regex2dfa(regex), 512)
+
+sys.stdout.write(str(encoder.getCapacity()))
+sys.stdout.write("\n")
+sys.stdout.flush()
 
 def encode(payload):
 	ciphertext = bytearray(encoder.encode(payload))

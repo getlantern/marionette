@@ -1,8 +1,8 @@
 package tg
 
 import (
+	crand "crypto/rand"
 	"fmt"
-	"math/big"
 	"math/rand"
 
 	"github.com/redjack/marionette"
@@ -33,21 +33,21 @@ func NewAmazonMsgLensCipher(key, regex string) *AmazonMsgLensCipher {
 
 func (h *AmazonMsgLensCipher) Key() string { return h.key }
 
-func (h *AmazonMsgLensCipher) Capacity() int {
+func (h *AmazonMsgLensCipher) Capacity() (int, error) {
 	h.target = amazonMsgLens[rand.Intn(len(amazonMsgLens))]
 	if h.target < h.min {
-		return 0
+		return 0, nil
 	} else if h.target > h.max {
 		// We do this to prevent unranking really large slices
 		// in practice this is probably bad since it unnaturally caps
 		// our message sizes to whatever FTE can support
 		h.target = h.max
-		return h.max
+		return h.max, nil
 	}
 	n := h.target - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT
 	n -= fte.CTXT_EXPANSION
 	// n = int(ptxt_len * 8.0)-1
-	return n
+	return n, nil
 }
 
 func (h *AmazonMsgLensCipher) Encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
@@ -64,7 +64,12 @@ func (h *AmazonMsgLensCipher) Encrypt(fsm marionette.FSM, template string, plain
 			return nil, err
 		}
 
-		ret, err := dfa.Unrank(big.NewInt(rand.Int63n(int64(numWords))))
+		rnd, err := crand.Int(crand.Reader, numWords)
+		if err != nil {
+			return nil, err
+		}
+
+		ret, err := dfa.Unrank(rnd)
 		if err != nil {
 			return nil, err
 		}

@@ -18,8 +18,8 @@ func (c *HTTPContentLengthCipher) Key() string {
 	return "CONTENT-LENGTH"
 }
 
-func (c *HTTPContentLengthCipher) Capacity() int {
-	return 0
+func (c *HTTPContentLengthCipher) Capacity() (int, error) {
+	return 0, nil
 }
 
 func (c *HTTPContentLengthCipher) Encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
