@@ -65,6 +65,9 @@ type FSM interface {
 	// Sets and retrieves key/values from the FSM.
 	SetVar(key string, value interface{})
 	Var(key string) interface{}
+
+	// Returns a copy of the FSM with a different format.
+	Clone(doc *mar.Document) FSM
 }
 
 // Ensure implementation implements interface.
@@ -97,27 +100,31 @@ type fsm struct {
 // NewFSM returns a new FSM. If party is the first sender then the instance id is set.
 func NewFSM(doc *mar.Document, host, party string, conn net.Conn, streamSet *StreamSet) FSM {
 	fsm := &fsm{
-		doc:         doc,
-		host:        host,
-		party:       party,
-		conn:        NewBufferedConn(conn, MaxCellLength),
-		streamSet:   streamSet,
-		transitions: make(map[string][]*mar.Transition),
+		doc:       doc,
+		host:      host,
+		party:     party,
+		conn:      NewBufferedConn(conn, MaxCellLength),
+		streamSet: streamSet,
 	}
 	fsm.Reset()
+	fsm.buildTransitions()
+	fsm.initFirstSender()
+	return fsm
+}
 
-	// Build transition map.
-	for _, t := range doc.Transitions {
+func (fsm *fsm) buildTransitions() {
+	fsm.transitions = make(map[string][]*mar.Transition)
+	for _, t := range fsm.doc.Transitions {
 		fsm.transitions[t.Source] = append(fsm.transitions[t.Source], t)
 	}
+}
 
-	// The initial sender generates the instance ID.
-	if party == doc.FirstSender() {
-		fsm.instanceID = int(rand.Int31())
-		fsm.rand = rand.New(rand.NewSource(int64(fsm.instanceID)))
+func (fsm *fsm) initFirstSender() {
+	if fsm.party != fsm.doc.FirstSender() {
+		return
 	}
-
-	return fsm
+	fsm.instanceID = int(rand.Int31())
+	fsm.rand = rand.New(rand.NewSource(int64(fsm.instanceID)))
 }
 
 func (fsm *fsm) Reset() {
@@ -403,6 +410,24 @@ func (fsm *fsm) handleListener(ln net.Listener) {
 
 func (fsm *fsm) handleConn(conn net.Conn) {
 	panic("TODO: Drain connection into buffer?")
+}
+
+func (f *fsm) Clone(doc *mar.Document) FSM {
+	other := &fsm{
+		doc:   doc,
+		host:  f.host,
+		party: f.party,
+
+		conn:      f.conn,
+		streamSet: f.streamSet,
+
+		instanceID: f.instanceID,
+		vars:       f.vars,
+	}
+	other.Reset()
+	other.buildTransitions()
+	other.initFirstSender()
+	return other
 }
 
 func (fsm *fsm) logger() *zap.Logger {

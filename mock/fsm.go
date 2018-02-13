@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/redjack/marionette"
+	"github.com/redjack/marionette/mar"
 )
 
 var _ marionette.FSM = &FSM{}
@@ -27,6 +28,7 @@ type FSM struct {
 	CipherFn        func(regex string, msgLen int) (marionette.Cipher, error)
 	SetVarFn        func(key string, value interface{})
 	VarFn           func(key string) interface{}
+	CloneFn         func(doc *mar.Document) marionette.FSM
 
 	BufferedConn *marionette.BufferedConn
 }
@@ -65,3 +67,5 @@ func (m *FSM) Var(key string) interface{}           { return m.VarFn(key) }
 func (m *FSM) Cipher(regex string, msgLen int) (marionette.Cipher, error) {
 	return m.CipherFn(regex, msgLen)
 }
+
+func (m *FSM) Clone(doc *mar.Document) marionette.FSM { return m.CloneFn(doc) }
