@@ -73,15 +73,11 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 	// Assign fsm data to cell.
 	cell.UUID, cell.InstanceID = fsm.UUID(), fsm.InstanceID()
 
-	logger.Info("fte.send: marshaling cell", zap.Int("n", len(cell.Payload)))
-
 	// Encode to binary.
 	plaintext, err := cell.MarshalBinary()
 	if err != nil {
 		return err
 	}
-
-	logger.Debug("fte.send: encrypting cell")
 
 	// Encrypt using FTE cipher.
 	ciphertext, err := cipher.Encrypt(plaintext)
@@ -89,13 +85,14 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 		return err
 	}
 
-	logger.Debug("fte.send: writing cell data")
-
 	// Write to outgoing connection.
 	if _, err := fsm.Conn().Write(ciphertext); err != nil {
 		return err
 	}
 
-	logger.Debug("fte.send: cell data written")
+	logger.Debug("fte.send",
+		zap.Int("plaintext", len(cell.Payload)),
+		zap.Int("ciphertext", len(ciphertext)),
+	)
 	return nil
 }

@@ -42,14 +42,12 @@ func Send(fsm marionette.FSM, args ...interface{}) error {
 		}
 	}
 
-	logger.Debug("tg.send: writing cell data")
-
 	// Write to outgoing connection.
 	if _, err := fsm.Conn().Write([]byte(ciphertext)); err != nil {
 		return err
 	}
 
-	logger.Debug("tg.send: cell data written")
+	logger.Debug("tg.send", zap.Int("ciphertext", len(ciphertext)))
 	return nil
 }
 

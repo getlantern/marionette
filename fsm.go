@@ -198,6 +198,7 @@ func (fsm *fsm) Execute(ctx context.Context) error {
 
 	for !fsm.Dead() {
 		if err := fsm.Next(ctx); err == ErrRetryTransition {
+			fsm.logger().Debug("retry transition", zap.String("state", fsm.State()))
 			time.Sleep(100 * time.Millisecond)
 			continue
 		} else if err != nil {

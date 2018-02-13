@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"github.com/redjack/marionette"
+	"go.uber.org/zap"
 )
 
 func init() {
@@ -15,6 +16,8 @@ func init() {
 }
 
 func Gets(fsm marionette.FSM, args ...interface{}) error {
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
+
 	if len(args) < 1 {
 		return errors.New("io.gets: not enough arguments")
 	}
@@ -37,5 +40,7 @@ func Gets(fsm marionette.FSM, args ...interface{}) error {
 	if _, err := fsm.Conn().Seek(int64(len(buf)), io.SeekCurrent); err != nil {
 		return err
 	}
+
+	logger.Debug("io.gets", zap.Int("n", len(buf)))
 	return nil
 }

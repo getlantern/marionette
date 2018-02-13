@@ -31,8 +31,6 @@ func Spawn(fsm marionette.FSM, args ...interface{}) error {
 		return errors.New("model.spawn: invalid count argument type")
 	}
 
-	logger.Debug("model.spawn: lookup format", zap.String("format", formatName))
-
 	// Find & parse format.
 	data := mar.Format(formatName, "")
 	if len(data) == 0 {

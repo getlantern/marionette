@@ -35,16 +35,12 @@ func recv(fsm marionette.FSM, args []interface{}) error {
 		return errors.New("fte.recv: invalid msg_len argument type")
 	}
 
-	logger.Debug("fte.recv: reading buffer")
-
 	// Retrieve data from the connection.
 	conn := fsm.Conn()
 	ciphertext, err := conn.Peek(-1)
 	if err != nil {
 		return err
 	}
-
-	logger.Debug("fte.recv: buffer read", zap.Int("n", len(ciphertext)))
 
 	// Decode ciphertext.
 	cipher, err := fsm.Cipher(regex, msgLen)
@@ -55,15 +51,12 @@ func recv(fsm marionette.FSM, args []interface{}) error {
 	if err != nil {
 		return err
 	}
-	logger.Debug("fte.recv: buffer decoded", zap.Int("plaintext", len(plaintext)), zap.Int("remainder", len(remainder)))
 
 	// Unmarshal data.
 	var cell marionette.Cell
 	if err := cell.UnmarshalBinary(plaintext); err != nil {
 		return err
 	}
-
-	logger.Info("fte.recv: received cell", zap.Int("n", len(cell.Payload)))
 
 	// Validate that the FSM & cell document UUIDs match.
 	if fsm.UUID() != cell.UUID {
@@ -88,6 +81,11 @@ func recv(fsm marionette.FSM, args []interface{}) error {
 	if _, err := conn.Seek(int64(len(ciphertext)-len(remainder)), io.SeekCurrent); err != nil {
 		return err
 	}
+
+	logger.Debug("fte.recv",
+		zap.Int("plaintext", len(cell.Payload)),
+		zap.Int("ciphertext", len(ciphertext)),
+	)
 
 	return nil
 }

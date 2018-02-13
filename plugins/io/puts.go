@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/redjack/marionette"
+	"go.uber.org/zap"
 )
 
 func init() {
@@ -11,6 +12,8 @@ func init() {
 }
 
 func Puts(fsm marionette.FSM, args ...interface{}) error {
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
+
 	if len(args) < 1 {
 		return errors.New("io.puts: not enough arguments")
 	}
@@ -30,6 +33,8 @@ func Puts(fsm marionette.FSM, args ...interface{}) error {
 			return err
 		}
 	}
+
+	logger.Debug("io.gets", zap.Int("n", len(data)))
 
 	return nil
 }
