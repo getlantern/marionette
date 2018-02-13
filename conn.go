@@ -37,7 +37,7 @@ func (conn *BufferedConn) Peek(n int) ([]byte, error) {
 			capacity = n - len(conn.buf)
 		}
 
-		nn, err := conn.Conn.Read(conn.buf[len(conn.buf):capacity])
+		nn, err := conn.Conn.Read(conn.buf[len(conn.buf) : len(conn.buf)+capacity])
 		if isTimeoutError(err) {
 			continue
 		} else if err != nil {

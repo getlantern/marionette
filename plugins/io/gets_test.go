@@ -20,17 +20,15 @@ func TestGets(t *testing.T) {
 		}
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 
-		if ok, err := io.Gets(&fsm, "foo"); err != nil {
+		if err := io.Gets(&fsm, "foo"); err != nil {
 			t.Fatal(err)
-		} else if !ok {
-			t.Fatal("expected success")
 		}
 	})
 
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		var conn mock.Conn
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if _, err := io.Gets(&fsm); err == nil || err.Error() != `io.gets: not enough arguments` {
+		if err := io.Gets(&fsm); err == nil || err.Error() != `io.gets: not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -38,7 +36,7 @@ func TestGets(t *testing.T) {
 	t.Run("ErrInvalidArgument", func(t *testing.T) {
 		var conn mock.Conn
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if _, err := io.Gets(&fsm, 123); err == nil || err.Error() != `io.gets: invalid argument type` {
+		if err := io.Gets(&fsm, 123); err == nil || err.Error() != `io.gets: invalid argument type` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -51,7 +49,7 @@ func TestGets(t *testing.T) {
 		conn.ReadFn = func(p []byte) (int, error) { return 0, errMarker }
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 
-		if _, err := io.Gets(&fsm, "foo"); err != errMarker {
+		if err := io.Gets(&fsm, "foo"); err != errMarker {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})
@@ -66,7 +64,7 @@ func TestGets(t *testing.T) {
 		}
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 
-		if _, err := io.Gets(&fsm, "foo"); err == nil || err.Error() != `io.gets: unexpected data: "bar"` {
+		if err := io.Gets(&fsm, "foo"); err == nil || err.Error() != `io.gets: unexpected data: "bar"` {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})

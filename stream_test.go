@@ -261,7 +261,7 @@ func TestStream_Dequeue(t *testing.T) {
 		}
 
 		// Dequeue from stream as a cell with padding.
-		if diff := cmp.Diff(stream.Dequeue(20), &marionette.Cell{
+		if diff := cmp.Diff(stream.Dequeue(marionette.CellHeaderSize+20), &marionette.Cell{
 			Type:       marionette.NORMAL,
 			Length:     marionette.CellHeaderSize + 20,
 			StreamID:   100,

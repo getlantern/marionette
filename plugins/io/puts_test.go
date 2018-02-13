@@ -22,10 +22,8 @@ func TestPuts(t *testing.T) {
 		}
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 
-		if ok, err := io.Puts(&fsm, "foo"); err != nil {
+		if err := io.Puts(&fsm, "foo"); err != nil {
 			t.Fatal(err)
-		} else if !ok {
-			t.Fatal("expected success")
 		}
 	})
 
@@ -48,17 +46,15 @@ func TestPuts(t *testing.T) {
 		}
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 
-		if ok, err := io.Puts(&fsm, "foo"); err != nil {
+		if err := io.Puts(&fsm, "foo"); err != nil {
 			t.Fatal(err)
-		} else if !ok {
-			t.Fatal("expected success")
 		}
 	})
 
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		var conn mock.Conn
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if _, err := io.Puts(&fsm); err == nil || err.Error() != `io.puts: not enough arguments` {
+		if err := io.Puts(&fsm); err == nil || err.Error() != `io.puts: not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -66,7 +62,7 @@ func TestPuts(t *testing.T) {
 	t.Run("ErrInvalidArgument", func(t *testing.T) {
 		var conn mock.Conn
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if _, err := io.Puts(&fsm, 123); err == nil || err.Error() != `io.puts: invalid argument type` {
+		if err := io.Puts(&fsm, 123); err == nil || err.Error() != `io.puts: invalid argument type` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -80,7 +76,7 @@ func TestPuts(t *testing.T) {
 		}
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 
-		if _, err := io.Puts(&fsm, "foo"); err != errMarker {
+		if err := io.Puts(&fsm, "foo"); err != errMarker {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})

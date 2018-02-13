@@ -238,10 +238,9 @@ func (s *Stream) Dequeue(n int) *Cell {
 	defer s.mu.Unlock()
 
 	// Determine the amount of data to read.
-	if len(s.wbuf) > n {
-		n = len(s.wbuf)
-	}
-	if n+CellHeaderSize > MaxCellLength {
+	if n == 0 {
+		n = len(s.wbuf) + CellHeaderSize
+	} else if n > MaxCellLength {
 		n = MaxCellLength
 	}
 

@@ -28,10 +28,8 @@ func TestRecv(t *testing.T) {
 		fsm.UUIDFn = func() int { return 100 }
 		fsm.InstanceIDFn = func() int { return 200 }
 
-		if ok, err := tg.Recv(&fsm, `http_request_close`); err != nil {
+		if err := tg.Recv(&fsm, `http_request_close`); err != nil {
 			t.Fatal(err)
-		} else if !ok {
-			t.Fatal("expected success")
 		} else if stream == nil {
 			t.Fatal("expected stream")
 		}
@@ -48,7 +46,7 @@ func TestRecv(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if _, err := tg.Recv(&fsm); err == nil || err.Error() != `tg.recv: not enough arguments` {
+		if err := tg.Recv(&fsm); err == nil || err.Error() != `tg.recv: not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -56,7 +54,7 @@ func TestRecv(t *testing.T) {
 	t.Run("ErrInvalidArgument", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if _, err := tg.Recv(&fsm, 123); err == nil || err.Error() != `tg.recv: invalid grammar name argument type` {
+		if err := tg.Recv(&fsm, 123); err == nil || err.Error() != `tg.recv: invalid grammar name argument type` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -64,7 +62,7 @@ func TestRecv(t *testing.T) {
 	t.Run("ErrGrammarNotFound", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if _, err := tg.Recv(&fsm, "no_such_grammar"); err == nil || err.Error() != `tg.recv: grammar not found` {
+		if err := tg.Recv(&fsm, "no_such_grammar"); err == nil || err.Error() != `tg.recv: grammar not found` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})

@@ -34,10 +34,8 @@ func TestSend(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if ok, err := tg.Send(&fsm, `http_request_close`); err != nil {
+		if err := tg.Send(&fsm, `http_request_close`); err != nil {
 			t.Fatal(err)
-		} else if !ok {
-			t.Fatal("expected success")
 		} else if !writeInvoked {
 			t.Fatal("expected conn.Write()")
 		}
@@ -46,7 +44,7 @@ func TestSend(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if _, err := tg.Send(&fsm); err == nil || err.Error() != `tg.send: not enough arguments` {
+		if err := tg.Send(&fsm); err == nil || err.Error() != `tg.send: not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -54,7 +52,7 @@ func TestSend(t *testing.T) {
 	t.Run("ErrInvalidArgument", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if _, err := tg.Send(&fsm, 123); err == nil || err.Error() != `tg.send: invalid grammar name argument type` {
+		if err := tg.Send(&fsm, 123); err == nil || err.Error() != `tg.send: invalid grammar name argument type` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -62,7 +60,7 @@ func TestSend(t *testing.T) {
 	t.Run("ErrGrammarNotFound", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if _, err := tg.Send(&fsm, "no_such_grammar"); err == nil || err.Error() != `tg.send: grammar not found` {
+		if err := tg.Send(&fsm, "no_such_grammar"); err == nil || err.Error() != `tg.send: grammar not found` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -79,7 +77,7 @@ func TestSend(t *testing.T) {
 
 		conn.WriteFn = func(p []byte) (int, error) { return 0, errMarker }
 
-		if _, err := tg.Send(&fsm, `http_request_close`); err != errMarker {
+		if err := tg.Send(&fsm, `http_request_close`); err != errMarker {
 			t.Fatal(err)
 		}
 	})

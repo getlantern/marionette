@@ -14,13 +14,13 @@ func init() {
 	marionette.RegisterPlugin("model", "sleep", Sleep)
 }
 
-func Sleep(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
+func Sleep(fsm marionette.FSM, args ...interface{}) error {
 	if len(args) < 1 {
-		return false, errors.New("model.sleep: not enough arguments")
+		return errors.New("model.sleep: not enough arguments")
 	}
 	distStr, ok := args[0].(string)
 	if !ok {
-		return false, errors.New("model.sleep: invalid argument type")
+		return errors.New("model.sleep: invalid argument type")
 	}
 
 	// Parse distribution.
@@ -38,12 +38,12 @@ func Sleep(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 
 		val, err := strconv.ParseFloat(a[0], 64)
 		if err != nil {
-			return false, err
+			return err
 		}
 
 		prob, err := strconv.ParseFloat(a[1], 64)
 		if err != nil {
-			return false, err
+			return err
 		}
 
 		if val > 0 {
@@ -63,5 +63,5 @@ func Sleep(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 
 	time.Sleep(time.Duration(k * float64(time.Second)))
 
-	return true, nil
+	return nil
 }

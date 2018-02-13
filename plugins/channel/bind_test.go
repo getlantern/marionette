@@ -26,17 +26,15 @@ func TestBind(t *testing.T) {
 			}
 		}
 
-		if ok, err := channel.Bind(&fsm, "ftp_pasv_port"); err != nil {
+		if err := channel.Bind(&fsm, "ftp_pasv_port"); err != nil {
 			t.Fatal(err)
-		} else if !ok {
-			t.Fatal("expected success")
 		}
 	})
 
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		var conn mock.Conn
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if _, err := channel.Bind(&fsm); err == nil || err.Error() != `channel.bind: not enough arguments` {
+		if err := channel.Bind(&fsm); err == nil || err.Error() != `channel.bind: not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -44,7 +42,7 @@ func TestBind(t *testing.T) {
 	t.Run("ErrInvalidArgument", func(t *testing.T) {
 		var conn mock.Conn
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if _, err := channel.Bind(&fsm, 123); err == nil || err.Error() != `channel.bind: invalid argument type` {
+		if err := channel.Bind(&fsm, 123); err == nil || err.Error() != `channel.bind: invalid argument type` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -55,10 +53,8 @@ func TestBind(t *testing.T) {
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.VarFn = func(name string) interface{} { return 54321 }
 
-		if ok, err := channel.Bind(&fsm, "ftp_pasv_port"); err != nil {
+		if err := channel.Bind(&fsm, "ftp_pasv_port"); err != nil {
 			t.Fatal(err)
-		} else if !ok {
-			t.Fatal("expected success")
 		}
 	})
 
@@ -70,7 +66,7 @@ func TestBind(t *testing.T) {
 		fsm.VarFn = func(name string) interface{} { return nil }
 		fsm.ListenFn = func() (int, error) { return 0, errMarker }
 
-		if _, err := channel.Bind(&fsm, "ftp_pasv_port"); err != errMarker {
+		if err := channel.Bind(&fsm, "ftp_pasv_port"); err != errMarker {
 			t.Fatal(err)
 		}
 	})

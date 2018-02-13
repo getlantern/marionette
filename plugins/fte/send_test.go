@@ -21,7 +21,7 @@ func TestSend(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() int { return 128 }
+		cipher.CapacityFn = func() (int, error) { return 128, nil }
 		cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 			var cell marionette.Cell
 			if err := cell.UnmarshalBinary(plaintext); err != nil {
@@ -58,10 +58,8 @@ func TestSend(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if ok, err := fte.Send(&fsm, `([a-z0-9]+)`, 128); err != nil {
+		if err := fte.Send(&fsm, `([a-z0-9]+)`, 128); err != nil {
 			t.Fatal(err)
-		} else if !ok {
-			t.Fatal("expected success")
 		} else if !writeInvoked {
 			t.Fatal("expected conn.Write()")
 		}
@@ -70,7 +68,7 @@ func TestSend(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if _, err := fte.Send(&fsm); err == nil || err.Error() != `fte.send: not enough arguments` {
+		if err := fte.Send(&fsm); err == nil || err.Error() != `fte.send: not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -79,7 +77,7 @@ func TestSend(t *testing.T) {
 		t.Run("regex", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
-			if _, err := fte.Send(&fsm, 123, 456); err == nil || err.Error() != `fte.send: invalid regex argument type` {
+			if err := fte.Send(&fsm, 123, 456); err == nil || err.Error() != `fte.send: invalid regex argument type` {
 				t.Fatalf("unexpected error: %q", err)
 			}
 		})
@@ -87,7 +85,7 @@ func TestSend(t *testing.T) {
 		t.Run("msg_len", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
-			if _, err := fte.Send(&fsm, "abc", "def"); err == nil || err.Error() != `fte.send: invalid msg_len argument type` {
+			if err := fte.Send(&fsm, "abc", "def"); err == nil || err.Error() != `fte.send: invalid msg_len argument type` {
 				t.Fatalf("unexpected error: %q", err)
 			}
 		})
@@ -105,7 +103,7 @@ func TestSend(t *testing.T) {
 			fsm.InstanceIDFn = func() int { return 200 }
 
 			var cipher mock.Cipher
-			cipher.CapacityFn = func() int { return 128 }
+			cipher.CapacityFn = func() (int, error) { return 128, nil }
 			cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 				var cell marionette.Cell
 				if err := cell.UnmarshalBinary(plaintext); err != nil {
@@ -140,10 +138,8 @@ func TestSend(t *testing.T) {
 				}
 			}()
 
-			if ok, err := fte.Send(&fsm, `([a-z0-9]+)`, 128); err != nil {
+			if err := fte.Send(&fsm, `([a-z0-9]+)`, 128); err != nil {
 				t.Fatal(err)
-			} else if !ok {
-				t.Fatal("expected success")
 			} else if !writeInvoked {
 				t.Fatal("expected conn.Write()")
 			}
@@ -158,7 +154,7 @@ func TestSend(t *testing.T) {
 			fsm.InstanceIDFn = func() int { return 200 }
 
 			var cipher mock.Cipher
-			cipher.CapacityFn = func() int { return 128 }
+			cipher.CapacityFn = func() (int, error) { return 128, nil }
 			cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 				var cell marionette.Cell
 				if err := cell.UnmarshalBinary(plaintext); err != nil {
@@ -184,10 +180,8 @@ func TestSend(t *testing.T) {
 				return 3, nil
 			}
 
-			if ok, err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != nil {
+			if err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != nil {
 				t.Fatal(err)
-			} else if !ok {
-				t.Fatal("expected success")
 			} else if !writeInvoked {
 				t.Fatal("expected conn.Write()")
 			}
@@ -205,7 +199,7 @@ func TestSend(t *testing.T) {
 			return nil, errMarker
 		}
 
-		if _, err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
+		if err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})
@@ -219,7 +213,7 @@ func TestSend(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() int { return 128 }
+		cipher.CapacityFn = func() (int, error) { return 128, nil }
 		cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 			return nil, errMarker
 		}
@@ -227,7 +221,7 @@ func TestSend(t *testing.T) {
 			return &cipher, nil
 		}
 
-		if _, err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
+		if err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})
@@ -242,7 +236,7 @@ func TestSend(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() int { return 128 }
+		cipher.CapacityFn = func() (int, error) { return 128, nil }
 		cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 			return []byte(`bar`), nil
 		}
@@ -254,7 +248,7 @@ func TestSend(t *testing.T) {
 			return 0, errMarker
 		}
 
-		if _, err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
+		if err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})

@@ -10,14 +10,14 @@ func init() {
 	marionette.RegisterPlugin("io", "puts", Puts)
 }
 
-func Puts(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
+func Puts(fsm marionette.FSM, args ...interface{}) error {
 	if len(args) < 1 {
-		return false, errors.New("io.puts: not enough arguments")
+		return errors.New("io.puts: not enough arguments")
 	}
 
 	data, ok := args[0].(string)
 	if !ok {
-		return false, errors.New("io.puts: invalid argument type")
+		return errors.New("io.puts: invalid argument type")
 	}
 
 	// Keep attempting to send even if there are timeouts.
@@ -27,11 +27,11 @@ func Puts(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 		if isTimeoutError(err) {
 			continue
 		} else if err != nil {
-			return false, err
+			return err
 		}
 	}
 
-	return true, nil
+	return nil
 }
 
 // isTimeoutError returns true if the error is a timeout error.

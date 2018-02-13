@@ -1,3 +1,5 @@
+// +build integration
+
 package marionette_test
 
 import (
@@ -7,7 +9,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	// "time"
 
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/mar"
@@ -69,13 +70,7 @@ func TestIntegration(t *testing.T) {
 		RunIntegration(t, mar.Format("dummy", ""))
 	})
 
-	t.Run("ftp_pasv_transfer", func(t *testing.T) {
-		t.Skip("TODO: invalid_connection_port")
-		RunIntegration(t, mar.Format("ftp_pasv_transfer", ""))
-	})
-
 	t.Run("ftp_simple_blocking", func(t *testing.T) {
-		t.Skip("TODO: tg")
 		RunIntegration(t, mar.Format("ftp_simple_blocking", ""))
 	})
 

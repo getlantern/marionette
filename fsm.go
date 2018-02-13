@@ -16,8 +16,11 @@ import (
 )
 
 var (
-	// ErrNoTransition is returned from FSM.Next() when no transition is available.
-	ErrNoTransition = errors.New("no matching transition")
+	// ErrNoTransitions is returned from FSM.Next() when no transitions can be found.
+	ErrNoTransitions = errors.New("no transitions available")
+
+	// ErrRetryTransition is returned from FSM.Next() when a transition should be reattempted.
+	ErrRetryTransition = errors.New("retry transition")
 
 	ErrUUIDMismatch = errors.New("uuid mismatch")
 )
@@ -194,7 +197,7 @@ func (fsm *fsm) Execute(ctx context.Context) error {
 	fsm.Reset()
 
 	for !fsm.Dead() {
-		if err := fsm.Next(ctx); err == ErrNoTransition {
+		if err := fsm.Next(ctx); err == ErrRetryTransition {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		} else if err != nil {
@@ -210,30 +213,23 @@ func (fsm *fsm) Next(ctx context.Context) (err error) {
 
 	// Generate a new PRNG once we have an instance ID.
 	if err := fsm.init(); err != nil {
-		logger.Debug("fsm: cannot initialize fsm", zap.Error(err))
 		return err
 	}
 
 	// If we have a successful transition, update our state info.
 	// Exit if no transitions were successful.
-	if nextState, err := fsm.next(); err != nil {
-		logger.Debug("fsm: cannot move to next state")
+	nextState, err := fsm.next()
+	if err != nil {
 		return err
-	} else if nextState == "" {
-		logger.Debug("fsm: no transition available")
-		return ErrNoTransition
-	} else {
-		fsm.stepN += 1
-		fsm.state = nextState
-		logger.Debug("fsm: transition successful", zap.String("state", fsm.state), zap.Int("step", fsm.stepN))
 	}
+
+	fsm.stepN += 1
+	fsm.state = nextState
 
 	return nil
 }
 
 func (fsm *fsm) next() (nextState string, err error) {
-	logger := fsm.logger()
-
 	// Find all possible transitions from the current state.
 	transitions := mar.FilterTransitionsBySource(fsm.doc.Transitions, fsm.state)
 	errorTransitions := mar.FilterErrorTransitions(transitions)
@@ -243,18 +239,13 @@ func (fsm *fsm) next() (nextState string, err error) {
 	transitions = mar.ChooseTransitions(transitions, fsm.rand)
 	assert(len(transitions) > 0)
 
-	logger.Debug("fsm: evaluating transitions", zap.Int("n", len(transitions)))
-
 	// Add error transitions back in after selection.
 	transitions = append(transitions, errorTransitions...)
 
 	// Attempt each possible transition.
 	for _, transition := range transitions {
-		logger.Debug("fsm: evaluating transition", zap.String("src", transition.Source), zap.String("dest", transition.Destination))
-
 		// If there's no action block then move to the next state.
 		if transition.ActionBlock == "NULL" {
-			logger.Debug("fsm: no action block, matched")
 			return transition.Destination, nil
 		}
 
@@ -266,12 +257,10 @@ func (fsm *fsm) next() (nextState string, err error) {
 		actions := mar.FilterActionsByParty(blk.Actions, fsm.party)
 
 		// Attempt to execute each action.
-		logger.Debug("fsm: evaluating action block", zap.String("name", transition.ActionBlock), zap.Int("actions", len(actions)))
-		if matched, err := fsm.evalActions(actions); err != nil {
+		if err := fsm.evalActions(actions); err != nil {
 			return "", err
-		} else if matched {
-			return transition.Destination, nil
 		}
+		return transition.Destination, nil
 	}
 	return "", nil
 }
@@ -282,8 +271,7 @@ func (fsm *fsm) init() (err error) {
 		return nil
 	}
 
-	logger := fsm.logger()
-	logger.Debug("fsm: initializing fsm")
+	fsm.logger().Debug("fsm: initializing fsm")
 
 	// Create new PRNG.
 	fsm.rand = rand.New(rand.NewSource(int64(fsm.instanceID)))
@@ -300,53 +288,39 @@ func (fsm *fsm) init() (err error) {
 	return nil
 }
 
-func (fsm *fsm) evalActions(actions []*mar.Action) (bool, error) {
-	logger := fsm.logger()
-
+func (fsm *fsm) evalActions(actions []*mar.Action) error {
 	if len(actions) == 0 {
-		logger.Debug("fsm: no actions, matched")
-		return true, nil
+		return nil
 	}
 
 	for _, action := range actions {
-		logger.Debug("fsm: evaluating action", zap.String("name", action.Module+"."+action.Method), zap.String("regex", action.Regex))
-
 		// If there is no matching regex then simply evaluate action.
 		if action.Regex != "" {
 			// Compile regex.
 			re, err := regexp.Compile(action.Regex)
 			if err != nil {
-				return false, err
+				return err
 			}
 
 			// Only evaluate action if buffer matches.
 			buf, err := fsm.conn.Peek(-1)
 			if err != nil {
-				return false, err
+				return err
 			} else if !re.Match(buf) {
-				logger.Debug("fsm: no regex match, skipping")
 				continue
 			}
 		}
 
-		if success, err := fsm.evalAction(action); err != nil {
-			return false, err
-		} else if success {
-			return true, nil
+		fn := FindPlugin(action.Module, action.Method)
+		if fn == nil {
+			return fmt.Errorf("plugin not found: %s", action.Name())
+		} else if err := fn(fsm, action.ArgValues()...); err != nil {
+			return err
 		}
-		continue
+		return nil
 	}
 
-	return false, nil
-}
-
-func (fsm *fsm) evalAction(action *mar.Action) (bool, error) {
-	fn := FindPlugin(action.Module, action.Method)
-	if fn == nil {
-		return false, fmt.Errorf("fsm.evalAction(): action not found: %s", action.Name())
-	}
-	fsm.logger().Debug("fsm: execute plugin", zap.String("name", action.Name()))
-	return fn(fsm, action.ArgValues()...)
+	return ErrNoTransitions
 }
 
 func (fsm *fsm) Var(key string) interface{} {

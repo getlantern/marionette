@@ -13,35 +13,35 @@ func init() {
 }
 
 // Send sends data to a connection.
-func Send(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
+func Send(fsm marionette.FSM, args ...interface{}) error {
 	return send(fsm, args, true)
 }
 
 // SendAsync send data to a connection without blocking.
-func SendAsync(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
+func SendAsync(fsm marionette.FSM, args ...interface{}) error {
 	return send(fsm, args, false)
 }
 
-func send(fsm marionette.FSM, args []interface{}, blocking bool) (success bool, err error) {
+func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
 
 	if len(args) < 2 {
-		return false, errors.New("fte.send: not enough arguments")
+		return errors.New("fte.send: not enough arguments")
 	}
 
 	regex, ok := args[0].(string)
 	if !ok {
-		return false, errors.New("fte.send: invalid regex argument type")
+		return errors.New("fte.send: invalid regex argument type")
 	}
 	msgLen, ok := args[1].(int)
 	if !ok {
-		return false, errors.New("fte.send: invalid msg_len argument type")
+		return errors.New("fte.send: invalid msg_len argument type")
 	}
 
 	// Find random stream id with data.
 	cipher, err := fsm.Cipher(regex, msgLen)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	// If asynchronous, keep trying to read a cell until there is data.
@@ -54,7 +54,7 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) (success bool, 
 
 		capacity, err := cipher.Capacity()
 		if err != nil {
-			return false, err
+			return err
 		}
 
 		cell = fsm.StreamSet().Dequeue(capacity)
@@ -78,7 +78,7 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) (success bool, 
 	// Encode to binary.
 	plaintext, err := cell.MarshalBinary()
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	logger.Debug("fte.send: encrypting cell")
@@ -86,16 +86,16 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) (success bool, 
 	// Encrypt using FTE cipher.
 	ciphertext, err := cipher.Encrypt(plaintext)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	logger.Debug("fte.send: writing cell data")
 
 	// Write to outgoing connection.
 	if _, err := fsm.Conn().Write(ciphertext); err != nil {
-		return false, err
+		return err
 	}
 
 	logger.Debug("fte.send: cell data written")
-	return true, nil
+	return nil
 }

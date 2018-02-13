@@ -14,21 +14,21 @@ func init() {
 	marionette.RegisterPlugin("model", "spawn", Spawn)
 }
 
-func Spawn(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
+func Spawn(fsm marionette.FSM, args ...interface{}) error {
 	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
 
 	if len(args) < 2 {
-		return false, errors.New("model.spawn: not enough arguments")
+		return errors.New("model.spawn: not enough arguments")
 	}
 
 	formatName, ok := args[0].(string)
 	if !ok {
-		return false, errors.New("model.spawn: invalid format name argument type")
+		return errors.New("model.spawn: invalid format name argument type")
 	}
 
 	n, ok := args[1].(int)
 	if !ok {
-		return false, errors.New("model.spawn: invalid count argument type")
+		return errors.New("model.spawn: invalid count argument type")
 	}
 
 	logger.Debug("model.spawn: lookup format", zap.String("format", formatName))
@@ -36,11 +36,11 @@ func Spawn(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 	// Find & parse format.
 	data := mar.Format(formatName, "")
 	if len(data) == 0 {
-		return false, fmt.Errorf("model.spawn: format not found: %q", formatName)
+		return fmt.Errorf("model.spawn: format not found: %q", formatName)
 	}
 	doc, err := mar.NewParser(fsm.Party()).Parse(data)
 	if err != nil {
-		return false, err
+		return err
 	}
 	doc.Format = formatName
 
@@ -51,10 +51,10 @@ func Spawn(fsm marionette.FSM, args ...interface{}) (success bool, err error) {
 		child := fsm.Clone(doc)
 		if err := child.Execute(context.TODO()); err != nil {
 			child.Reset()
-			return false, err
+			return err
 		}
 		child.Reset()
 	}
 
-	return true, nil
+	return nil
 }
