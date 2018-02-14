@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/redjack/marionette"
+	"go.uber.org/zap"
 )
 
 func init() {
@@ -12,6 +13,8 @@ func init() {
 
 // Bind binds the variable specified in the first argument to a port.
 func Bind(fsm marionette.FSM, args ...interface{}) error {
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()), zap.String("state", fsm.State()))
+
 	if len(args) < 1 {
 		return errors.New("channel.bind: not enough arguments")
 	}
@@ -36,6 +39,8 @@ func Bind(fsm marionette.FSM, args ...interface{}) error {
 
 	// Save port number to variables.
 	fsm.SetVar(name, port)
+
+	logger.Debug("channel.bind", zap.Int("port", port))
 
 	return nil
 }

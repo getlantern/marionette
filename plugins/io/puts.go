@@ -12,7 +12,7 @@ func init() {
 }
 
 func Puts(fsm marionette.FSM, args ...interface{}) error {
-	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()), zap.String("state", fsm.State()))
 
 	if len(args) < 1 {
 		return errors.New("io.puts: not enough arguments")
@@ -22,6 +22,7 @@ func Puts(fsm marionette.FSM, args ...interface{}) error {
 	if !ok {
 		return errors.New("io.puts: invalid argument type")
 	}
+	n := len(data)
 
 	// Keep attempting to send even if there are timeouts.
 	for len(data) > 0 {
@@ -34,7 +35,7 @@ func Puts(fsm marionette.FSM, args ...interface{}) error {
 		}
 	}
 
-	logger.Debug("io.gets", zap.Int("n", len(data)))
+	logger.Debug("io.puts", zap.Int("n", n))
 
 	return nil
 }

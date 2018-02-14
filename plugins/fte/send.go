@@ -23,7 +23,7 @@ func SendAsync(fsm marionette.FSM, args ...interface{}) error {
 }
 
 func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
-	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()), zap.String("state", fsm.State()))
 
 	if len(args) < 2 {
 		return errors.New("fte.send: not enough arguments")

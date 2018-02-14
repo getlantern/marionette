@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/redjack/marionette"
+	"go.uber.org/zap"
 )
 
 func init() {
@@ -15,6 +16,8 @@ func init() {
 }
 
 func Sleep(fsm marionette.FSM, args ...interface{}) error {
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()), zap.String("state", fsm.State()))
+
 	if len(args) < 1 {
 		return errors.New("model.sleep: not enough arguments")
 	}
@@ -61,7 +64,10 @@ func Sleep(fsm marionette.FSM, args ...interface{}) error {
 		}
 	}
 
-	time.Sleep(time.Duration(k * float64(time.Second)))
+	duration := time.Duration(k * float64(time.Second))
+	logger.Debug("model.sleep", zap.Duration("duration", duration))
+
+	time.Sleep(duration)
 
 	return nil
 }

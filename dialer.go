@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/redjack/marionette/mar"
 	"go.uber.org/zap"
@@ -22,6 +21,9 @@ type Dialer struct {
 	fsm       FSM
 	streamSet *StreamSet
 
+	ctx    context.Context
+	cancel func()
+
 	closed bool
 	wg     sync.WaitGroup
 }
@@ -35,11 +37,13 @@ func NewDialer(doc *mar.Document, addr string, streamSet *StreamSet) (*Dialer, e
 
 	// Run execution in a separate goroutine.
 	d := &Dialer{
-		fsm:       NewFSM(doc, "", PartyClient, conn, streamSet),
+		fsm:       NewFSM(doc, addr, PartyClient, conn, streamSet),
 		streamSet: streamSet,
 	}
+	d.ctx, d.cancel = context.WithCancel(context.Background())
+
 	d.wg.Add(1)
-	go func() { defer d.wg.Done(); d.execute(context.Background()) }()
+	go func() { defer d.wg.Done(); d.execute() }()
 	return d, nil
 }
 
@@ -47,7 +51,10 @@ func NewDialer(doc *mar.Document, addr string, streamSet *StreamSet) (*Dialer, e
 func (d *Dialer) Close() (err error) {
 	d.mu.Lock()
 	d.closed = true
+	err = d.fsm.Conn().Close()
 	d.mu.Unlock()
+
+	d.cancel()
 
 	d.wg.Wait()
 	return err
@@ -69,16 +76,14 @@ func (d *Dialer) Dial() (net.Conn, error) {
 	return d.streamSet.Create(), nil
 }
 
-func (d *Dialer) execute(ctx context.Context) {
-	Logger.Debug("client fsm executing")
-	defer Logger.Debug("client execution complete")
+func (d *Dialer) execute() {
+	defer d.Close()
 
 	for !d.Closed() {
-		if err := d.fsm.Execute(ctx); err != nil {
-			if !d.Closed() {
-				Logger.Debug("client execution error", zap.Error(err))
-			}
-			time.Sleep(1 * time.Millisecond)
+		if err := d.fsm.Execute(d.ctx); err != nil {
+			Logger.Debug("dialer error", zap.Error(err))
+			return
 		}
+		d.fsm.Reset()
 	}
 }

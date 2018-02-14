@@ -52,10 +52,10 @@ func (c *SetFTPPasvYCipher) Encrypt(fsm marionette.FSM, template string, plainte
 }
 
 func (c *SetFTPPasvYCipher) Decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
-	ftp_pasv_port_x := fsm.Var("ftp_pasv_port").(int)
-	ftp_pasv_port_y, _ := strconv.Atoi(string(ciphertext))
+	x := fsm.Var("ftp_pasv_port_x").(int)
+	y, _ := strconv.Atoi(string(ciphertext))
 
-	fsm.SetVar("ftp_pasv_port", ftp_pasv_port_x*256+ftp_pasv_port_y)
+	fsm.SetVar("ftp_pasv_port", x*256+y)
 	return nil, nil
 }
 

@@ -82,9 +82,10 @@ type fsm struct {
 	host  string
 	party string
 
-	conn      *BufferedConn
-	streamSet *StreamSet
-	listeners []net.Listener
+	conn       *BufferedConn
+	streamSet  *StreamSet
+	listeners  map[int]net.Listener
+	closeFuncs []func() error
 
 	state string
 	stepN int
@@ -108,6 +109,7 @@ func NewFSM(doc *mar.Document, host, party string, conn net.Conn, streamSet *Str
 		party:     party,
 		conn:      NewBufferedConn(conn, MaxCellLength),
 		streamSet: streamSet,
+		listeners: make(map[int]net.Listener),
 	}
 	fsm.Reset()
 	fsm.buildTransitions()
@@ -141,12 +143,12 @@ func (fsm *fsm) Reset() {
 	}
 	fsm.ciphers = make(map[cipherKey]*fte.Cipher)
 
-	for _, ln := range fsm.listeners {
-		if err := ln.Close(); err != nil {
-			fsm.logger().Error("cannot close listener", zap.Error(err))
+	for _, fn := range fsm.closeFuncs {
+		if err := fn(); err != nil {
+			fsm.logger().Error("close error", zap.Error(err))
 		}
 	}
-	fsm.listeners = nil
+	fsm.closeFuncs = nil
 }
 
 // UUID returns the computed MAR document UUID.
@@ -181,8 +183,7 @@ func (fsm *fsm) Port() int {
 	}
 
 	if v := fsm.Var(fsm.doc.Port); v != nil {
-		s, _ := v.(string)
-		port, _ := strconv.Atoi(s)
+		port, _ := v.(int)
 		return port
 	}
 
@@ -194,7 +195,11 @@ func (fsm *fsm) Dead() bool { return fsm.state == "dead" }
 
 // Execute runs the the FSM to completion.
 func (fsm *fsm) Execute(ctx context.Context) error {
-	fsm.Reset()
+	// If no connection is passed in, create one.
+	// This occurs when an FSM is spawned.
+	if err := fsm.ensureConn(ctx); err != nil {
+		return err
+	}
 
 	for !fsm.Dead() {
 		if err := fsm.Next(ctx); err == ErrRetryTransition {
@@ -209,9 +214,6 @@ func (fsm *fsm) Execute(ctx context.Context) error {
 }
 
 func (fsm *fsm) Next(ctx context.Context) (err error) {
-	logger := fsm.logger()
-	logger.Debug("fsm: Next()", zap.String("state", fsm.state))
-
 	// Generate a new PRNG once we have an instance ID.
 	if err := fsm.init(); err != nil {
 		return err
@@ -219,7 +221,7 @@ func (fsm *fsm) Next(ctx context.Context) (err error) {
 
 	// If we have a successful transition, update our state info.
 	// Exit if no transitions were successful.
-	nextState, err := fsm.next()
+	nextState, err := fsm.next(true)
 	if err != nil {
 		return err
 	}
@@ -230,7 +232,7 @@ func (fsm *fsm) Next(ctx context.Context) (err error) {
 	return nil
 }
 
-func (fsm *fsm) next() (nextState string, err error) {
+func (fsm *fsm) next(eval bool) (nextState string, err error) {
 	// Find all possible transitions from the current state.
 	transitions := mar.FilterTransitionsBySource(fsm.doc.Transitions, fsm.state)
 	errorTransitions := mar.FilterErrorTransitions(transitions)
@@ -258,8 +260,10 @@ func (fsm *fsm) next() (nextState string, err error) {
 		actions := mar.FilterActionsByParty(blk.Actions, fsm.party)
 
 		// Attempt to execute each action.
-		if err := fsm.evalActions(actions); err != nil {
-			return "", err
+		if eval {
+			if err := fsm.evalActions(actions); err != nil {
+				return "", err
+			}
 		}
 		return transition.Destination, nil
 	}
@@ -272,15 +276,13 @@ func (fsm *fsm) init() (err error) {
 		return nil
 	}
 
-	fsm.logger().Debug("fsm: initializing fsm")
-
 	// Create new PRNG.
 	fsm.rand = rand.New(rand.NewSource(int64(fsm.instanceID)))
 
 	// Restart FSM from the beginning and iterate until the current step.
 	fsm.state = "start"
 	for i := 0; i < fsm.stepN; i++ {
-		fsm.state, err = fsm.next()
+		fsm.state, err = fsm.next(false)
 		if err != nil {
 			return err
 		}
@@ -364,44 +366,69 @@ func (fsm *fsm) Listen() (port int, err error) {
 	if err != nil {
 		return 0, err
 	}
-	fsm.listeners = append(fsm.listeners, ln)
+	port = ln.Addr().(*net.TCPAddr).Port
+	fsm.listeners[port] = ln
 
-	go fsm.handleListener(ln)
-
-	return ln.Addr().(*net.TCPAddr).Port, nil
+	return port, nil
 }
 
-func (fsm *fsm) handleListener(ln net.Listener) {
-	defer ln.Close()
-
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			return
-		}
-		go fsm.handleConn(conn)
+func (fsm *fsm) ensureConn(ctx context.Context) error {
+	if fsm.conn != nil {
+		return nil
 	}
+	if fsm.party == PartyClient {
+		return fsm.ensureClientConn(ctx)
+	}
+	return fsm.ensureServerConn(ctx)
 }
 
-func (fsm *fsm) handleConn(conn net.Conn) {
-	panic("TODO: Drain connection into buffer?")
+func (fsm *fsm) ensureClientConn(ctx context.Context) error {
+	conn, err := net.Dial(fsm.doc.Transport, net.JoinHostPort(fsm.host, strconv.Itoa(fsm.Port())))
+	if err != nil {
+		return err
+	}
+
+	fsm.conn = NewBufferedConn(conn, MaxCellLength)
+	fsm.closeFuncs = append(fsm.closeFuncs, conn.Close)
+
+	return nil
+}
+
+func (fsm *fsm) ensureServerConn(ctx context.Context) error {
+	ln := fsm.listeners[fsm.Port()]
+	if ln == nil {
+		return fmt.Errorf("marionette.FSM: no listeners on port %d", fsm.Port())
+	}
+
+	conn, err := ln.Accept()
+	if err != nil {
+		return err
+	}
+
+	fsm.conn = NewBufferedConn(conn, MaxCellLength)
+	fsm.closeFuncs = append(fsm.closeFuncs, conn.Close)
+
+	return nil
 }
 
 func (f *fsm) Clone(doc *mar.Document) FSM {
 	other := &fsm{
-		doc:   doc,
-		host:  f.host,
-		party: f.party,
-
-		conn:      f.conn,
+		doc:       doc,
+		host:      f.host,
+		party:     f.party,
 		streamSet: f.streamSet,
-
-		instanceID: f.instanceID,
-		vars:       f.vars,
+		listeners: f.listeners,
 	}
+
 	other.Reset()
 	other.buildTransitions()
 	other.initFirstSender()
+
+	other.vars = make(map[string]interface{})
+	for k, v := range f.vars {
+		other.vars[k] = v
+	}
+
 	return other
 }
 

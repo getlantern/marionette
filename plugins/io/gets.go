@@ -16,7 +16,7 @@ func init() {
 }
 
 func Gets(fsm marionette.FSM, args ...interface{}) error {
-	logger := marionette.Logger.With(zap.String("party", fsm.Party()))
+	logger := marionette.Logger.With(zap.String("party", fsm.Party()), zap.String("state", fsm.State()))
 
 	if len(args) < 1 {
 		return errors.New("io.gets: not enough arguments")
