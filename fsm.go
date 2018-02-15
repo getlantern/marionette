@@ -389,7 +389,7 @@ func (fsm *fsm) ensureClientConn(ctx context.Context) error {
 	}
 
 	fsm.conn = NewBufferedConn(conn, MaxCellLength)
-	fsm.closeFuncs = append(fsm.closeFuncs, conn.Close)
+	// fsm.closeFuncs = append(fsm.closeFuncs, conn.Close)
 
 	return nil
 }
@@ -406,7 +406,7 @@ func (fsm *fsm) ensureServerConn(ctx context.Context) error {
 	}
 
 	fsm.conn = NewBufferedConn(conn, MaxCellLength)
-	fsm.closeFuncs = append(fsm.closeFuncs, conn.Close)
+	// fsm.closeFuncs = append(fsm.closeFuncs, conn.Close)
 
 	return nil
 }

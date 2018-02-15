@@ -10,6 +10,7 @@ import (
 
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/mar"
+	_ "github.com/redjack/marionette/plugins"
 	"go.uber.org/zap"
 )
 
@@ -82,8 +83,11 @@ func run() error {
 	}
 	defer ln.Close()
 
+	streamSet := marionette.NewStreamSet()
+	defer streamSet.Close()
+
 	// Create dialer to remote server.
-	dialer, err := marionette.NewDialer(doc, config.Server.IP)
+	dialer, err := marionette.NewDialer(doc, config.Server.IP, streamSet)
 	if err != nil {
 		return err
 	}
@@ -95,6 +99,8 @@ func run() error {
 		return err
 	}
 	defer proxy.Close()
+
+	fmt.Printf("listening on %s\n", config.Client.Bind)
 
 	// Wait for signal.
 	c := make(chan os.Signal, 1)

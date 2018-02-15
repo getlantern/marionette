@@ -9,6 +9,7 @@ import (
 
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/mar"
+	_ "github.com/redjack/marionette/plugins"
 	"go.uber.org/zap"
 )
 
@@ -87,6 +88,8 @@ func run() error {
 		return err
 	}
 	defer proxy.Close()
+
+	fmt.Printf("listening on %s, proxying to %s\n", ln.Addr().String(), config.Server.Proxy)
 
 	// Wait for signal.
 	c := make(chan os.Signal, 1)

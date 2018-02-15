@@ -42,7 +42,7 @@ func Send(fsm marionette.FSM, args ...interface{}) error {
 	ciphertext = strings.Replace(ciphertext, "%%SERVER_LISTEN_IP%%", fsm.Host(), -1)
 	for _, cipher := range grammar.Ciphers {
 		var err error
-		if ciphertext, err = encryptTo(fsm, cipher, ciphertext); err != nil {
+		if ciphertext, err = encryptTo(fsm, cipher, ciphertext, logger); err != nil {
 			logger.Error("cannot encrypt", zap.String("key", cipher.Key()), zap.Error(err))
 			return fmt.Errorf("cannot encrypt: %q", err)
 		}
@@ -58,7 +58,7 @@ func Send(fsm marionette.FSM, args ...interface{}) error {
 	return nil
 }
 
-func encryptTo(fsm marionette.FSM, cipher Cipher, template string) (_ string, err error) {
+func encryptTo(fsm marionette.FSM, cipher Cipher, template string, logger *zap.Logger) (_ string, err error) {
 	// Encode data from streams if there is capacity in the handler.
 	var data []byte
 	if capacity, err := cipher.Capacity(); err != nil {
@@ -66,7 +66,7 @@ func encryptTo(fsm marionette.FSM, cipher Cipher, template string) (_ string, er
 	} else if capacity > 0 {
 		cell := fsm.StreamSet().Dequeue(capacity)
 		if cell == nil {
-			cell = marionette.NewCell(0, 0, 0, marionette.NORMAL)
+			cell = marionette.NewCell(0, 0, capacity, marionette.NORMAL)
 		}
 
 		// Assign ids and marshal to bytes.

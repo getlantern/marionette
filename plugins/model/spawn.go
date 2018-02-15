@@ -50,7 +50,7 @@ func Spawn(fsm marionette.FSM, args ...interface{}) error {
 
 	// Execute a sub-FSM multiple times.
 	for i := 0; i < n; i++ {
-		logger.Debug("spawning", zap.Int("i", i))
+		logger.Debug("spawn begin", zap.Int("i", i))
 		child := fsm.Clone(doc)
 		if err := child.Execute(context.TODO()); err != nil {
 			logger.Error("child execution failed", zap.Error(err))
@@ -58,6 +58,7 @@ func Spawn(fsm marionette.FSM, args ...interface{}) error {
 			return err
 		}
 		child.Reset()
+		logger.Debug("spawn end", zap.Int("i", i))
 	}
 
 	return nil
