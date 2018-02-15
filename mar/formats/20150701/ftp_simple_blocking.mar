@@ -40,7 +40,7 @@ action do_pasv_mode_ok:
     server tg.send("ftp_entering_passive")
 
 action do_ftp_get_file_request:
-    client fte.send_async("get ([a-zA-Z0-9]*).mp3\n", 128)
+    client fte.send("get ([a-zA-Z0-9]*).mp3\n", 128)
 
 action do_ftp_get_file_response_started:
     server io.puts("150 Opening data channel for file transfer\n")

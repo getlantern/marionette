@@ -65,13 +65,13 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 		cell = fsm.StreamSet().Dequeue(capacity)
 		if cell != nil {
 			break
-		} else if !blocking {
+		} else if blocking {
 			logger.Debug("no cell, sending empty cell")
 			cell = marionette.NewCell(0, 0, 0, marionette.NORMAL)
 			break
 		}
 
-		// Wait until new data is available if blocking.
+		// Wait until new data is available unless blocking.
 		<-notify
 	}
 
