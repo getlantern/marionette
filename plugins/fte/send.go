@@ -2,6 +2,7 @@ package fte
 
 import (
 	"errors"
+	"time"
 
 	"github.com/redjack/marionette"
 	"go.uber.org/zap"
@@ -23,6 +24,8 @@ func SendAsync(fsm marionette.FSM, args ...interface{}) error {
 }
 
 func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
+	t0 := time.Now()
+
 	logger := marionette.Logger.With(
 		zap.String("plugin", "fte.send"),
 		zap.Bool("blocking", blocking),
@@ -98,6 +101,7 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 	logger.Debug("msg sent",
 		zap.Int("plaintext", len(cell.Payload)),
 		zap.Int("ciphertext", len(ciphertext)),
+		zap.Duration("t", time.Since(t0)),
 	)
 	return nil
 }

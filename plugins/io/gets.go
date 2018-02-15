@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/redjack/marionette"
 	"go.uber.org/zap"
@@ -15,6 +16,8 @@ func init() {
 }
 
 func Gets(fsm marionette.FSM, args ...interface{}) error {
+	t0 := time.Now()
+
 	logger := marionette.Logger.With(
 		zap.String("plugin", "io.gets"),
 		zap.String("party", fsm.Party()),
@@ -45,6 +48,6 @@ func Gets(fsm marionette.FSM, args ...interface{}) error {
 		return err
 	}
 
-	logger.Debug("msg received", zap.Int("n", len(buf)))
+	logger.Debug("msg received", zap.Int("n", len(buf)), zap.Duration("t", time.Since(t0)))
 	return nil
 }

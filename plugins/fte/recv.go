@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/redjack/marionette"
 	"go.uber.org/zap"
@@ -20,6 +21,8 @@ func Recv(fsm marionette.FSM, args ...interface{}) error {
 }
 
 func recv(fsm marionette.FSM, args []interface{}) error {
+	t0 := time.Now()
+
 	logger := marionette.Logger.With(
 		zap.String("plugin", "fte.recv"),
 		zap.String("party", fsm.Party()),
@@ -97,6 +100,7 @@ func recv(fsm marionette.FSM, args []interface{}) error {
 	logger.Debug("msg received",
 		zap.Int("plaintext", len(cell.Payload)),
 		zap.Int("ciphertext", len(ciphertext)),
+		zap.Duration("t", time.Since(t0)),
 	)
 
 	return nil

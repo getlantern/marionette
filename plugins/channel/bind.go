@@ -2,6 +2,7 @@ package channel
 
 import (
 	"errors"
+	"time"
 
 	"github.com/redjack/marionette"
 	"go.uber.org/zap"
@@ -13,6 +14,8 @@ func init() {
 
 // Bind binds the variable specified in the first argument to a port.
 func Bind(fsm marionette.FSM, args ...interface{}) error {
+	t0 := time.Now()
+
 	logger := marionette.Logger.With(
 		zap.String("plugin", "channel.bind"),
 		zap.String("party", fsm.Party()),
@@ -46,7 +49,7 @@ func Bind(fsm marionette.FSM, args ...interface{}) error {
 	// Save port number to variables.
 	fsm.SetVar(name, port)
 
-	logger.Debug("channel bound", zap.Int("port", port))
+	logger.Debug("channel bound", zap.Int("port", port), zap.Duration("t", time.Since(t0)))
 
 	return nil
 }

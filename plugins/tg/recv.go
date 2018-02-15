@@ -3,6 +3,7 @@ package tg
 import (
 	"errors"
 	"io"
+	"time"
 
 	"github.com/redjack/marionette"
 	"go.uber.org/zap"
@@ -13,6 +14,8 @@ func init() {
 }
 
 func Recv(fsm marionette.FSM, args ...interface{}) error {
+	t0 := time.Now()
+
 	logger := marionette.Logger.With(
 		zap.String("plugin", "tg.recv"),
 		zap.String("party", fsm.Party()),
@@ -98,6 +101,7 @@ func Recv(fsm marionette.FSM, args ...interface{}) error {
 		zap.String("grammar", name),
 		zap.Int("ciphertext", ciphertextN),
 		zap.Int("plaintext", plaintextN),
+		zap.Duration("t", time.Since(t0)),
 	)
 
 	return nil

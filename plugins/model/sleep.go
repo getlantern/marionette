@@ -16,6 +16,8 @@ func init() {
 }
 
 func Sleep(fsm marionette.FSM, args ...interface{}) error {
+	t0 := time.Now()
+
 	logger := marionette.Logger.With(
 		zap.String("plugin", "model.sleep"),
 		zap.String("party", fsm.Party()),
@@ -71,9 +73,9 @@ func Sleep(fsm marionette.FSM, args ...interface{}) error {
 	}
 
 	duration := time.Duration(k * float64(time.Second))
-	logger.Debug("sleep complete", zap.Duration("duration", duration))
-
 	time.Sleep(duration)
+
+	logger.Debug("sleep complete", zap.Duration("duration", duration), zap.Duration("t", time.Since(t0)))
 
 	return nil
 }
