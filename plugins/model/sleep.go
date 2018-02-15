@@ -16,14 +16,18 @@ func init() {
 }
 
 func Sleep(fsm marionette.FSM, args ...interface{}) error {
-	logger := marionette.Logger.With(zap.String("party", fsm.Party()), zap.String("state", fsm.State()))
+	logger := marionette.Logger.With(
+		zap.String("plugin", "model.sleep"),
+		zap.String("party", fsm.Party()),
+		zap.String("state", fsm.State()),
+	)
 
 	if len(args) < 1 {
-		return errors.New("model.sleep: not enough arguments")
+		return errors.New("not enough arguments")
 	}
 	distStr, ok := args[0].(string)
 	if !ok {
-		return errors.New("model.sleep: invalid argument type")
+		return errors.New("invalid argument type")
 	}
 
 	// Parse distribution.
@@ -41,11 +45,13 @@ func Sleep(fsm marionette.FSM, args ...interface{}) error {
 
 		val, err := strconv.ParseFloat(a[0], 64)
 		if err != nil {
+			logger.Error("cannot parse element", zap.Int("i", 0), zap.String("value", a[0]), zap.Error(err))
 			return err
 		}
 
 		prob, err := strconv.ParseFloat(a[1], 64)
 		if err != nil {
+			logger.Error("cannot parse element", zap.Int("i", 1), zap.String("value", a[1]), zap.Error(err))
 			return err
 		}
 
@@ -65,7 +71,7 @@ func Sleep(fsm marionette.FSM, args ...interface{}) error {
 	}
 
 	duration := time.Duration(k * float64(time.Second))
-	logger.Debug("model.sleep", zap.Duration("duration", duration))
+	logger.Debug("sleep complete", zap.Duration("duration", duration))
 
 	time.Sleep(duration)
 

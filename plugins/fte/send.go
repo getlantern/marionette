@@ -23,19 +23,24 @@ func SendAsync(fsm marionette.FSM, args ...interface{}) error {
 }
 
 func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
-	logger := marionette.Logger.With(zap.String("party", fsm.Party()), zap.String("state", fsm.State()))
+	logger := marionette.Logger.With(
+		zap.String("plugin", "fte.send"),
+		zap.Bool("blocking", blocking),
+		zap.String("party", fsm.Party()),
+		zap.String("state", fsm.State()),
+	)
 
 	if len(args) < 2 {
-		return errors.New("fte.send: not enough arguments")
+		return errors.New("not enough arguments")
 	}
 
 	regex, ok := args[0].(string)
 	if !ok {
-		return errors.New("fte.send: invalid regex argument type")
+		return errors.New("invalid regex argument type")
 	}
 	msgLen, ok := args[1].(int)
 	if !ok {
-		return errors.New("fte.send: invalid msg_len argument type")
+		return errors.New("invalid msg_len argument type")
 	}
 
 	// Find random stream id with data.
@@ -50,7 +55,7 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 	for {
 		notify := fsm.StreamSet().WriteNotify()
 
-		logger.Debug("fte.send: dequeuing cell")
+		logger.Debug("dequeuing cell")
 
 		capacity, err := cipher.Capacity()
 		if err != nil {
@@ -61,7 +66,7 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 		if cell != nil {
 			break
 		} else if !blocking {
-			logger.Debug("fte.send: no cell, sending empty cell")
+			logger.Debug("no cell, sending empty cell")
 			cell = marionette.NewCell(0, 0, 0, marionette.NORMAL)
 			break
 		}
@@ -90,7 +95,7 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 		return err
 	}
 
-	logger.Debug("fte.send",
+	logger.Debug("msg sent",
 		zap.Int("plaintext", len(cell.Payload)),
 		zap.Int("ciphertext", len(ciphertext)),
 	)

@@ -152,7 +152,6 @@ func (l *Listener) execute(fsm FSM, conn net.Conn) {
 	defer l.removeConn(conn)
 
 	for !l.Closed() {
-		println("dbg/execute")
 		if err := fsm.Execute(l.ctx); err != nil {
 			Logger.Debug("server fsm execution error", zap.Error(err))
 			return

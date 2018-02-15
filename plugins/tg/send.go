@@ -15,21 +15,26 @@ func init() {
 }
 
 func Send(fsm marionette.FSM, args ...interface{}) error {
-	logger := marionette.Logger.With(zap.String("party", fsm.Party()), zap.String("state", fsm.State()))
+	logger := marionette.Logger.With(
+		zap.String("plugin", "tg.send"),
+		zap.String("party", fsm.Party()),
+		zap.String("state", fsm.State()),
+	)
 
 	if len(args) < 1 {
-		return errors.New("tg.send: not enough arguments")
+		return errors.New("not enough arguments")
 	}
 
 	name, ok := args[0].(string)
 	if !ok {
-		return errors.New("tg.send: invalid grammar name argument type")
+		return errors.New("invalid grammar name argument type")
 	}
 
 	// Find grammar by name.
 	grammar := grammars[name]
 	if grammar == nil {
-		return errors.New("tg.send: grammar not found")
+		logger.Error("grammar not found", zap.String("format", name))
+		return errors.New("grammar not found")
 	}
 
 	// Randomly choose template and replace embedded placeholders.
@@ -38,16 +43,18 @@ func Send(fsm marionette.FSM, args ...interface{}) error {
 	for _, cipher := range grammar.Ciphers {
 		var err error
 		if ciphertext, err = encryptTo(fsm, cipher, ciphertext); err != nil {
-			return fmt.Errorf("tg.send: execute handler sender: %q", err)
+			logger.Error("cannot encrypt", zap.String("key", cipher.Key()), zap.Error(err))
+			return fmt.Errorf("cannot encrypt: %q", err)
 		}
 	}
 
 	// Write to outgoing connection.
 	if _, err := fsm.Conn().Write([]byte(ciphertext)); err != nil {
+		logger.Error("cannot write to connection", zap.Error(err))
 		return err
 	}
 
-	logger.Debug("tg.send", zap.Int("ciphertext", len(ciphertext)))
+	logger.Debug("msg sent", zap.Int("ciphertext", len(ciphertext)))
 	return nil
 }
 

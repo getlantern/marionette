@@ -12,15 +12,19 @@ func init() {
 }
 
 func Puts(fsm marionette.FSM, args ...interface{}) error {
-	logger := marionette.Logger.With(zap.String("party", fsm.Party()), zap.String("state", fsm.State()))
+	logger := marionette.Logger.With(
+		zap.String("plugin", "io.puts"),
+		zap.String("party", fsm.Party()),
+		zap.String("state", fsm.State()),
+	)
 
 	if len(args) < 1 {
-		return errors.New("io.puts: not enough arguments")
+		return errors.New("not enough arguments")
 	}
 
 	data, ok := args[0].(string)
 	if !ok {
-		return errors.New("io.puts: invalid argument type")
+		return errors.New("invalid argument type")
 	}
 	n := len(data)
 
@@ -29,13 +33,15 @@ func Puts(fsm marionette.FSM, args ...interface{}) error {
 		n, err := fsm.Conn().Write([]byte(data))
 		data = data[n:]
 		if isTimeoutError(err) {
+			logger.Debug("write timeout, retrying", zap.Error(err))
 			continue
 		} else if err != nil {
+			logger.Error("cannot write to connection", zap.Error(err))
 			return err
 		}
 	}
 
-	logger.Debug("io.puts", zap.Int("n", n))
+	logger.Debug("msg sent", zap.Int("n", n))
 
 	return nil
 }
