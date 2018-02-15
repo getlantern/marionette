@@ -27,7 +27,7 @@ Download the latest version of [PyCrypto][], unpack the archive and run:
 # https://ftp.dlitz.net/pub/dlitz/crypto/pycrypto/pycrypto-2.6.1.tar.gz
 
 $ python setup.py build
-$ python setup.py install
+$ sudo python setup.py install --user
 ```
 
 
@@ -40,9 +40,19 @@ Download the latest version of [regex2dfa][], unpack the archive and run:
 
 $ ./configure
 $ make
-$ python setup.py install
+$ sudo python setup.py install --user
 ```
 
+
+### libfte
+
+Download the latest version of [libfte][], unpack the archive and run:
+
+```sh
+# https://github.com/kpdyer/libfte/archive/master.zip
+
+$ sudo python setup.py install --user
+```
 
 ## Development
 
