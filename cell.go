@@ -8,6 +8,7 @@ import (
 
 const (
 	CellHeaderSize = 25
+	MaxCellLength  = 262144
 )
 
 const (
@@ -149,9 +150,14 @@ func (c *Cell) UnmarshalBinary(data []byte) (err error) {
 	c.Type = int(u8)
 
 	// Read payload.
-	c.Payload = make([]byte, payloadN)
-	if _, err := r.Read(c.Payload); err != nil {
+	if payloadN > 0 {
+		c.Payload = make([]byte, payloadN)
+		if _, err := r.Read(c.Payload); err != nil {
+			return err
+		}
 		return err
+	} else {
+		c.Payload = nil
 	}
 
 	return nil

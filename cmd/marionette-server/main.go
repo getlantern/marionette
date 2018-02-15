@@ -9,6 +9,7 @@ import (
 
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/mar"
+	_ "github.com/redjack/marionette/plugins"
 	"go.uber.org/zap"
 )
 
@@ -45,7 +46,7 @@ func run() error {
 
 	// Strip off format version.
 	// TODO: Split version.
-	format := marionette.StripFormatVersion(config.General.Format)
+	format := mar.StripFormatVersion(config.General.Format)
 
 	// Read MAR file.
 	data := mar.Format(format, "")
@@ -87,6 +88,8 @@ func run() error {
 		return err
 	}
 	defer proxy.Close()
+
+	fmt.Printf("listening on %s, proxying to %s\n", ln.Addr().String(), config.Server.Proxy)
 
 	// Wait for signal.
 	c := make(chan os.Signal, 1)

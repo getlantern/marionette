@@ -2,7 +2,6 @@ package marionette_test
 
 import (
 	"io/ioutil"
-	"net"
 	"sort"
 	"testing"
 
@@ -14,9 +13,6 @@ func TestStreamSet_Create(t *testing.T) {
 	ss := marionette.NewStreamSet()
 	defer ss.Close()
 
-	ss.LocalAddr = &net.TCPAddr{}
-	ss.RemoteAddr = &net.TCPAddr{}
-
 	var callbackInvoked bool
 	ss.OnNewStream = func(s *marionette.Stream) {
 		callbackInvoked = true
@@ -25,10 +21,6 @@ func TestStreamSet_Create(t *testing.T) {
 		t.Fatal("expected stream")
 	} else if stream.ID() == 0 {
 		t.Fatal("expected stream id")
-	} else if stream.LocalAddr() != ss.LocalAddr {
-		t.Fatal("local addr mismatch")
-	} else if stream.RemoteAddr() != ss.RemoteAddr {
-		t.Fatal("remote addr mismatch")
 	} else if !callbackInvoked {
 		t.Fatal("expected callback invocation")
 	}
@@ -61,6 +53,8 @@ func TestStreamSet_Enqueue(t *testing.T) {
 			t.Fatal(err)
 		} else if string(buf) != "foobaz" {
 			t.Fatalf("unexpected stream data: %s", buf)
+		} else if !callbackInvoked {
+			t.Fatal("expected callback invocation")
 		}
 	})
 

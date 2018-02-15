@@ -42,6 +42,8 @@ type Stream struct {
 	rqueue     []*Cell
 	rnotify    chan struct{}
 	wnotify    chan struct{}
+
+	onWrite func() // callback when a new write buffer changes
 }
 
 func NewStream(id int) *Stream {
@@ -68,18 +70,6 @@ func (s *Stream) ReadNotify() <-chan struct{} {
 func (s *Stream) notifyRead() {
 	close(s.rnotify)
 	s.rnotify = make(chan struct{})
-}
-
-// WriteNotify returns a channel that receives a notification when a new write is available.
-func (s *Stream) WriteNotify() <-chan struct{} {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.wnotify
-}
-
-func (s *Stream) notifyWrite() {
-	close(s.wnotify)
-	s.wnotify = make(chan struct{})
 }
 
 // Read reads n bytes from the stream.
@@ -170,6 +160,18 @@ func (s *Stream) write(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
+// WriteNotify returns a channel that receives a notification when a new write is available.
+func (s *Stream) WriteNotify() <-chan struct{} {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.wnotify
+}
+
+func (s *Stream) notifyWrite() {
+	close(s.wnotify)
+	s.wnotify = make(chan struct{})
+}
+
 // WriteBufferLen returns the number of bytes in the write buffer.
 func (s *Stream) WriteBufferLen() int {
 	s.mu.RLock()
@@ -236,10 +238,9 @@ func (s *Stream) Dequeue(n int) *Cell {
 	defer s.mu.Unlock()
 
 	// Determine the amount of data to read.
-	if len(s.wbuf) > n {
-		n = len(s.wbuf)
-	}
-	if n += CellHeaderSize; n > MaxCellLength {
+	if n == 0 {
+		n = len(s.wbuf) + CellHeaderSize
+	} else if n > MaxCellLength {
 		n = MaxCellLength
 	}
 
@@ -296,6 +297,9 @@ func (s *Stream) Closed() bool {
 	defer s.mu.RUnlock()
 	return s.closed
 }
+
+// CloseNotify returns a channel that sends when the stream has been closed.
+func (s *Stream) CloseNotify() <-chan struct{} { return s.closing }
 
 func (c *Stream) LocalAddr() net.Addr  { return c.localAddr }
 func (c *Stream) RemoteAddr() net.Addr { return c.remoteAddr }

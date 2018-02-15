@@ -1,3 +1,5 @@
+// +build integration
+
 package marionette_test
 
 import (
@@ -7,7 +9,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	// "time"
 
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/mar"
@@ -69,13 +70,7 @@ func TestIntegration(t *testing.T) {
 		RunIntegration(t, mar.Format("dummy", ""))
 	})
 
-	t.Run("ftp_pasv_transfer", func(t *testing.T) {
-		t.Skip("TODO: invalid_connection_port")
-		RunIntegration(t, mar.Format("ftp_pasv_transfer", ""))
-	})
-
 	t.Run("ftp_simple_blocking", func(t *testing.T) {
-		t.Skip("TODO: tg")
 		RunIntegration(t, mar.Format("ftp_simple_blocking", ""))
 	})
 
@@ -209,12 +204,18 @@ type IntegrationTest struct {
 	mu sync.Mutex
 	wg sync.WaitGroup
 
+	ClientStreamSet *marionette.StreamSet
+	ServerStreamSet *marionette.StreamSet
+
 	Listener *marionette.Listener
 	Dialer   *marionette.Dialer
 }
 
 func MustOpenIntegrationTest(program []byte) *IntegrationTest {
-	tt := &IntegrationTest{}
+	tt := &IntegrationTest{
+		ClientStreamSet: marionette.NewStreamSet(),
+		ServerStreamSet: marionette.NewStreamSet(),
+	}
 
 	ln, err := marionette.Listen(mar.MustParse(marionette.PartyServer, program), "")
 	if err != nil {
@@ -222,7 +223,7 @@ func MustOpenIntegrationTest(program []byte) *IntegrationTest {
 	}
 	tt.Listener = ln
 
-	d, err := marionette.NewDialer(mar.MustParse(marionette.PartyClient, program), "127.0.0.1")
+	d, err := marionette.NewDialer(mar.MustParse(marionette.PartyClient, program), "127.0.0.1", tt.ClientStreamSet)
 	if err != nil {
 		tt.Listener.Close()
 		panic(err)

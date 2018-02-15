@@ -2,19 +2,18 @@ package marionette
 
 import (
 	"math/rand"
-	"net"
 	"sync"
 )
 
 type StreamSet struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	streams map[int]*Stream
+	wnotify chan struct{}
 
-	// Network address information injected into each new stream.
-	LocalAddr  net.Addr
-	RemoteAddr net.Addr
+	closing chan struct{}
+	once    sync.Once
+	wg      sync.WaitGroup
 
-	// Callback invoked whenever a stream is created.
 	OnNewStream func(*Stream)
 }
 
@@ -22,6 +21,8 @@ type StreamSet struct {
 func NewStreamSet() *StreamSet {
 	return &StreamSet{
 		streams: make(map[int]*Stream),
+		closing: make(chan struct{}),
+		wnotify: make(chan struct{}),
 	}
 }
 
@@ -32,6 +33,8 @@ func (ss *StreamSet) Close() (err error) {
 			err = e
 		}
 	}
+	ss.once.Do(func() { close(ss.closing) })
+	ss.wg.Wait()
 	return err
 }
 
@@ -55,9 +58,10 @@ func (ss *StreamSet) create(id int) *Stream {
 	}
 
 	stream := NewStream(id)
-	stream.localAddr = ss.LocalAddr
-	stream.remoteAddr = ss.RemoteAddr
 	ss.streams[stream.id] = stream
+
+	ss.wg.Add(1)
+	go func() { defer ss.wg.Done(); ss.handleStream(stream) }()
 
 	// Execute callback, if exists.
 	if ss.OnNewStream != nil {
@@ -111,4 +115,34 @@ func (ss *StreamSet) Dequeue(n int) *Cell {
 		delete(ss.streams, stream.ID())
 	}
 	return cell
+}
+
+// WriteNotify returns a channel that receives a notification when a new write is available.
+func (ss *StreamSet) WriteNotify() <-chan struct{} {
+	ss.mu.RLock()
+	defer ss.mu.RUnlock()
+	return ss.wnotify
+}
+
+func (ss *StreamSet) notifyWrite() {
+	ss.mu.Lock()
+	close(ss.wnotify)
+	ss.wnotify = make(chan struct{})
+	ss.mu.Unlock()
+}
+
+func (ss *StreamSet) handleStream(stream *Stream) {
+	notify := stream.WriteNotify()
+	ss.notifyWrite()
+
+	for {
+		select {
+		case <-notify:
+			notify = stream.WriteNotify()
+			ss.notifyWrite()
+		case <-stream.CloseNotify():
+			ss.notifyWrite()
+			return
+		}
+	}
 }

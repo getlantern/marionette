@@ -6,7 +6,6 @@ import (
 	"net"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/redjack/marionette/mar"
 	"go.uber.org/zap"
@@ -20,11 +19,15 @@ var (
 // Listener listens on a port and communicates over the marionette protocol.
 type Listener struct {
 	mu         sync.RWMutex
+	iface      string
 	ln         net.Listener
 	conns      map[net.Conn]struct{}
 	doc        *mar.Document
 	newStreams chan *Stream
 	err        error
+
+	ctx    context.Context
+	cancel func()
 
 	once    sync.Once
 	wg      sync.WaitGroup
@@ -35,14 +38,13 @@ type Listener struct {
 // Listen returns a new instance of Listener.
 func Listen(doc *mar.Document, iface string) (*Listener, error) {
 	// Parse port from MAR specification.
-	// TODO: Handle "ftp_pasv_port".
 	port, err := strconv.Atoi(doc.Port)
 	if err != nil {
 		return nil, errors.New("invalid connection port")
 	}
 	addr := net.JoinHostPort(iface, strconv.Itoa(port))
 
-	Logger.Debug("opening listener", zap.String("transport", doc.Transport), zap.String("bind", addr))
+	Logger.Debug("listen", zap.String("transport", doc.Transport), zap.String("bind", addr))
 
 	ln, err := net.Listen(doc.Transport, addr)
 	if err != nil {
@@ -50,11 +52,13 @@ func Listen(doc *mar.Document, iface string) (*Listener, error) {
 	}
 	l := &Listener{
 		ln:         ln,
+		iface:      iface,
 		doc:        doc,
 		conns:      make(map[net.Conn]struct{}),
 		newStreams: make(chan *Stream),
 		closing:    make(chan struct{}),
 	}
+	l.ctx, l.cancel = context.WithCancel(context.Background())
 
 	// Hand off connection handling to separate goroutine.
 	l.wg.Add(1)
@@ -87,7 +91,10 @@ func (l *Listener) Close() error {
 	}
 	l.mu.Unlock()
 
-	l.once.Do(func() { close(l.closing) })
+	l.once.Do(func() {
+		l.cancel()
+		close(l.closing)
+	})
 	l.wg.Wait()
 
 	return err
@@ -129,38 +136,32 @@ func (l *Listener) accept() {
 			return
 		}
 
-		fsm := NewFSM(l.doc, PartyServer)
-		fsm.conn = conn
-		fsm.streams.LocalAddr = conn.LocalAddr()
-		fsm.streams.RemoteAddr = conn.RemoteAddr()
-		fsm.streams.OnNewStream = l.onNewStream
+		streamSet := NewStreamSet()
+		streamSet.OnNewStream = l.onNewStream
+
+		fsm := NewFSM(l.doc, l.iface, PartyServer, conn, streamSet)
 
 		// Run execution in a separate goroutine.
 		l.wg.Add(1)
-		go func() { defer l.wg.Done(); l.execute(context.Background(), fsm) }()
+		go func() { defer l.wg.Done(); l.execute(fsm, conn) }()
 	}
 }
 
-func (l *Listener) execute(ctx context.Context, fsm *FSM) {
-	Logger.Debug("server fsm executing")
-	defer Logger.Debug("server fsm execution complete")
-
-	l.addConn(fsm.conn)
-	defer l.removeConn(fsm.conn)
+func (l *Listener) execute(fsm FSM, conn net.Conn) {
+	l.addConn(conn)
+	defer l.removeConn(conn)
 
 	for !l.Closed() {
-		if err := fsm.Execute(ctx); err != nil {
-			if !l.Closed() {
-				Logger.Debug("server fsm execution error", zap.Error(err))
-			}
-			time.Sleep(100 * time.Millisecond)
+		if err := fsm.Execute(l.ctx); err != nil {
+			Logger.Debug("server fsm execution error", zap.Error(err))
+			return
 		}
+		fsm.Reset()
 	}
 }
 
 // onNewStream is called everytime the FSM's stream set creates a new stream.
 func (l *Listener) onNewStream(stream *Stream) {
-	Logger.Debug("new server stream")
 	l.newStreams <- stream
 }
 

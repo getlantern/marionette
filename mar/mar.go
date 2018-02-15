@@ -65,3 +65,11 @@ func SplitFormat(s string) (name, version string) {
 	}
 	return a[0], a[1]
 }
+
+// StripFormatVersion removes any version specified on a format.
+func StripFormatVersion(format string) string {
+	if i := strings.Index(format, ":"); i != -1 {
+		return format[:i]
+	}
+	return format
+}

@@ -18,4 +18,16 @@ $ go generate ./...
 ```
 
 
+## Testing
 
+Use the built-in go testing command to run the unit tests:
+
+```sh
+$ go test ./...
+```
+
+To run integration tests, specify the `integration` tag:
+
+```sh
+$ go test -tags integration ./...
+```
