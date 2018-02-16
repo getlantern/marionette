@@ -99,7 +99,7 @@ func (cmd *ClientCommand) Run(args []string) error {
 	}
 	defer proxy.Close()
 
-	fmt.Printf("listening on %s\n", config.Client.Bind)
+	fmt.Printf("listening on %s, connected to %s\n", config.Client.Bind, config.Server.IP)
 
 	// Wait for signal.
 	c := make(chan os.Signal, 1)
