@@ -59,7 +59,7 @@ $ sudo python setup.py install --user
 
 [marionette]: https://github.com/marionette-tg/marionette
 [GMP]: https://gmplib.org
-[PyCrypto][]: https://www.dlitz.net/software/pycrypto/
+[PyCrypto]: https://www.dlitz.net/software/pycrypto/
 [regex2dfa]: https://github.com/kpdyer/regex2dfa/archive/master.zip
 
 
