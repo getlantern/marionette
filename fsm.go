@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"os"
 	"regexp"
 	"strconv"
 
@@ -350,7 +351,12 @@ func (fsm *fsm) DFA(regex string, n int) DFA {
 }
 
 func (fsm *fsm) Listen() (port int, err error) {
-	ln, err := net.Listen("tcp", fsm.host)
+	addr := fsm.host
+	if s := os.Getenv("MARIONETTE_CHANNEL_BIND_PORT"); s != "" {
+		addr = net.JoinHostPort(addr, s)
+	}
+
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return 0, err
 	}

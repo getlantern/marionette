@@ -108,6 +108,9 @@ First, build your docker image. Please note that this can take a while.
 $ docker build -t redjack/marionette:latest .
 ```
 
+
+### Running using the Docker image
+
 Next, run the Docker image and use the appropriate port mappings for the
 Marionette format you're using. For example, `http_simple_blocking` uses
 port `8081`:
@@ -116,8 +119,24 @@ port `8081`:
 $ docker run -p 8081:8081 redjack/marionette server -format http_simple_blocking
 ```
 
-Some formats, such as `ftp_simple_blocking`, use random ports and will not
-work with the Docker image at this time.
+```sh
+$ docker run -p 8079:8079 redjack/marionette client -format http_simple_blocking
+```
+
+
+### Using a fixed `channel.bind()` port
+
+The `ftp_simple_blocking` uses randomized ports for the `channel.bind()` plugin.
+Unfortunately, `docker` does not support random port mappings so you can
+hardcode the port using the `MARIONETTE_CHANNEL_BIND_PORT` environment variable:
+
+```sh
+$ docker run -p 2121:2121 -e MARIONETTE_CHANNEL_BIND_PORT='6000' redjack/marionette server -format ftp_simple_blocking
+```
+
+```sh
+$ docker run -p 8079:8079 redjack/marionette client -format ftp_simple_blocking
+```
 
 
 

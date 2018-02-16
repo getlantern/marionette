@@ -5,7 +5,6 @@ RUN GOOS=linux GOARCH=amd64 go build -a -o marionette ./cmd/marionette
 
 FROM ubuntu:16.04
 WORKDIR /root/
-COPY --from=builder /go/src/github.com/redjack/marionette/marionette .
 RUN apt-get update && \
 	apt-get install -y build-essential software-properties-common m4 wget python2.7 python-dev python-pip unzip libffi-dev && \
 	pip2 install cffi cryptography
@@ -29,5 +28,7 @@ RUN wget -O libfte.zip https://github.com/kpdyer/libfte/archive/master.zip && \
 	unzip libfte.zip && cd libfte-master && \
 	python2.7 setup.py install && \
 	cd /root && rm -rf libfte*
+
+COPY --from=builder /go/src/github.com/redjack/marionette/marionette .
 
 ENTRYPOINT ["./marionette"]
