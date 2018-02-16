@@ -10,6 +10,9 @@ Marionette requires several dependencies to be installed first.
 
 ## Docker
 
+You'll need to have Docker installed. You can find instructions for specific
+operating system here: https://docs.docker.com/install
+
 The easiest way to setup `marionette` is to use the provided `Dockerfile`.
 First, build your docker image. Please note that this can take a while.
 
