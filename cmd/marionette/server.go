@@ -13,14 +13,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func main() {
-	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+type ServerCommand struct{}
+
+func NewServerCommand() *ServerCommand {
+	return &ServerCommand{}
 }
 
-func run() error {
+func (cmd *ServerCommand) Run(args []string) error {
 	config := marionette.DefaultConfig()
 
 	// Parse arguments.
@@ -30,7 +29,7 @@ func run() error {
 	fs.StringVar(&config.Server.Proxy, "proxy", config.Server.Proxy, "Proxy IP and port")
 	fs.StringVar(&config.General.Format, "format", config.General.Format, "Format name and version")
 	fs.BoolVar(&config.General.Debug, "debug", config.General.Debug, "Debug logging enabled")
-	if err := fs.Parse(os.Args[1:]); err != nil {
+	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
@@ -101,7 +100,7 @@ func run() error {
 }
 
 // printVersion prints a list of available formats and their versions.
-func printVersion() error {
+func (cmd *ServerCommand) printVersion() error {
 	fmt.Println("Marionette proxy server.")
 	fmt.Println("Available formats:")
 	for _, format := range mar.Formats() {

@@ -14,14 +14,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func main() {
-	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+type ClientCommand struct{}
+
+func NewClientCommand() *ClientCommand {
+	return &ClientCommand{}
 }
 
-func run() error {
+func (cmd *ClientCommand) Run(args []string) error {
 	config := marionette.DefaultConfig()
 
 	// Parse arguments.
@@ -31,7 +30,7 @@ func run() error {
 	fs.StringVar(&config.Server.IP, "server", config.Server.IP, "Server IP address")
 	fs.StringVar(&config.General.Format, "format", config.General.Format, "Format name and version")
 	fs.BoolVar(&config.General.Debug, "debug", config.General.Debug, "Debug logging enabled")
-	if err := fs.Parse(os.Args[1:]); err != nil {
+	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
