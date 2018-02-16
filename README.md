@@ -7,6 +7,28 @@ This is a Go port of the [marionette][] programmable networy proxy.
 
 Marionette requires several dependencies to be installed first.
 
+
+## Docker
+
+The easiest way to setup `marionette` is to use the provided `Dockerfile`.
+First, build your docker image. Please note that this can take a while.
+
+```
+$ docker build -t redjack/marionette:latest .
+```
+
+Next, run the Docker image and use the appropriate port mappings for the
+Marionette format you're using. For example, `http_simple_blocking` uses
+port `8081`:
+
+```sh
+$ docker run -p 8081:8081 redjack/marionette server -format http_simple_blocking
+```
+
+Some formats, such as `ftp_simple_blocking`, use random ports and will not
+work with the Docker image at this time.
+
+
 ### GMP
 
 Download the latest version of [GMP][], unpack the
