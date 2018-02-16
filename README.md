@@ -13,6 +13,10 @@ Download the latest version of [GMP][], unpack the
 archive and run:
 
 ```sh
+$ wget https://gmplib.org/download/gmp/gmp-6.1.2.tar.bz2
+$ tar -xvjf gmp-6.1.2.tar.bz2
+$ cd gmp-6.1.2
+
 $ ./configure --enable-cxx
 $ make
 $ sudo make install
@@ -26,7 +30,9 @@ $ make check
 Download the latest version of [PyCrypto][], unpack the archive and run:
 
 ```sh
-# https://ftp.dlitz.net/pub/dlitz/crypto/pycrypto/pycrypto-2.6.1.tar.gz
+$ wget https://ftp.dlitz.net/pub/dlitz/crypto/pycrypto/pycrypto-2.6.1.tar.gz
+$ tar zxvf pycrypto-2.6.1.tar.gz
+$ cd pycrypto-2.6.1
 
 $ python setup.py build
 $ sudo python setup.py install --user
@@ -38,7 +44,9 @@ $ sudo python setup.py install --user
 Download the latest version of [regex2dfa][], unpack the archive and run:
 
 ```sh
-# https://github.com/kpdyer/regex2dfa/archive/master.zip
+$ wget -O regex2dfa.zip https://github.com/kpdyer/regex2dfa/archive/master.zip
+$ unzip regex2dfa.zip
+$ cd regex2dfa-master
 
 $ ./configure
 $ make
@@ -51,17 +59,71 @@ $ sudo python setup.py install --user
 Download the latest version of [libfte][], unpack the archive and run:
 
 ```sh
-# https://github.com/kpdyer/libfte/archive/master.zip
+$ wget -O libfte.zip https://github.com/kpdyer/libfte/archive/master.zip
+$ unzip libfte.zip
+$ cd libfte-master
 
 $ sudo python setup.py install --user
 ```
+
+
+### Building the Marionette Binary
+
+First, make sure you have installed Go from [https://golang.org/][go]. Next,
+install `dep` using [these instructions][dep].
+
+Finally, retrieve the source, update project dependencies, and install the
+`marionette` binary:
+
+```sh
+$ go get github.com/redjack/marionette
+$ cd $GOPATH/src/github.com/redjack/marionette
+$ dep ensure
+$ go install ./cmd/marionette
+```
+
+The `marionette` binary is now installed in your `$GOPATH/bin` folder.
 
 
 [marionette]: https://github.com/marionette-tg/marionette
 [GMP]: https://gmplib.org
 [PyCrypto]: https://www.dlitz.net/software/pycrypto/
 [regex2dfa]: https://github.com/kpdyer/regex2dfa/archive/master.zip
+[libfte]: https://github.com/kpdyer/libfte
+[go]: https://golang.org/
+[dep]: https://github.com/golang/dep#installation
 
+
+## Demo
+
+### HTTP-over-FTP
+
+In this example, we'll mask our HTTP traffic as FTP packets.
+
+First, follow the installation instructions above on your client & server machines.
+
+Start the server proxy on your server machine and forward traffic to a server
+such as `google.com`.
+
+```sh
+$ marionette server -format ftp_simple_blocking -proxy google.com:80
+listening on [::]:2121, proxying to google.com:80
+```
+
+Start the client proxy on your client machine and connect to your server proxy.
+Replace `$SERVER_IP` with the IP address of your server.
+
+```sh
+$ marionette client -format ftp_simple_blocking -server $SERVER_IP
+listening on 127.0.0.1:8079, connected to <SERVER_IP>
+```
+
+Finally, send a `curl` to `127.0.0.1:8079` and you should see a response from
+`google.com`:
+
+```sh
+$ curl 127.0.0.1:8079
+```
 
 
 ## Development
