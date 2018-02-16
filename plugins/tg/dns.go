@@ -18,7 +18,7 @@ func (c *SetDNSTransactionIDCipher) Key() string {
 	return "DNS_TRANSACTION_ID"
 }
 
-func (c *SetDNSTransactionIDCipher) Capacity() (int, error) {
+func (c *SetDNSTransactionIDCipher) Capacity(fsm marionette.FSM) (int, error) {
 	return 0, nil
 }
 
@@ -48,7 +48,7 @@ func (c *SetDNSDomainCipher) Key() string {
 	return "DNS_DOMAIN"
 }
 
-func (c *SetDNSDomainCipher) Capacity() (int, error) {
+func (c *SetDNSDomainCipher) Capacity(fsm marionette.FSM) (int, error) {
 	return 0, nil
 }
 
@@ -89,7 +89,7 @@ func (c *SetDNSIPCipher) Key() string {
 	return "DNS_IP"
 }
 
-func (c *SetDNSIPCipher) Capacity() (int, error) {
+func (c *SetDNSIPCipher) Capacity(fsm marionette.FSM) (int, error) {
 	return 0, nil
 }
 

@@ -4,14 +4,12 @@ import (
 	"math/big"
 
 	"github.com/redjack/marionette"
-	"github.com/redjack/marionette/fte"
 )
 
 type RankerCipher struct {
 	key    string
 	regex  string
 	msgLen int
-	dfa    *fte.DFA
 }
 
 func NewRankerCipher(key, regex string, msgLen int) *RankerCipher {
@@ -19,7 +17,6 @@ func NewRankerCipher(key, regex string, msgLen int) *RankerCipher {
 		key:    key,
 		regex:  regex,
 		msgLen: msgLen,
-		dfa:    fte.NewDFA(regex, msgLen),
 	}
 }
 
@@ -27,15 +24,15 @@ func (c *RankerCipher) Key() string {
 	return c.key
 }
 
-func (c *RankerCipher) Capacity() (int, error) {
-	return c.dfa.Capacity()
+func (c *RankerCipher) Capacity(fsm marionette.FSM) (int, error) {
+	return fsm.DFA(c.regex, c.msgLen).Capacity()
 }
 
 func (c *RankerCipher) Encrypt(fsm marionette.FSM, template string, data []byte) (ciphertext []byte, err error) {
 	rank := &big.Int{}
 	rank.SetBytes(data)
 
-	ret, err := c.dfa.Unrank(rank)
+	ret, err := fsm.DFA(c.regex, c.msgLen).Unrank(rank)
 	if err != nil {
 		return nil, err
 	}
@@ -43,12 +40,12 @@ func (c *RankerCipher) Encrypt(fsm marionette.FSM, template string, data []byte)
 }
 
 func (c *RankerCipher) Decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
-	rank, err := c.dfa.Rank(string(ciphertext))
+	rank, err := fsm.DFA(c.regex, c.msgLen).Rank(string(ciphertext))
 	if err != nil {
 		return nil, err
 	}
 
-	capacity, err := c.Capacity()
+	capacity, err := c.Capacity(fsm)
 	if err != nil {
 		return nil, err
 	}

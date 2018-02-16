@@ -8,7 +8,6 @@ import (
 	"net"
 	"regexp"
 	"strconv"
-	"time"
 
 	"github.com/redjack/marionette/fte"
 	"github.com/redjack/marionette/mar"
@@ -53,8 +52,9 @@ type FSM interface {
 	// Restarts the FSM so it can be reused.
 	Reset()
 
-	// Returns an FTE cipher from the cache or creates a new one.
-	Cipher(regex string, msgLen int) (Cipher, error)
+	// Returns an FTE cipher or DFA from the cache or creates a new one.
+	Cipher(regex string) Cipher
+	DFA(regex string, msgLen int) DFA
 
 	// Returns the network connection attached to the FSM.
 	Conn() *BufferedConn
@@ -78,9 +78,10 @@ var _ FSM = &fsm{}
 
 // fsm is the default implementation of the FSM.
 type fsm struct {
-	doc   *mar.Document
-	host  string
-	party string
+	doc      *mar.Document
+	host     string
+	party    string
+	fteCache *fte.Cache
 
 	conn       *BufferedConn
 	streamSet  *StreamSet
@@ -94,8 +95,7 @@ type fsm struct {
 	// Lookup of transitions by src state.
 	transitions map[string][]*mar.Transition
 
-	vars    map[string]interface{}
-	ciphers map[cipherKey]*fte.Cipher
+	vars map[string]interface{}
 
 	// Set by the first sender and used to seed PRNG.
 	instanceID int
@@ -104,14 +104,16 @@ type fsm struct {
 // NewFSM returns a new FSM. If party is the first sender then the instance id is set.
 func NewFSM(doc *mar.Document, host, party string, conn net.Conn, streamSet *StreamSet) FSM {
 	fsm := &fsm{
+		state:     "start",
+		vars:      make(map[string]interface{}),
 		doc:       doc,
 		host:      host,
 		party:     party,
+		fteCache:  fte.NewCache(),
 		conn:      NewBufferedConn(conn, MaxCellLength),
 		streamSet: streamSet,
 		listeners: make(map[int]net.Listener),
 	}
-	fsm.Reset()
 	fsm.buildTransitions()
 	fsm.initFirstSender()
 	return fsm
@@ -135,13 +137,6 @@ func (fsm *fsm) initFirstSender() {
 func (fsm *fsm) Reset() {
 	fsm.state = "start"
 	fsm.vars = make(map[string]interface{})
-
-	for _, c := range fsm.ciphers {
-		if err := c.Close(); err != nil {
-			fsm.logger().Error("cannot close cipher", zap.Error(err))
-		}
-	}
-	fsm.ciphers = make(map[cipherKey]*fte.Cipher)
 
 	for _, fn := range fsm.closeFuncs {
 		if err := fn(); err != nil {
@@ -204,7 +199,6 @@ func (fsm *fsm) Execute(ctx context.Context) error {
 	for !fsm.Dead() {
 		if err := fsm.Next(ctx); err == ErrRetryTransition {
 			fsm.logger().Debug("retry transition", zap.String("state", fsm.State()))
-			time.Sleep(100 * time.Millisecond)
 			continue
 		} else if err != nil {
 			return err
@@ -345,20 +339,14 @@ func (fsm *fsm) SetVar(key string, value interface{}) {
 
 // Cipher returns a cipher with the given settings.
 // If no cipher exists then a new one is created and returned.
-func (fsm *fsm) Cipher(regex string, msgLen int) (_ Cipher, err error) {
-	key := cipherKey{regex, msgLen}
-	cipher := fsm.ciphers[key]
-	if cipher != nil {
-		return cipher, nil
-	}
+func (fsm *fsm) Cipher(regex string) Cipher {
+	return fsm.fteCache.Cipher(regex)
+}
 
-	cipher = fte.NewCipher(regex)
-	if err := cipher.Open(); err != nil {
-		return nil, err
-	}
-
-	fsm.ciphers[key] = cipher
-	return cipher, nil
+// DFA returns a DFA with the given settings.
+// If no DFA exists then a new one is created and returned.
+func (fsm *fsm) DFA(regex string, n int) DFA {
+	return fsm.fteCache.DFA(regex, n)
 }
 
 func (fsm *fsm) Listen() (port int, err error) {
@@ -368,6 +356,7 @@ func (fsm *fsm) Listen() (port int, err error) {
 	}
 	port = ln.Addr().(*net.TCPAddr).Port
 	fsm.listeners[port] = ln
+	fsm.closeFuncs = append(fsm.closeFuncs, ln.Close)
 
 	return port, nil
 }
@@ -389,7 +378,7 @@ func (fsm *fsm) ensureClientConn(ctx context.Context) error {
 	}
 
 	fsm.conn = NewBufferedConn(conn, MaxCellLength)
-	// fsm.closeFuncs = append(fsm.closeFuncs, conn.Close)
+	fsm.closeFuncs = append(fsm.closeFuncs, conn.Close)
 
 	return nil
 }
@@ -406,21 +395,23 @@ func (fsm *fsm) ensureServerConn(ctx context.Context) error {
 	}
 
 	fsm.conn = NewBufferedConn(conn, MaxCellLength)
-	// fsm.closeFuncs = append(fsm.closeFuncs, conn.Close)
+	fsm.closeFuncs = append(fsm.closeFuncs, conn.Close)
 
 	return nil
 }
 
 func (f *fsm) Clone(doc *mar.Document) FSM {
 	other := &fsm{
+		state:     "start",
+		vars:      make(map[string]interface{}),
 		doc:       doc,
 		host:      f.host,
 		party:     f.party,
+		fteCache:  f.fteCache,
 		streamSet: f.streamSet,
 		listeners: f.listeners,
 	}
 
-	other.Reset()
 	other.buildTransitions()
 	other.initFirstSender()
 
@@ -434,9 +425,4 @@ func (f *fsm) Clone(doc *mar.Document) FSM {
 
 func (fsm *fsm) logger() *zap.Logger {
 	return Logger.With(zap.String("party", fsm.party))
-}
-
-type cipherKey struct {
-	regex  string
-	msgLen int
 }

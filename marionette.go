@@ -58,12 +58,12 @@ type Cipher interface {
 	Decrypt(ciphertext []byte) (plaintext, remainder []byte, err error)
 }
 
-// Ranker represents the interface to the DFA Ranker.
-type Ranker interface {
-	Capacity() int
+// DFA represents the interface to the DFA ranker.
+type DFA interface {
+	Capacity() (int, error)
 	Rank(s string) (rank *big.Int, err error)
 	Unrank(rank *big.Int) (ret string, err error)
-	NumWordsInSlice(n int) (numWords int, err error)
+	NumWordsInSlice(n int) (numWords *big.Int, err error)
 }
 
 func assert(condition bool) {

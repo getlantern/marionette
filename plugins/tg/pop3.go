@@ -17,7 +17,7 @@ func (c *POP3ContentLengthCipher) Key() string {
 	return "CONTENT-LENGTH"
 }
 
-func (c *POP3ContentLengthCipher) Capacity() (int, error) {
+func (c *POP3ContentLengthCipher) Capacity(fsm marionette.FSM) (int, error) {
 	return 0, nil
 }
 

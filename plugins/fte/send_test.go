@@ -35,13 +35,11 @@ func TestSend(t *testing.T) {
 			}
 			return []byte(`bar`), nil
 		}
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) {
+		fsm.CipherFn = func(regex string) marionette.Cipher {
 			if regex != `([a-z0-9]+)` {
 				t.Fatalf("unexpected regex: %s", regex)
-			} else if msgLen != 128 {
-				t.Fatalf("unexected msg len: %d", msgLen)
 			}
-			return &cipher, nil
+			return &cipher
 		}
 
 		var writeInvoked bool
@@ -113,11 +111,11 @@ func TestSend(t *testing.T) {
 				}
 				return []byte(`bar`), nil
 			}
-			fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) {
+			fsm.CipherFn = func(regex string) marionette.Cipher {
 				if regex != `([a-z0-9]+)` {
 					t.Fatalf("unexpected regex: %s", regex)
 				}
-				return &cipher, nil
+				return &cipher
 			}
 
 			var writeInvoked bool
@@ -164,11 +162,11 @@ func TestSend(t *testing.T) {
 				}
 				return []byte(`bar`), nil
 			}
-			fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) {
+			fsm.CipherFn = func(regex string) marionette.Cipher {
 				if regex != `([a-z0-9]+)` {
 					t.Fatalf("unexpected regex: %s", regex)
 				}
-				return &cipher, nil
+				return &cipher
 			}
 
 			var writeInvoked bool
@@ -188,22 +186,6 @@ func TestSend(t *testing.T) {
 		})
 	})
 
-	// Ensure cipher errors are passed through.
-	t.Run("ErrCipher", func(t *testing.T) {
-		errMarker := errors.New("marker")
-		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
-		fsm.PartyFn = func() string { return marionette.PartyClient }
-		fsm.UUIDFn = func() int { return 100 }
-		fsm.InstanceIDFn = func() int { return 200 }
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) {
-			return nil, errMarker
-		}
-
-		if err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
-			t.Fatalf("unexpected error: %#v", err)
-		}
-	})
-
 	// Ensure cipher encryption errors are passed through.
 	t.Run("ErrCipherEncrypt", func(t *testing.T) {
 		errMarker := errors.New("marker")
@@ -217,9 +199,7 @@ func TestSend(t *testing.T) {
 		cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 			return nil, errMarker
 		}
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) {
-			return &cipher, nil
-		}
+		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
 		if err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatalf("unexpected error: %#v", err)
@@ -240,9 +220,7 @@ func TestSend(t *testing.T) {
 		cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 			return []byte(`bar`), nil
 		}
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) {
-			return &cipher, nil
-		}
+		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
 		conn.WriteFn = func(p []byte) (int, error) {
 			return 0, errMarker

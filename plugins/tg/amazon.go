@@ -10,30 +10,26 @@ import (
 )
 
 type AmazonMsgLensCipher struct {
-	key     string
-	min     int
-	max     int
-	target  int
-	regex   string
-	encoder *fte.Cipher
-	dfas    map[dfaKey]*fte.DFA
+	key    string
+	min    int
+	max    int
+	target int
+	regex  string
 }
 
 func NewAmazonMsgLensCipher(key, regex string) *AmazonMsgLensCipher {
 	return &AmazonMsgLensCipher{
-		key:     key,
-		min:     fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT + fte.CTXT_EXPANSION + 32,
-		max:     1 << 18,
-		target:  0,
-		regex:   regex,
-		encoder: fte.NewCipher(regex),
-		dfas:    make(map[dfaKey]*fte.DFA),
+		key:    key,
+		min:    fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT + fte.CTXT_EXPANSION + 32,
+		max:    1 << 18,
+		target: 0,
+		regex:  regex,
 	}
 }
 
 func (h *AmazonMsgLensCipher) Key() string { return h.key }
 
-func (h *AmazonMsgLensCipher) Capacity() (int, error) {
+func (h *AmazonMsgLensCipher) Capacity(fsm marionette.FSM) (int, error) {
 	h.target = amazonMsgLens[rand.Intn(len(amazonMsgLens))]
 	if h.target < h.min {
 		return 0, nil
@@ -52,12 +48,7 @@ func (h *AmazonMsgLensCipher) Capacity() (int, error) {
 
 func (h *AmazonMsgLensCipher) Encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	if h.target < h.min || h.target > h.max {
-		key := dfaKey{h.regex, h.target}
-		dfa := h.dfas[key]
-		if dfa == nil {
-			dfa = fte.NewDFA(h.regex, h.target)
-			h.dfas[key] = dfa
-		}
+		dfa := fsm.DFA(h.regex, h.target)
 
 		numWords, err := dfa.NumWordsInSlice(h.target)
 		if err != nil {
@@ -76,7 +67,7 @@ func (h *AmazonMsgLensCipher) Encrypt(fsm marionette.FSM, template string, plain
 		return []byte(ret), nil
 	}
 
-	ciphertext, err = h.encoder.Encrypt(plaintext)
+	ciphertext, err = fsm.Cipher(h.regex).Encrypt(plaintext)
 	if err != nil {
 		return nil, err
 	} else if len(ciphertext) != h.target {
@@ -89,7 +80,7 @@ func (h *AmazonMsgLensCipher) Decrypt(fsm marionette.FSM, ciphertext []byte) (pl
 	if len(ciphertext) < h.min {
 		return nil, nil
 	}
-	plaintext, _, err = h.encoder.Decrypt(ciphertext)
+	plaintext, _, err = fsm.Cipher(h.regex).Decrypt(ciphertext)
 	return plaintext, err
 }
 

@@ -61,10 +61,10 @@ func Send(fsm marionette.FSM, args ...interface{}) error {
 	return nil
 }
 
-func encryptTo(fsm marionette.FSM, cipher Cipher, template string, logger *zap.Logger) (_ string, err error) {
+func encryptTo(fsm marionette.FSM, cipher TemplateCipher, template string, logger *zap.Logger) (_ string, err error) {
 	// Encode data from streams if there is capacity in the handler.
 	var data []byte
-	if capacity, err := cipher.Capacity(); err != nil {
+	if capacity, err := cipher.Capacity(fsm); err != nil {
 		return "", err
 	} else if capacity > 0 {
 		cell := fsm.StreamSet().Dequeue(capacity)

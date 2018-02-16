@@ -37,8 +37,7 @@ func recv(fsm marionette.FSM, args []interface{}) error {
 	if !ok {
 		return errors.New("invalid regex argument type")
 	}
-	msgLen, ok := args[1].(int)
-	if !ok {
+	if _, ok := args[1].(int); !ok {
 		return errors.New("invalid msg_len argument type")
 	}
 
@@ -51,12 +50,7 @@ func recv(fsm marionette.FSM, args []interface{}) error {
 	}
 
 	// Decode ciphertext.
-	cipher, err := fsm.Cipher(regex, msgLen)
-	if err != nil {
-		logger.Error("cannot obtain cipher", zap.Error(err))
-		return err
-	}
-	plaintext, remainder, err := cipher.Decrypt(ciphertext)
+	plaintext, remainder, err := fsm.Cipher(regex).Decrypt(ciphertext)
 	if err != nil {
 		logger.Error("cannot decrypt ciphertext", zap.Error(err))
 		return err

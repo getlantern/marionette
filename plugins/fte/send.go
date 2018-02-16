@@ -41,15 +41,8 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 	if !ok {
 		return errors.New("invalid regex argument type")
 	}
-	msgLen, ok := args[1].(int)
-	if !ok {
+	if _, ok := args[1].(int); !ok {
 		return errors.New("invalid msg_len argument type")
-	}
-
-	// Find random stream id with data.
-	cipher, err := fsm.Cipher(regex, msgLen)
-	if err != nil {
-		return err
 	}
 
 	// If asynchronous, keep trying to read a cell until there is data.
@@ -60,7 +53,7 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 
 		logger.Debug("dequeuing cell")
 
-		capacity, err := cipher.Capacity()
+		capacity, err := fsm.Cipher(regex).Capacity()
 		if err != nil {
 			return err
 		}
@@ -88,7 +81,7 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 	}
 
 	// Encrypt using FTE cipher.
-	ciphertext, err := cipher.Encrypt(plaintext)
+	ciphertext, err := fsm.Cipher(regex).Encrypt(plaintext)
 	if err != nil {
 		return err
 	}

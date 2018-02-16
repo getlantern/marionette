@@ -9,14 +9,14 @@ import (
 type Grammar struct {
 	Name      string
 	Templates []string
-	Ciphers   []Cipher
+	Ciphers   []TemplateCipher
 }
 
-type Cipher interface {
+type TemplateCipher interface {
 	Key() string
-	Capacity() (int, error)
+	Capacity(fsm marionette.FSM) (int, error)
 	Encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error)
-	Decrypt(fsm marionette.FSM, cipher []byte) (plaintext []byte, err error)
+	Decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error)
 }
 
 var grammars = make(map[string]*Grammar)
@@ -32,7 +32,7 @@ func init() {
 		Templates: []string{
 			"GET http://%%SERVER_LISTEN_IP%%:8080/%%URL%% HTTP/1.1\r\nUser-Agent: marionette 0.1\r\nConnection: keep-alive\r\n\r\n",
 		},
-		Ciphers: []Cipher{NewRankerCipher("URL", `[a-zA-Z0-9\?\-\.\&]+`, 2048)},
+		Ciphers: []TemplateCipher{NewRankerCipher("URL", `[a-zA-Z0-9\?\-\.\&]+`, 2048)},
 	})
 
 	RegisterGrammar(&Grammar{
@@ -41,7 +41,7 @@ func init() {
 			"HTTP/1.1 200 OK\r\nContent-Length: %%CONTENT-LENGTH%%\r\nConnection: keep-alive\r\n\r\n%%HTTP-RESPONSE-BODY%%",
 			"HTTP/1.1 404 Not Found\r\nContent-Length: %%CONTENT-LENGTH%%\r\nConnection: keep-alive\r\n\r\n%%HTTP-RESPONSE-BODY%%",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewFTECipher("HTTP-RESPONSE-BODY", ".+", 128, false),
 			NewHTTPContentLengthCipher(),
 		},
@@ -52,7 +52,7 @@ func init() {
 		Templates: []string{
 			"GET http://%%SERVER_LISTEN_IP%%:8080/%%URL%% HTTP/1.1\r\nUser-Agent: marionette 0.1\r\nConnection: close\r\n\r\n",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewRankerCipher("URL", `[a-zA-Z0-9\?\-\.\&]+`, 2048),
 		},
 	})
@@ -63,7 +63,7 @@ func init() {
 			"HTTP/1.1 200 OK\r\nContent-Length: %%CONTENT-LENGTH%%\r\nConnection: close\r\n\r\n%%HTTP-RESPONSE-BODY%%",
 			"HTTP/1.1 404 Not Found\r\nContent-Length: %%CONTENT-LENGTH%%\r\nConnection: close\r\n\r\n%%HTTP-RESPONSE-BODY%%",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewFTECipher("HTTP-RESPONSE-BODY", ".+", 128, false),
 			NewHTTPContentLengthCipher(),
 		},
@@ -74,7 +74,7 @@ func init() {
 		Templates: []string{
 			"+OK %%CONTENT-LENGTH%% octets\nReturn-Path: sender@example.com\nReceived: from client.example.com ([192.0.2.1])\nFrom: sender@example.com\nSubject: Test message\nTo: recipient@example.com\n\n%%POP3-RESPONSE-BODY%%\n.\n",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewRankerCipher("POP3-RESPONSE-BODY", `[a-zA-Z0-9]+`, 2048),
 			NewPOP3ContentLengthCipher(),
 		},
@@ -85,7 +85,7 @@ func init() {
 		Templates: []string{
 			"PASS %%PASSWORD%%\n",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewRankerCipher("PASSWORD", `[a-zA-Z0-9]+`, 256),
 		},
 	})
@@ -95,7 +95,7 @@ func init() {
 		Templates: []string{
 			"GET http://%%SERVER_LISTEN_IP%%:8080/%%URL%% HTTP/1.1\r\nUser-Agent: marionette 0.1\r\nConnection: keep-alive\r\n\r\n",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewFTECipher("URL", `[a-zA-Z0-9\?\-\.\&]+`, 2048, true),
 		},
 	})
@@ -106,7 +106,7 @@ func init() {
 			"HTTP/1.1 200 OK\r\nContent-Length: %%CONTENT-LENGTH%%\r\nConnection: keep-alive\r\n\r\n%%HTTP-RESPONSE-BODY%%",
 			"HTTP/1.1 404 Not Found\r\nContent-Length: %%CONTENT-LENGTH%%\r\nConnection: keep-alive\r\n\r\n%%HTTP-RESPONSE-BODY%%",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewFTECipher("HTTP-RESPONSE-BODY", `.+`, 2048, true),
 			NewHTTPContentLengthCipher(),
 		},
@@ -117,7 +117,7 @@ func init() {
 		Templates: []string{
 			"GET http://%%SERVER_LISTEN_IP%%:8080/%%URL%% HTTP/1.1\r\nUser-Agent: marionette 0.1\r\nConnection: keep-alive\r\n\r\n",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewRankerCipher("URL", `[a-zA-Z0-9\?\-\.\&]+`, 2048),
 		},
 	})
@@ -128,7 +128,7 @@ func init() {
 			"HTTP/1.1 200 OK\r\nContent-Length: %%CONTENT-LENGTH%%\r\nConnection: keep-alive\r\n\r\n%%HTTP-RESPONSE-BODY%%",
 			"HTTP/1.1 404 Not Found\r\nContent-Length: %%CONTENT-LENGTH%%\r\nConnection: keep-alive\r\n\r\n%%HTTP-RESPONSE-BODY%%",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewAmazonMsgLensCipher("HTTP-RESPONSE-BODY", `.+`),
 			NewHTTPContentLengthCipher(),
 		},
@@ -139,7 +139,7 @@ func init() {
 		Templates: []string{
 			"227 Entering Passive Mode (127,0,0,1,%%FTP_PASV_PORT_X%%,%%FTP_PASV_PORT_Y%%).\n",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewSetFTPPasvXCipher(),
 			NewSetFTPPasvYCipher(),
 		},
@@ -150,7 +150,7 @@ func init() {
 		Templates: []string{
 			"%%DNS_TRANSACTION_ID%%\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00%%DNS_DOMAIN%%\x00\x00\x01\x00\x01",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewSetDNSTransactionIDCipher(),
 			NewSetDNSDomainCipher(),
 		},
@@ -161,7 +161,7 @@ func init() {
 		Templates: []string{
 			"%%DNS_TRANSACTION_ID%%\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00%%DNS_DOMAIN%%\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x02\x00\x04%%DNS_IP%%",
 		},
-		Ciphers: []Cipher{
+		Ciphers: []TemplateCipher{
 			NewSetDNSTransactionIDCipher(),
 			NewSetDNSDomainCipher(),
 			NewSetDNSIPCipher(),
@@ -186,9 +186,4 @@ func Parse(name, data string) map[string]string {
 		return parseDNSResponse(data)
 	}
 	return nil
-}
-
-type dfaKey struct {
-	regex string
-	n     int
 }

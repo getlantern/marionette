@@ -51,13 +51,11 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, []byte("baz"), nil
 		}
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) {
+		fsm.CipherFn = func(regex string) marionette.Cipher {
 			if regex != `([a-z0-9]+)` {
 				t.Fatalf("unexpected regex: %s", regex)
-			} else if msgLen != 128 {
-				t.Fatalf("unexected msg len: %d", msgLen)
 			}
-			return &cipher, nil
+			return &cipher
 		}
 
 		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != nil {
@@ -106,7 +104,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) { return &cipher, nil }
+		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
 		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != marionette.ErrRetryTransition {
 			t.Fatal(err)
@@ -160,29 +158,6 @@ func TestRecv(t *testing.T) {
 		}
 	})
 
-	// Ensure plugin passes through cipher errors.
-	t.Run("ErrCipher", func(t *testing.T) {
-		errMarker := errors.New("marker")
-		var conn mock.Conn
-		conn.SetReadDeadlineFn = func(_ time.Time) error { return nil }
-		conn.ReadFn = func(p []byte) (int, error) {
-			copy(p, []byte("foo"))
-			return 3, nil
-		}
-
-		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		fsm.PartyFn = func() string { return marionette.PartyClient }
-		fsm.UUIDFn = func() int { return 100 }
-		fsm.InstanceIDFn = func() int { return 200 }
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) {
-			return nil, errMarker
-		}
-
-		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
-			t.Fatal(err)
-		}
-	})
-
 	// Ensure plugin passes through decryption errors.
 	t.Run("ErrDecrypt", func(t *testing.T) {
 		errMarker := errors.New("marker")
@@ -203,9 +178,7 @@ func TestRecv(t *testing.T) {
 		cipher.DecryptFn = func(ciphertext []byte) (plaintext, remainder []byte, err error) {
 			return nil, nil, errMarker
 		}
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) {
-			return &cipher, nil
-		}
+		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
 		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatal(err)
@@ -235,7 +208,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) { return &cipher, nil }
+		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
 		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `uuid mismatch: fsm=100, cell=400` {
 			t.Fatalf("unexpected error: %v", err)
@@ -265,7 +238,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) { return &cipher, nil }
+		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
 		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `instance id mismatch: fsm=200, cell=400` {
 			t.Fatalf("unexpected error: %v", err)
@@ -301,7 +274,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string, msgLen int) (marionette.Cipher, error) { return &cipher, nil }
+		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
 		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != marionette.ErrStreamClosed {
 			t.Fatalf("unexpected error: %#v", err)

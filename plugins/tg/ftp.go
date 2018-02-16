@@ -17,7 +17,7 @@ func (c *SetFTPPasvXCipher) Key() string {
 	return "FTP_PASV_PORT_X"
 }
 
-func (c *SetFTPPasvXCipher) Capacity() (int, error) {
+func (c *SetFTPPasvXCipher) Capacity(fsm marionette.FSM) (int, error) {
 	return 0, nil
 }
 
@@ -42,7 +42,7 @@ func (c *SetFTPPasvYCipher) Key() string {
 	return "FTP_PASV_PORT_Y"
 }
 
-func (c *SetFTPPasvYCipher) Capacity() (int, error) {
+func (c *SetFTPPasvYCipher) Capacity(fsm marionette.FSM) (int, error) {
 	return 0, nil
 }
 
