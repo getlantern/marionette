@@ -21,15 +21,15 @@ func NewClientCommand() *ClientCommand {
 }
 
 func (cmd *ClientCommand) Run(args []string) error {
-	config := marionette.DefaultConfig()
-
 	// Parse arguments.
 	fs := flag.NewFlagSet("marionette-client", flag.ContinueOnError)
-	version := fs.Bool("version", false, "")
-	fs.StringVar(&config.Client.Bind, "bind", config.Client.Bind, "Bind address")
-	fs.StringVar(&config.Server.IP, "server", config.Server.IP, "Server IP address")
-	fs.StringVar(&config.General.Format, "format", config.General.Format, "Format name and version")
-	fs.BoolVar(&config.General.Debug, "debug", config.General.Debug, "Debug logging enabled")
+	var (
+		version  = fs.Bool("version", false, "")
+		bind     = fs.String("bind", "127.0.0.1:8079", "Bind address")
+		serverIP = fs.String("server", "127.0.0.1", "Server IP address")
+		format   = fs.String("format", "", "Format name and version")
+		verbose  = fs.Bool("v", false, "Debug logging enabled")
+	)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -40,18 +40,18 @@ func (cmd *ClientCommand) Run(args []string) error {
 	}
 
 	// Validate arguments.
-	if config.General.Format == "" {
+	if *format == "" {
 		return errors.New("format required")
 	}
 
 	// Strip off format version.
 	// TODO: Split version.
-	format := mar.StripFormatVersion(config.General.Format)
+	formatName := mar.StripFormatVersion(*format)
 
 	// Read MAR file.
-	data := mar.Format(format, "")
+	data := mar.Format(formatName, "")
 	if data == nil {
-		return fmt.Errorf("MAR document not found: %s", format)
+		return fmt.Errorf("MAR document not found: %s", formatName)
 	}
 
 	// Parse document.
@@ -61,7 +61,7 @@ func (cmd *ClientCommand) Run(args []string) error {
 	}
 
 	// Set logger if debug is on.
-	if config.General.Debug {
+	if *verbose {
 		logger, err := zap.NewDevelopment()
 		if err != nil {
 			return nil
@@ -76,7 +76,7 @@ func (cmd *ClientCommand) Run(args []string) error {
 	}
 
 	// Start listener.
-	ln, err := net.Listen("tcp", config.Client.Bind)
+	ln, err := net.Listen("tcp", *bind)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (cmd *ClientCommand) Run(args []string) error {
 	defer streamSet.Close()
 
 	// Create dialer to remote server.
-	dialer, err := marionette.NewDialer(doc, config.Server.IP, streamSet)
+	dialer, err := marionette.NewDialer(doc, *serverIP, streamSet)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (cmd *ClientCommand) Run(args []string) error {
 	}
 	defer proxy.Close()
 
-	fmt.Printf("listening on %s, connected to %s\n", config.Client.Bind, config.Server.IP)
+	fmt.Printf("listening on %s, connected to %s\n", *bind, *serverIP)
 
 	// Wait for signal.
 	c := make(chan os.Signal, 1)

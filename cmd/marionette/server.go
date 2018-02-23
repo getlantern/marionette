@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/armon/go-socks5"
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/mar"
 	_ "github.com/redjack/marionette/plugins"
@@ -20,15 +21,16 @@ func NewServerCommand() *ServerCommand {
 }
 
 func (cmd *ServerCommand) Run(args []string) error {
-	config := marionette.DefaultConfig()
-
 	// Parse arguments.
 	fs := flag.NewFlagSet("marionette-server", flag.ContinueOnError)
-	version := fs.Bool("version", false, "")
-	fs.StringVar(&config.Server.Bind, "bind", config.Server.Bind, "Bind address")
-	fs.StringVar(&config.Server.Proxy, "proxy", config.Server.Proxy, "Proxy IP and port")
-	fs.StringVar(&config.General.Format, "format", config.General.Format, "Format name and version")
-	fs.BoolVar(&config.General.Debug, "debug", config.General.Debug, "Debug logging enabled")
+	var (
+		version   = fs.Bool("version", false, "")
+		bind      = fs.String("bind", "", "Bind address")
+		useSocks5 = fs.Bool("socks5", false, "Enable socks5 proxying")
+		proxyAddr = fs.String("proxy", "", "Proxy IP and port")
+		format    = fs.String("format", "", "Format name and version")
+		verbose   = fs.Bool("v", false, "Debug logging enabled")
+	)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -39,18 +41,20 @@ func (cmd *ServerCommand) Run(args []string) error {
 	}
 
 	// Validate arguments.
-	if config.General.Format == "" {
+	if *format == "" {
 		return errors.New("format required")
+	} else if !*useSocks5 && *proxyAddr == "" {
+		return errors.New("proxy address required")
 	}
 
 	// Strip off format version.
 	// TODO: Split version.
-	format := mar.StripFormatVersion(config.General.Format)
+	formatName := mar.StripFormatVersion(*format)
 
 	// Read MAR file.
-	data := mar.Format(format, "")
+	data := mar.Format(formatName, "")
 	if data == nil {
-		return fmt.Errorf("MAR document not found: %s", format)
+		return fmt.Errorf("MAR document not found: %s", formatName)
 	}
 
 	// Parse document.
@@ -59,8 +63,8 @@ func (cmd *ServerCommand) Run(args []string) error {
 		return err
 	}
 
-	// Set logger if debug is on.
-	if config.General.Debug {
+	// Set logger if verbose.
+	if *verbose {
 		logger, err := zap.NewDevelopment()
 		if err != nil {
 			return nil
@@ -75,20 +79,32 @@ func (cmd *ServerCommand) Run(args []string) error {
 	}
 
 	// Start listener.
-	ln, err := marionette.Listen(doc, config.Server.Bind)
+	ln, err := marionette.Listen(doc, *bind)
 	if err != nil {
 		return err
 	}
 	defer ln.Close()
 
 	// Start proxy.
-	proxy := marionette.NewServerProxy(ln, config.Server.Proxy)
+	proxy := marionette.NewServerProxy(ln)
+	if *useSocks5 {
+		if proxy.Socks5Server, err = socks5.New(&socks5.Config{}); err != nil {
+			return err
+		}
+	} else {
+		proxy.Addr = *proxyAddr
+	}
 	if err := proxy.Open(); err != nil {
 		return err
 	}
 	defer proxy.Close()
 
-	fmt.Printf("listening on %s, proxying to %s\n", ln.Addr().String(), config.Server.Proxy)
+	// Notify user that proxy is ready.
+	if proxy.Socks5Server != nil {
+		fmt.Printf("listening on %s, proxying via socks5\n", ln.Addr().String())
+	} else {
+		fmt.Printf("listening on %s, proxying to %s\n", ln.Addr().String(), *proxyAddr)
+	}
 
 	// Wait for signal.
 	c := make(chan os.Signal, 1)
