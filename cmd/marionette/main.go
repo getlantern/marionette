@@ -29,6 +29,8 @@ func run(args []string) error {
 	switch args[0] {
 	case "client":
 		return NewClientCommand().Run(args[1:])
+	case "formats":
+		return NewFormatsCommand().Run(args[1:])
 	case "server":
 		return NewServerCommand().Run(args[1:])
 	default:
@@ -48,6 +50,7 @@ Usage:
 The commands are:
 
 	client  runs the client proxy
+	formats show a list of available formats
 	server  runs the server proxy
 `[1:]
 }

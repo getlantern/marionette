@@ -24,7 +24,6 @@ func (cmd *ClientCommand) Run(args []string) error {
 	// Parse arguments.
 	fs := flag.NewFlagSet("marionette-client", flag.ContinueOnError)
 	var (
-		version  = fs.Bool("version", false, "")
 		bind     = fs.String("bind", "127.0.0.1:8079", "Bind address")
 		serverIP = fs.String("server", "127.0.0.1", "Server IP address")
 		format   = fs.String("format", "", "Format name and version")
@@ -34,22 +33,14 @@ func (cmd *ClientCommand) Run(args []string) error {
 		return err
 	}
 
-	// If version is specified, print and exit.
-	if *version {
-		return printVersion()
-	}
-
 	// Validate arguments.
 	if *format == "" {
 		return errors.New("format required")
 	}
 
-	// Strip off format version.
-	// TODO: Split version.
-	formatName := mar.StripFormatVersion(*format)
-
 	// Read MAR file.
-	data := mar.Format(formatName, "")
+	formatName, formatVersion := mar.SplitFormat(*format)
+	data := mar.Format(formatName, formatVersion)
 	if data == nil {
 		return fmt.Errorf("MAR document not found: %s", formatName)
 	}
@@ -107,16 +98,5 @@ func (cmd *ClientCommand) Run(args []string) error {
 	<-c
 	fmt.Fprintln(os.Stderr, "received interrupt, shutting down...")
 
-	return nil
-}
-
-// printVersion prints a list of available formats and their versions.
-func printVersion() error {
-	fmt.Println("Marionette proxy client.")
-	fmt.Println("Available formats:")
-	for _, format := range mar.Formats() {
-		fmt.Printf(" %s\n", format)
-	}
-	fmt.Println("")
 	return nil
 }

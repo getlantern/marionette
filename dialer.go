@@ -48,15 +48,19 @@ func NewDialer(doc *mar.Document, addr string, streamSet *StreamSet) (*Dialer, e
 }
 
 // Close stops the dialer and its underlying connections.
-func (d *Dialer) Close() (err error) {
+func (d *Dialer) Close() error {
+	err := d.close()
+	d.wg.Wait()
+	return err
+}
+
+func (d *Dialer) close() (err error) {
 	d.mu.Lock()
 	d.closed = true
 	err = d.fsm.Conn().Close()
 	d.mu.Unlock()
 
 	d.cancel()
-
-	d.wg.Wait()
 	return err
 }
 
@@ -77,7 +81,7 @@ func (d *Dialer) Dial() (net.Conn, error) {
 }
 
 func (d *Dialer) execute() {
-	defer d.Close()
+	defer d.close()
 
 	for !d.Closed() {
 		if err := d.fsm.Execute(d.ctx); err != nil {
