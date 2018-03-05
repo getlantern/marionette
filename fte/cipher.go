@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"os/exec"
 	"strconv"
 	"sync"
@@ -24,7 +23,6 @@ type Cipher struct {
 	stdin  io.WriteCloser
 	stdout io.ReadCloser
 	bufout *bufio.Reader
-	stderr io.ReadCloser
 
 	capacity int
 }
@@ -52,7 +50,7 @@ func (c *Cipher) Open() error {
 
 	// Start process.
 	c.cmd = exec.Command("python2", c.filename, c.regex)
-	c.cmd.Stderr = os.Stderr
+	c.cmd.Stderr = stderr()
 	if c.stdin, err = c.cmd.StdinPipe(); err != nil {
 		return err
 	} else if c.stdout, err = c.cmd.StdoutPipe(); err != nil {

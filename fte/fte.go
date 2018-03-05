@@ -2,6 +2,9 @@ package fte
 
 import (
 	"crypto/aes"
+	"io"
+	"io/ioutil"
+	"os"
 )
 
 const (
@@ -13,6 +16,8 @@ const (
 	MSG_COUNTER_LENGTH = 8
 	CTXT_EXPANSION     = 1 + IV_LENGTH + MSG_COUNTER_LENGTH + aes.BlockSize
 )
+
+var Verbose bool
 
 // Cache represents a cache of Ciphers & DFAs.
 type Cache struct {
@@ -72,4 +77,11 @@ func (c *Cache) DFA(regex string, n int) *DFA {
 type dfaKey struct {
 	regex string
 	n     int
+}
+
+func stderr() io.Writer {
+	if Verbose {
+		return os.Stderr
+	}
+	return ioutil.Discard
 }

@@ -34,7 +34,9 @@ func Gets(fsm marionette.FSM, args ...interface{}) error {
 
 	// Read buffer to see if our expected data comes through.
 	buf, err := fsm.Conn().Peek(len(exp))
-	if err != nil {
+	if err == io.EOF {
+		return err
+	} else if err != nil {
 		logger.Error("cannot read from connection", zap.Error(err))
 		return err
 	} else if !bytes.Equal([]byte(exp), buf) {

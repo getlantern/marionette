@@ -3,6 +3,7 @@ package marionette
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -152,7 +153,10 @@ func (l *Listener) execute(fsm FSM, conn net.Conn) {
 	defer l.removeConn(conn)
 
 	for !l.Closed() {
-		if err := fsm.Execute(l.ctx); err != nil {
+		if err := fsm.Execute(l.ctx); err == io.EOF {
+			Logger.Debug("client disconnected", zap.String("addr", conn.RemoteAddr().String()))
+			return
+		} else if err != nil {
 			Logger.Debug("server fsm execution error", zap.Error(err))
 			return
 		}

@@ -3,6 +3,7 @@ package marionette
 import (
 	"io"
 	"net"
+	"strings"
 )
 
 type BufferedConn struct {
@@ -40,6 +41,8 @@ func (conn *BufferedConn) Peek(n int) ([]byte, error) {
 		nn, err := conn.Conn.Read(conn.buf[len(conn.buf) : len(conn.buf)+capacity])
 		if isTimeoutError(err) {
 			continue
+		} else if isEOFError(err) {
+			return conn.buf, io.EOF
 		} else if err != nil {
 			return conn.buf, err
 		}
@@ -67,4 +70,8 @@ func isTimeoutError(err error) bool {
 		return true
 	}
 	return false
+}
+
+func isEOFError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "connection reset by peer")
 }

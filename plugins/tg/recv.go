@@ -39,7 +39,9 @@ func Recv(fsm marionette.FSM, args ...interface{}) error {
 
 	// Retrieve data from the connection.
 	ciphertext, err := fsm.Conn().Peek(-1)
-	if err != nil {
+	if err == io.EOF {
+		return err
+	} else if err != nil {
 		logger.Error("cannot read from connection", zap.Error(err))
 		return err
 	}

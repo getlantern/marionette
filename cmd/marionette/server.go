@@ -9,6 +9,7 @@ import (
 
 	"github.com/armon/go-socks5"
 	"github.com/redjack/marionette"
+	"github.com/redjack/marionette/fte"
 	"github.com/redjack/marionette/mar"
 	_ "github.com/redjack/marionette/plugins"
 	"go.uber.org/zap"
@@ -55,6 +56,7 @@ func (cmd *ServerCommand) Run(args []string) error {
 	}
 
 	// Set logger if verbose.
+	fte.Verbose = *verbose
 	if *verbose {
 		logger, err := zap.NewDevelopment()
 		if err != nil {

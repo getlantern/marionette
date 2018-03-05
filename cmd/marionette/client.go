@@ -9,6 +9,7 @@ import (
 	"os/signal"
 
 	"github.com/redjack/marionette"
+	"github.com/redjack/marionette/fte"
 	"github.com/redjack/marionette/mar"
 	_ "github.com/redjack/marionette/plugins"
 	"go.uber.org/zap"
@@ -52,6 +53,7 @@ func (cmd *ClientCommand) Run(args []string) error {
 	}
 
 	// Set logger if debug is on.
+	fte.Verbose = *verbose
 	if *verbose {
 		logger, err := zap.NewDevelopment()
 		if err != nil {

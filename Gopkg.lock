@@ -2,10 +2,10 @@
 
 
 [[projects]]
-  name = "github.com/BurntSushi/toml"
+  branch = "master"
+  name = "github.com/armon/go-socks5"
   packages = ["."]
-  revision = "b26d9c308763d68093482582cea63d69be07a0f0"
-  version = "v0.3.0"
+  revision = "e75332964ef517daa070d7c38a9466a0d687e0a5"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -49,9 +49,15 @@
   revision = "35aad584952c3e7020db7b839f6b102de6271f89"
   version = "v1.7.1"
 
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/net"
+  packages = ["context"]
+  revision = "22ae77b79946ea320088417e4d50825671d82d57"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "42d19518923e159ed0918519c4378a9df7ed52ee1c5000e294da78fd6c06ac33"
+  inputs-digest = "787fe66ad84261b1e16e27db40adf1dcdba7e811e1bc27d48f02d998438e4a04"
   solver-name = "gps-cdcl"
   solver-version = 1

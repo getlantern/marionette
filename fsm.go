@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
 	"os"
 	"regexp"
 	"strconv"
+	"sync"
 
 	"github.com/redjack/marionette/fte"
 	"github.com/redjack/marionette/mar"
@@ -27,6 +29,8 @@ var (
 
 // FSM represents an interface for the Marionette state machine.
 type FSM interface {
+	io.Closer
+
 	// Document & FSM identifiers.
 	UUID() int
 	SetInstanceID(int)
@@ -72,6 +76,8 @@ type FSM interface {
 
 	// Returns a copy of the FSM with a different format.
 	Clone(doc *mar.Document) FSM
+
+	Logger() *zap.Logger
 }
 
 // Ensure implementation implements interface.
@@ -92,6 +98,9 @@ type fsm struct {
 	state string
 	stepN int
 	rand  *rand.Rand
+
+	mu     sync.Mutex
+	closed bool
 
 	// Lookup of transitions by src state.
 	transitions map[string][]*mar.Transition
@@ -135,13 +144,26 @@ func (fsm *fsm) initFirstSender() {
 	fsm.rand = rand.New(rand.NewSource(int64(fsm.instanceID)))
 }
 
+func (fsm *fsm) Close() error {
+	fsm.mu.Lock()
+	defer fsm.mu.Unlock()
+	fsm.closed = true
+	return fsm.Conn().Close()
+}
+
+func (fsm *fsm) Closed() bool {
+	fsm.mu.Lock()
+	defer fsm.mu.Unlock()
+	return fsm.closed
+}
+
 func (fsm *fsm) Reset() {
 	fsm.state = "start"
 	fsm.vars = make(map[string]interface{})
 
 	for _, fn := range fsm.closeFuncs {
 		if err := fn(); err != nil {
-			fsm.logger().Error("close error", zap.Error(err))
+			fsm.Logger().Error("close error", zap.Error(err))
 		}
 	}
 	fsm.closeFuncs = nil
@@ -199,7 +221,7 @@ func (fsm *fsm) Execute(ctx context.Context) error {
 
 	for !fsm.Dead() {
 		if err := fsm.Next(ctx); err == ErrRetryTransition {
-			fsm.logger().Debug("retry transition", zap.String("state", fsm.State()))
+			fsm.Logger().Debug("retry transition", zap.String("state", fsm.State()))
 			continue
 		} else if err != nil {
 			return err
@@ -429,6 +451,9 @@ func (f *fsm) Clone(doc *mar.Document) FSM {
 	return other
 }
 
-func (fsm *fsm) logger() *zap.Logger {
+func (fsm *fsm) Logger() *zap.Logger {
+	if fsm.Closed() {
+		return zap.NewNop()
+	}
 	return Logger.With(zap.String("party", fsm.party))
 }

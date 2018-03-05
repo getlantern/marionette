@@ -57,7 +57,7 @@ func (d *Dialer) Close() error {
 func (d *Dialer) close() (err error) {
 	d.mu.Lock()
 	d.closed = true
-	err = d.fsm.Conn().Close()
+	err = d.fsm.Close()
 	d.mu.Unlock()
 
 	d.cancel()

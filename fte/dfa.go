@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math/big"
-	"os"
 	"os/exec"
 	"strconv"
 	"sync"
@@ -26,7 +25,6 @@ type DFA struct {
 	stdin  io.WriteCloser
 	stdout io.ReadCloser
 	bufout *bufio.Reader
-	stderr io.ReadCloser
 
 	capacity int
 }
@@ -54,7 +52,7 @@ func (dfa *DFA) Open() error {
 
 	// Start process.
 	dfa.cmd = exec.Command("python2", dfa.filename, dfa.regex, strconv.Itoa(dfa.msgLen))
-	dfa.cmd.Stderr = os.Stderr
+	dfa.cmd.Stderr = stderr()
 	if dfa.stdin, err = dfa.cmd.StdinPipe(); err != nil {
 		return err
 	} else if dfa.stdout, err = dfa.cmd.StdoutPipe(); err != nil {
