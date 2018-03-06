@@ -153,7 +153,9 @@ func (l *Listener) execute(fsm FSM, conn net.Conn) {
 	defer l.removeConn(conn)
 
 	for !l.Closed() {
-		if err := fsm.Execute(l.ctx); err == io.EOF {
+		if err := fsm.Execute(l.ctx); err == ErrStreamClosed {
+			return
+		} else if err == io.EOF {
 			Logger.Debug("client disconnected", zap.String("addr", conn.RemoteAddr().String()))
 			return
 		} else if err != nil {

@@ -67,7 +67,15 @@ func (p *ClientProxy) handleConn(incomingConn net.Conn) {
 	// Copy between incoming connection and stream until an error occurs.
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() { defer wg.Done(); io.Copy(incomingConn, stream) }()
-	go func() { defer wg.Done(); io.Copy(stream, incomingConn) }()
+	go func() {
+		defer wg.Done()
+		io.Copy(incomingConn, stream)
+		incomingConn.Close()
+	}()
+	go func() {
+		defer wg.Done()
+		io.Copy(stream, incomingConn)
+		stream.Close()
+	}()
 	wg.Wait()
 }

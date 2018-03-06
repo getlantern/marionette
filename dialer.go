@@ -84,7 +84,9 @@ func (d *Dialer) execute() {
 	defer d.close()
 
 	for !d.Closed() {
-		if err := d.fsm.Execute(d.ctx); err != nil {
+		if err := d.fsm.Execute(d.ctx); err == ErrStreamClosed {
+			continue
+		} else if err != nil {
 			Logger.Debug("dialer error", zap.Error(err))
 			return
 		}
