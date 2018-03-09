@@ -3,6 +3,10 @@ marionette
 
 This is a Go port of the [marionette][] programmable networy proxy.
 
+## WebBrowser Demonstration
+
+Please install Marionette as described below, and then go to the web browser demonstration page [here](./BrowserDemo.md)
+
 ## Installation
 
 Marionette requires several dependencies to be installed first.
