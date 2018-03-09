@@ -56,3 +56,20 @@ func Formats() []string {
 	}
 	return formats
 }
+
+// SplitFormat splits a fully qualified format name into it's name and version parts.
+func SplitFormat(s string) (name, version string) {
+	a := strings.SplitN(s, ":", 2)
+	if len(a) == 1 {
+		return a[0], ""
+	}
+	return a[0], a[1]
+}
+
+// StripFormatVersion removes any version specified on a format.
+func StripFormatVersion(format string) string {
+	if i := strings.Index(format, ":"); i != -1 {
+		return format[:i]
+	}
+	return format
+}

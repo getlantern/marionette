@@ -43,7 +43,7 @@ action do_ftp_get_file_request:
     client io.puts("get MyFile.mp3\n")
 
 action do_ftp_get_file_response_started:
-    server io.puts("150 Data connection starting for MyFile.mp3.\n")
+    server io.puts("150 Opening data channel for file transfer\n")
 
 action do_ftp_pasv_transfer:
     server model.spawn("ftp_pasv_transfer", 1)

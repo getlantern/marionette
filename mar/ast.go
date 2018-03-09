@@ -51,6 +51,28 @@ func (doc *Document) ActionBlock(name string) *ActionBlock {
 	return nil
 }
 
+// HasTransition returns true if there is a transition between src and dst.
+func (doc *Document) HasTransition(src, dst string) bool {
+	for _, transition := range doc.Transitions {
+		if transition.Source == src && transition.Destination == dst {
+			return true
+		}
+	}
+	return false
+}
+
+// Normalize ensures document conforms to expected state.
+func (doc *Document) Normalize() error {
+	// Add dead state transitions.
+	if !doc.HasTransition("end", "dead") {
+		doc.Transitions = append(doc.Transitions, &Transition{Source: "end", Destination: "dead", ActionBlock: "NULL", Probability: 1})
+	}
+	if !doc.HasTransition("dead", "dead") {
+		doc.Transitions = append(doc.Transitions, &Transition{Source: "dead", Destination: "dead", ActionBlock: "NULL", Probability: 1})
+	}
+	return nil
+}
+
 type Transition struct {
 	Source            string
 	SourcePos         Pos
@@ -196,6 +218,37 @@ func (a *Action) ArgValues() []interface{} {
 		other[i] = arg.Value
 	}
 	return other
+}
+
+// Transform converts the action to its complement depending on the party.
+func (a *Action) Transform(party string) {
+	switch party {
+	case "client":
+		a.transform("server", "client")
+	case "server":
+		a.transform("client", "server")
+	}
+}
+
+func (a *Action) transform(from, to string) {
+	if a.Party == from {
+		switch a.Module {
+		case "fte", "tg":
+			if a.Method == "send" {
+				a.Method = "recv"
+			} else if a.Method == "send_async" {
+				a.Method = "recv_async"
+			}
+			a.Party = to
+		case "io":
+			if a.Method == "gets" {
+				a.Method = "puts"
+			} else if a.Method == "puts" {
+				a.Method = "gets"
+			}
+			a.Party = to
+		}
+	}
 }
 
 // FilterActionsByParty returns a slice of actions matching party.

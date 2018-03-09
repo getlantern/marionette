@@ -53,16 +53,20 @@ func (s *Scanner) Scan() (tok Token, lit string, pos Pos) {
 			return RPAREN, string(ch), pos
 		case '.':
 			return DOT, string(ch), pos
+		case '#':
+			return HASH, string(ch), pos
 		default:
 			return ILLEGAL, string(ch), pos
 		}
 	}
 }
 
-// ScanIgnoreWhitespace returns the next non-whitespace token.
+// ScanIgnoreWhitespace returns the next non-whitespace, non-comment token.
 func (s *Scanner) ScanIgnoreWhitespace() (tok Token, lit string, pos Pos) {
 	for {
-		if tok, lit, pos = s.Scan(); tok != WS {
+		if tok, lit, pos = s.Scan(); tok == HASH {
+			s.scanUntilNewline()
+		} else if tok != WS {
 			return tok, lit, pos
 		}
 	}
@@ -76,11 +80,13 @@ func (s *Scanner) Peek() (tok Token, lit string, pos Pos) {
 	return tok, lit, pos
 }
 
-// PeekIgnoreWhitespace returns the next non-whitespace token without moving the scanner forward.
+// PeekIgnoreWhitespace returns the next non-whitespace, non-comment token without moving the scanner forward.
 func (s *Scanner) PeekIgnoreWhitespace() (tok Token, lit string, pos Pos) {
 	i, prev := s.i, s.pos
 	for {
-		if tok, lit, pos = s.Scan(); tok != WS {
+		if tok, lit, pos = s.Scan(); tok == HASH {
+			s.scanUntilNewline()
+		} else if tok != WS {
 			s.i, s.pos = i, prev
 			return tok, lit, pos
 		}
@@ -96,6 +102,12 @@ func (s *Scanner) scanWhitespace() (tok Token, lit string, pos Pos) {
 		buf.WriteRune(s.read())
 	}
 	return WS, buf.String(), pos
+}
+
+// scanUntilNewline consumes all code points up to and including the next newline or EOF.
+func (s *Scanner) scanUntilNewline() {
+	for ch := s.read(); ch != '\n' && ch != eof; ch = s.read() {
+	}
 }
 
 // scanString consumes a quoted string.

@@ -1,14 +1,11 @@
 package marionette
 
 import (
-	"context"
+	"math/big"
 	"math/rand"
-	"net"
-	"strings"
-	"sync"
 	"time"
 
-	"github.com/redjack/marionette/fte"
+	"go.uber.org/zap"
 )
 
 const (
@@ -16,74 +13,57 @@ const (
 	PartyServer = "server"
 )
 
+func init() {
+	config := zap.NewDevelopmentConfig()
+	config.EncoderConfig.TimeKey = ""
+	config.EncoderConfig.CallerKey = ""
+	Logger, _ = config.Build()
+}
+
+// Logger is the global marionette logger.
+var Logger = zap.NewNop()
+
 // Rand returns a new PRNG seeded from the current time.
 // This function can be overridden by the tests to provide a repeatable PRNG.
 var Rand = func() *rand.Rand { return rand.New(rand.NewSource(time.Now().UnixNano())) }
 
-// StripFormatVersion removes any version specified on a format.
-func StripFormatVersion(format string) string {
-	if i := strings.Index(format, ":"); i != -1 {
-		return format[:i]
+// PluginFunc represents a plugin in the MAR language.
+type PluginFunc func(fsm FSM, args ...interface{}) error
+
+// FindPlugin returns a plugin function by module & name.
+func FindPlugin(module, method string) PluginFunc {
+	return plugins[pluginKey{module, method}]
+}
+
+// RegisterPlugin adds a plugin to the plugin registry.
+// Panic on duplicate registration.
+func RegisterPlugin(module, method string, fn PluginFunc) {
+	if v := FindPlugin(module, method); v != nil {
+		panic("plugin already registered")
 	}
-	return format
+	plugins[pluginKey{module, method}] = fn
 }
 
-type Dialer interface {
-	DialContext(ctx context.Context, network, address string) (net.Conn, error)
+type pluginKey struct {
+	module string
+	method string
 }
 
-type bufConn struct {
-	net.Conn
+var plugins = make(map[pluginKey]PluginFunc)
 
-	mu  sync.RWMutex
-	buf []byte
-}
-
-func newBufConn(conn net.Conn) *bufConn {
-	c := &bufConn{Conn: conn}
-	// TODO: Start goroutine to read into buffer.
-	return c
-}
-
-// Peek returns the current buffer.
-func (conn *bufConn) Peek() []byte {
-	conn.mu.RLock()
-	defer conn.mu.RUnlock()
-	return conn.buf
-}
-
-// Unshift pushes data to the beginning of the buffer.
-func (conn *bufConn) Unshift(data []byte) {
-	conn.mu.Lock()
-	defer conn.mu.Unlock()
-	conn.buf = append(data, conn.buf...)
-}
-
-// Read reads
-func (conn *bufConn) Read(b []byte) (n int, err error) {
-	// TODO: Copy buffer into b.
-	// TODO: Shift bytes to beginning.
-	// TODO: Return byte count.
-	panic("TODO")
-}
-
-// NewCipherFunc returns a new instance of Cipher.
-type NewCipherFunc func(regex string) (Cipher, error)
-
-// Cipher represents an interface for encrypting & decrypting messages.
+// Cipher represents the interface to the FTE Cipher.
 type Cipher interface {
+	Capacity() (int, error)
 	Encrypt(plaintext []byte) (ciphertext []byte, err error)
-	Decrypt(ciphertext []byte) (plaintext []byte, err error)
-	Capacity() int
+	Decrypt(ciphertext []byte) (plaintext, remainder []byte, err error)
 }
 
-// NewFTECipher returns a new instance of fte.Cipher.
-func NewFTECipher(regex string) (Cipher, error) {
-	c := fte.NewCipher(regex)
-	if err := c.Open(); err != nil {
-		return nil, err
-	}
-	return c, nil
+// DFA represents the interface to the DFA ranker.
+type DFA interface {
+	Capacity() (int, error)
+	Rank(s string) (rank *big.Int, err error)
+	Unrank(rank *big.Int) (ret string, err error)
+	NumWordsInSlice(n int) (numWords *big.Int, err error)
 }
 
 func assert(condition bool) {
