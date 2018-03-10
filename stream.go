@@ -185,11 +185,6 @@ func (s *Stream) Enqueue(cell *Cell) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Drop cells that for streams that are already closed.
-	if s.closed {
-		return nil
-	}
-
 	// If sequence is out of order then add to queue and exit.
 	if cell.SequenceID < s.seq {
 		s.logger().Debug("duplicate cell", zap.Int("sequence_id", cell.SequenceID))

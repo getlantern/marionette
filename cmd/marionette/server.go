@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/signal"
 
@@ -81,7 +84,9 @@ func (cmd *ServerCommand) Run(args []string) error {
 	// Start proxy.
 	proxy := marionette.NewServerProxy(ln)
 	if *useSocks5 {
-		if proxy.Socks5Server, err = socks5.New(&socks5.Config{}); err != nil {
+		if proxy.Socks5Server, err = socks5.New(&socks5.Config{
+			Logger: log.New(&socks5LogWriter{}, "", 0),
+		}); err != nil {
 			return err
 		}
 	} else {
@@ -106,4 +111,23 @@ func (cmd *ServerCommand) Run(args []string) error {
 	fmt.Fprintln(os.Stderr, "received interrupt, shutting down...")
 
 	return nil
+}
+
+// socks5LogWriter converts errors to use zap. Also drops some expected errors.
+type socks5LogWriter struct {
+	w io.Writer
+}
+
+func (w *socks5LogWriter) Write(p []byte) (n int, err error) {
+	p = bytes.TrimPrefix(p, []byte("[ERR] socks: Failed to handle request: "))
+	logger := marionette.Logger.With(zap.String("service", "socks5"))
+
+	switch {
+	case bytes.Contains(p, []byte("connection reset by peer")),
+		bytes.Contains(p, []byte("broken pipe")):
+		logger.Debug(string(p))
+	default:
+		logger.Error(string(p))
+	}
+	return 0, nil
 }
