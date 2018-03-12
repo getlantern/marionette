@@ -124,7 +124,13 @@ $ docker run -p 8081:8081 redjack/marionette server -format http_simple_blocking
 ```
 
 ```sh
-$ docker run -p 8079:8079 redjack/marionette client -format http_simple_blocking
+$ docker run -p 8079:8079 redjack/marionette client -bind 0.0.0.0:8079 -format http_simple_blocking
+```
+
+If you're running _Docker for Mac_ then you'll also need to add a `-server` argument:
+
+```sh
+$ docker run -p 8079:8079 redjack/marionette client -bind 0.0.0.0:8079 -server docker.for.mac.host.internal -format http_simple_blocking
 ```
 
 
