@@ -31,6 +31,10 @@ func run(args []string) error {
 		return NewClientCommand().Run(args[1:])
 	case "formats":
 		return NewFormatsCommand().Run(args[1:])
+	case "pt-client":
+		return NewPTClientCommand().Run(args[1:])
+	case "pt-server":
+		return NewPTServerCommand().Run(args[1:])
 	case "server":
 		return NewServerCommand().Run(args[1:])
 	default:
@@ -49,8 +53,10 @@ Usage:
 
 The commands are:
 
-	client  runs the client proxy
-	formats show a list of available formats
-	server  runs the server proxy
+	client    runs the client proxy
+	formats   show a list of available formats
+	pt-client runs the client proxy as a PT
+	pt-server runs the server proxy as a PT
+	server    runs the server proxy
 `[1:]
 }

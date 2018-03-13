@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "git.torproject.org/pluggable-transports/goptlib.git"
+  packages = ["."]
+  revision = "fcc1d072d63b3e843495d4af4c0f522ddbb9fefc"
+  version = "0.7"
+
+[[projects]]
   branch = "master"
   name = "github.com/armon/go-socks5"
   packages = ["."]
@@ -58,6 +64,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "787fe66ad84261b1e16e27db40adf1dcdba7e811e1bc27d48f02d998438e4a04"
+  inputs-digest = "c233dec4f9473143433dc48fa1c1fdfbf02768152565b5f24771b17a10e0109d"
   solver-name = "gps-cdcl"
   solver-version = 1
