@@ -1,0 +1,16 @@
+# .torrc client example
+#
+# NOTE: Replace $HOME with your home directory.
+
+RunAsDaemon 0
+Log notice stderr
+DataDirectory $HOME/.tor-marionette-client/
+
+SocksPort 19050
+
+UseBridges 1
+
+# See comment in torrc.server for information about why this must always be 8081.
+Bridge marionette 127.0.0.1:8081
+
+ClientTransportPlugin marionette exec $HOME/go/bin/marionette pt-client -log-file $HOME/tor-marionette-client.log -format http_simple_blocking

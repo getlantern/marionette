@@ -1,0 +1,18 @@
+# .torrc server example
+#
+# NOTE: Replace $HOME with your home directory.
+
+RunAsDaemon 0
+Log notice stderr
+DataDirectory $HOME/.tor-marionette-server/
+
+PublishServerDescriptor 0
+BridgeRelay 1
+ORPort 9001
+ExtORPort 9002
+
+ServerTransportPlugin marionette exec $HOME/user/go/bin/marionette pt-server -log-file $HOME/user/tor-marionette- server.log -format http_simple_blocking
+
+# Marionette gets its listening port from its specification document.
+# This should be fixed before deployment. We hardcode this value to 8081.
+ServerTransportListenAddr marionette 127.0.0.1:8081
