@@ -26,15 +26,44 @@ Although the code can work through the proxy with the above data, Firefox does n
 - Go to the term media.peerconnection.enabled 
 - Set it to false by double clicking on it.
 
-### Activate Marionette
+## Installation (Docker)
 
-Start Marionette server as:
+For this demo, please we will use the v0.1 Docker image. You'll need to have Docker
+installed. You can find instructions for specific operating system here:
+https://docs.docker.com/install
 
-``marionette server -format http_simple_blocking -socks5``
+Once docker is installed, then download the appropriate docker file from the v0.1 release of Marionette.  The file can be found here:
 
-Start Marionette client as:
+https://github.com/redjack/marionette/releases/tag/v0.1
 
-``marionette client -format http_simple_blocking``
+To install the docker file in docker:
+
+```
+$ gunzip redjack-marionette-0.1.gz
+```
+```
+$ docker load -i redjack-marionette-0.1
+```
+
+### Running using the Docker image
+
+Next, run the Docker image and use the appropriate port mappings for the
+Marionette format you're using. `http_simple_blocking` uses
+port `8081`:
+
+```sh
+$ docker run -p 8081:8081 redjack/marionette server -format http_simple_blocking
+```
+
+```sh
+$ docker run -p 8079:8079 redjack/marionette client -bind 0.0.0.0:8079 -format http_simple_blocking
+```
+
+If you're running _Docker for Mac_ then you'll also need to add a `-server` argument:
+
+```sh
+$ docker run -p 8079:8079 redjack/marionette client -bind 0.0.0.0:8079 -server docker.for.mac.host.internal -format http_simple_blocking
+```
 
 Start wireshark on the loopback network and watch the packets.
 
@@ -46,8 +75,9 @@ Start wireshark on the loopback network and watch the packets.
 
 ### Surf
 
-Look at your favorite webpage.  Note, there are still some issues regarding maintaining the connection that we are working through.  If the connection drops, then:
+Look at your favorite webpage(s).  The system is fairly reliable now, but in the event that the connection drops, then:
 
 - Stop the server and the client
 - Restart the server and the client (in order)
 - Refresh the page
+- Report the error
