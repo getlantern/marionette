@@ -101,6 +101,8 @@ type fsm struct {
 
 	mu     sync.Mutex
 	closed bool
+	ctx    context.Context
+	cancel func()
 
 	// Lookup of transitions by src state.
 	transitions map[string][]*mar.Transition
@@ -124,6 +126,7 @@ func NewFSM(doc *mar.Document, host, party string, conn net.Conn, streamSet *Str
 		streamSet: streamSet,
 		listeners: make(map[int]net.Listener),
 	}
+	fsm.ctx, fsm.cancel = context.WithCancel(context.TODO())
 	fsm.buildTransitions()
 	fsm.initFirstSender()
 	return fsm
@@ -148,6 +151,7 @@ func (fsm *fsm) Close() error {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 	fsm.closed = true
+	fsm.cancel()
 	return fsm.Conn().Close()
 }
 
@@ -323,7 +327,7 @@ func (fsm *fsm) evalActions(actions []*mar.Action) error {
 			}
 
 			// Only evaluate action if buffer matches.
-			buf, err := fsm.conn.Peek(-1)
+			buf, err := fsm.conn.Peek(-1, false)
 			if err != nil {
 				return err
 			} else if !re.Match(buf) {
@@ -334,7 +338,7 @@ func (fsm *fsm) evalActions(actions []*mar.Action) error {
 		fn := FindPlugin(action.Module, action.Method)
 		if fn == nil {
 			return fmt.Errorf("plugin not found: %s", action.Name())
-		} else if err := fn(fsm, action.ArgValues()...); err != nil {
+		} else if err := fn(fsm.ctx, fsm, action.ArgValues()...); err != nil {
 			return err
 		}
 		return nil

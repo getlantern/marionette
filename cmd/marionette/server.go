@@ -61,17 +61,13 @@ func (cmd *ServerCommand) Run(args []string) error {
 	// Set logger if verbose.
 	fte.Verbose = *verbose
 	if *verbose {
-		logger, err := zap.NewDevelopment()
-		if err != nil {
-			return nil
-		}
-		marionette.Logger = logger
+		config := zap.NewDevelopmentConfig()
+		config.DisableStacktrace = true
+		marionette.Logger, _ = config.Build()
 	} else {
-		logger, err := zap.NewProduction()
-		if err != nil {
-			return nil
-		}
-		marionette.Logger = logger
+		config := zap.NewProductionConfig()
+		config.DisableStacktrace = true
+		marionette.Logger, _ = config.Build()
 	}
 
 	// Start listener.

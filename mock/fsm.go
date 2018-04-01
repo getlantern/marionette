@@ -6,11 +6,13 @@ import (
 
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/mar"
+	"go.uber.org/zap"
 )
 
 var _ marionette.FSM = &FSM{}
 
 type FSM struct {
+	CloseFn         func() error
 	UUIDFn          func() int
 	InstanceIDFn    func() int
 	SetInstanceIDFn func(int)
@@ -30,6 +32,7 @@ type FSM struct {
 	SetVarFn        func(key string, value interface{})
 	VarFn           func(key string) interface{}
 	CloneFn         func(doc *mar.Document) marionette.FSM
+	LoggerFn        func() *zap.Logger
 
 	BufferedConn *marionette.BufferedConn
 }
@@ -42,9 +45,11 @@ func NewFSM(conn net.Conn, streamSet *marionette.StreamSet) FSM {
 	fsm.StateFn = func() string { return "default" }
 	fsm.ConnFn = func() *marionette.BufferedConn { return fsm.BufferedConn }
 	fsm.StreamSetFn = func() *marionette.StreamSet { return streamSet }
+	fsm.LoggerFn = func() *zap.Logger { return marionette.Logger }
 	return fsm
 }
 
+func (m *FSM) Close() error         { return m.CloseFn() }
 func (m *FSM) UUID() int            { return m.UUIDFn() }
 func (m *FSM) InstanceID() int      { return m.InstanceIDFn() }
 func (m *FSM) SetInstanceID(id int) { m.SetInstanceIDFn(id) }
@@ -75,3 +80,5 @@ func (m *FSM) DFA(regex string, msgLen int) marionette.DFA {
 }
 
 func (m *FSM) Clone(doc *mar.Document) marionette.FSM { return m.CloneFn(doc) }
+
+func (m *FSM) Logger() *zap.Logger { return m.LoggerFn() }

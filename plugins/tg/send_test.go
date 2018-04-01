@@ -13,7 +13,7 @@ func TestSend(t *testing.T) {
 	t.Run("OK", func(t *testing.T) {
 		streamSet := marionette.NewStreamSet()
 
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		fsm := mock.NewFSM(&conn, streamSet)
 		fsm.PartyFn = func() string { return marionette.PartyClient }
 		fsm.HostFn = func() string { return "127.0.0.1" }
@@ -68,7 +68,7 @@ func TestSend(t *testing.T) {
 	// Ensure connection write errors are passed through.
 	t.Run("ErrConnWrite", func(t *testing.T) {
 		errMarker := errors.New("marker")
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
 		fsm.HostFn = func() string { return "127.0.0.1" }

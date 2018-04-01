@@ -14,7 +14,7 @@ func init() {
 	marionette.RegisterPlugin("model", "spawn", Spawn)
 }
 
-func Spawn(fsm marionette.FSM, args ...interface{}) error {
+func Spawn(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 	logger := marionette.Logger.With(
 		zap.String("plugin", "model.spawn"),
 		zap.String("party", fsm.Party()),

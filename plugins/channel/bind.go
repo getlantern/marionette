@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -13,7 +14,7 @@ func init() {
 }
 
 // Bind binds the variable specified in the first argument to a port.
-func Bind(fsm marionette.FSM, args ...interface{}) error {
+func Bind(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 	t0 := time.Now()
 
 	logger := marionette.Logger.With(

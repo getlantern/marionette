@@ -8,7 +8,14 @@ import (
 	"github.com/redjack/marionette/mar"
 	"github.com/redjack/marionette/mock"
 	"github.com/redjack/marionette/plugins/model"
+	"go.uber.org/zap"
 )
+
+func init() {
+	if !testing.Verbose() {
+		marionette.Logger = zap.NewNop()
+	}
+}
 
 func TestSpawn(t *testing.T) {
 	t.Run("OK", func(t *testing.T) {
@@ -41,7 +48,7 @@ func TestSpawn(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := model.Spawn(&fsm); err == nil || err.Error() != `model.spawn: not enough arguments` {
+		if err := model.Spawn(&fsm); err == nil || err.Error() != `not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -50,7 +57,7 @@ func TestSpawn(t *testing.T) {
 		t.Run("format", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
-			if err := model.Spawn(&fsm, 123, 456); err == nil || err.Error() != `model.spawn: invalid format name argument type` {
+			if err := model.Spawn(&fsm, 123, 456); err == nil || err.Error() != `invalid format name argument type` {
 				t.Fatalf("unexpected error: %q", err)
 			}
 		})
@@ -58,7 +65,7 @@ func TestSpawn(t *testing.T) {
 		t.Run("count", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
-			if err := model.Spawn(&fsm, "fmt", "xyz"); err == nil || err.Error() != `model.spawn: invalid count argument type` {
+			if err := model.Spawn(&fsm, "fmt", "xyz"); err == nil || err.Error() != `invalid count argument type` {
 				t.Fatalf("unexpected error: %q", err)
 			}
 		})

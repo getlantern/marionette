@@ -2,6 +2,7 @@ package io
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +16,7 @@ func init() {
 	marionette.RegisterPlugin("io", "gets", Gets)
 }
 
-func Gets(fsm marionette.FSM, args ...interface{}) error {
+func Gets(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 	t0 := time.Now()
 
 	logger := marionette.Logger.With(
@@ -33,7 +34,7 @@ func Gets(fsm marionette.FSM, args ...interface{}) error {
 	}
 
 	// Read buffer to see if our expected data comes through.
-	buf, err := fsm.Conn().Peek(len(exp))
+	buf, err := fsm.Conn().Peek(len(exp), true)
 	if err == io.EOF {
 		return err
 	} else if err != nil {

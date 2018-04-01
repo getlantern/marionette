@@ -65,11 +65,9 @@ func (cmd *PTClientCommand) Run(args []string) error {
 	}
 
 	// We always use the production logger when running as a PT.
-	logger, err := zap.NewProduction()
-	if err != nil {
-		return err
-	}
-	marionette.Logger = logger
+	config := zap.NewProductionConfig()
+	config.DisableStacktrace = true
+	marionette.Logger, _ = config.Build()
 
 	clientInfo, err := pt.ClientSetup(nil)
 	if err != nil {

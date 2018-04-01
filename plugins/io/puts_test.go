@@ -12,7 +12,7 @@ import (
 
 func TestPuts(t *testing.T) {
 	t.Run("OK", func(t *testing.T) {
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		conn.WriteFn = func(p []byte) (int, error) {
 			if string(p) != "foo" {
 				t.Fatalf("unexpected write: %q", p)
@@ -21,6 +21,7 @@ func TestPuts(t *testing.T) {
 			return 3, nil
 		}
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
+		fsm.PartyFn = func() string { return marionette.PartyClient }
 
 		if err := io.Puts(&fsm, "foo"); err != nil {
 			t.Fatal(err)
@@ -30,7 +31,7 @@ func TestPuts(t *testing.T) {
 	// Ensure writes are continually attempted if there is a timeout error.
 	t.Run("Timeout", func(t *testing.T) {
 		var i int
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		conn.WriteFn = func(p []byte) (int, error) {
 			defer func() { i++ }()
 			switch i {
@@ -45,6 +46,7 @@ func TestPuts(t *testing.T) {
 			}
 		}
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
+		fsm.PartyFn = func() string { return marionette.PartyClient }
 
 		if err := io.Puts(&fsm, "foo"); err != nil {
 			t.Fatal(err)
@@ -52,17 +54,19 @@ func TestPuts(t *testing.T) {
 	})
 
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if err := io.Puts(&fsm); err == nil || err.Error() != `io.puts: not enough arguments` {
+		fsm.PartyFn = func() string { return marionette.PartyClient }
+		if err := io.Puts(&fsm); err == nil || err.Error() != `not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
 
 	t.Run("ErrInvalidArgument", func(t *testing.T) {
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
-		if err := io.Puts(&fsm, 123); err == nil || err.Error() != `io.puts: invalid argument type` {
+		fsm.PartyFn = func() string { return marionette.PartyClient }
+		if err := io.Puts(&fsm, 123); err == nil || err.Error() != `invalid argument type` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -70,11 +74,12 @@ func TestPuts(t *testing.T) {
 	// Ensure write errors are passed through.
 	t.Run("ErrWrite", func(t *testing.T) {
 		errMarker := errors.New("marker")
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		conn.WriteFn = func(p []byte) (int, error) {
 			return 0, errMarker
 		}
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
+		fsm.PartyFn = func() string { return marionette.PartyClient }
 
 		if err := io.Puts(&fsm, "foo"); err != errMarker {
 			t.Fatalf("unexpected error: %q", err)

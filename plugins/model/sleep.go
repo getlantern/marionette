@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"math/rand"
 	"strconv"
@@ -15,7 +16,7 @@ func init() {
 	marionette.RegisterPlugin("model", "sleep", Sleep)
 }
 
-func Sleep(fsm marionette.FSM, args ...interface{}) error {
+func Sleep(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 	t0 := time.Now()
 
 	logger := marionette.Logger.With(

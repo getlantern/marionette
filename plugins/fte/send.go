@@ -1,6 +1,7 @@
 package fte
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -14,16 +15,16 @@ func init() {
 }
 
 // Send sends data to a connection.
-func Send(fsm marionette.FSM, args ...interface{}) error {
-	return send(fsm, args, true)
+func Send(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
+	return send(ctx, fsm, args, true)
 }
 
 // SendAsync send data to a connection without blocking.
-func SendAsync(fsm marionette.FSM, args ...interface{}) error {
-	return send(fsm, args, false)
+func SendAsync(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
+	return send(ctx, fsm, args, false)
 }
 
-func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
+func send(ctx context.Context, fsm marionette.FSM, args []interface{}, blocking bool) error {
 	t0 := time.Now()
 
 	logger := marionette.Logger.With(
@@ -45,30 +46,23 @@ func send(fsm marionette.FSM, args []interface{}, blocking bool) error {
 		return errors.New("invalid msg_len argument type")
 	}
 
-	// If asynchronous, keep trying to read a cell until there is data.
-	// If synchronous, send an empty cell if there is no data.
-	var cell *marionette.Cell
-	for {
-		notify := fsm.StreamSet().WriteNotify()
+	capacity, err := fsm.Cipher(regex).Capacity()
+	if err != nil {
+		return err
+	}
 
-		logger.Debug("dequeuing cell")
-
-		capacity, err := fsm.Cipher(regex).Capacity()
-		if err != nil {
-			return err
-		}
-
-		cell = fsm.StreamSet().Dequeue(capacity)
-		if cell != nil {
-			break
-		} else if blocking {
-			logger.Debug("no cell, sending empty cell")
-			cell = marionette.NewCell(0, 0, 0, marionette.NORMAL)
-			break
-		}
-
-		// Wait until new data is available unless blocking.
-		<-notify
+	// Pull the next cell for the stream set. If no cell exists and we are
+	// blocking then send an empty cell. If no cell exists and we are not
+	// blocking then return. The FSM will move on to the next step. This
+	// allows non-blocking send/recv to continually check both sides of a conn.
+	cell := fsm.StreamSet().Dequeue(capacity)
+	if cell != nil {
+		// nop
+	} else if cell == nil && blocking {
+		logger.Debug("no cell, sending empty cell")
+		cell = marionette.NewCell(0, 0, 0, marionette.NORMAL)
+	} else {
+		return nil
 	}
 
 	// Assign fsm data to cell.

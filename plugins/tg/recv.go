@@ -1,6 +1,7 @@
 package tg
 
 import (
+	"context"
 	"errors"
 	"io"
 	"time"
@@ -13,7 +14,7 @@ func init() {
 	marionette.RegisterPlugin("tg", "recv", Recv)
 }
 
-func Recv(fsm marionette.FSM, args ...interface{}) error {
+func Recv(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 	t0 := time.Now()
 
 	logger := marionette.Logger.With(
@@ -38,7 +39,7 @@ func Recv(fsm marionette.FSM, args ...interface{}) error {
 	}
 
 	// Retrieve data from the connection.
-	ciphertext, err := fsm.Conn().Peek(-1)
+	ciphertext, err := fsm.Conn().Peek(-1, true)
 	if err == io.EOF {
 		return err
 	} else if err != nil {

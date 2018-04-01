@@ -8,7 +8,14 @@ import (
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/mock"
 	"github.com/redjack/marionette/plugins/fte"
+	"go.uber.org/zap"
 )
+
+func init() {
+	if !testing.Verbose() {
+		marionette.Logger = zap.NewNop()
+	}
+}
 
 func TestRecv(t *testing.T) {
 	t.Run("OK", func(t *testing.T) {
@@ -19,7 +26,7 @@ func TestRecv(t *testing.T) {
 		defer stream1.Close()
 		defer stream2.Close()
 
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		conn.SetReadDeadlineFn = func(_ time.Time) error { return nil }
 		conn.ReadFn = func(p []byte) (int, error) {
 			copy(p, []byte("barbaz"))
@@ -75,7 +82,7 @@ func TestRecv(t *testing.T) {
 
 	// Ensure instance ID can be set and retried.
 	t.Run("SetInstanceID", func(t *testing.T) {
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		conn.ReadFn = func(p []byte) (int, error) {
 			copy(p, []byte("bar"))
 			return 3, nil
@@ -116,7 +123,7 @@ func TestRecv(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := fte.Recv(&fsm); err == nil || err.Error() != `fte.recv: not enough arguments` {
+		if err := fte.Recv(&fsm); err == nil || err.Error() != `not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -125,7 +132,7 @@ func TestRecv(t *testing.T) {
 		t.Run("regex", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
-			if err := fte.Recv(&fsm, 123, 456); err == nil || err.Error() != `fte.recv: invalid regex argument type` {
+			if err := fte.Recv(&fsm, 123, 456); err == nil || err.Error() != `invalid regex argument type` {
 				t.Fatalf("unexpected error: %q", err)
 			}
 		})
@@ -133,7 +140,7 @@ func TestRecv(t *testing.T) {
 		t.Run("msg_len", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
-			if err := fte.Recv(&fsm, "abc", "def"); err == nil || err.Error() != `fte.recv: invalid msg_len argument type` {
+			if err := fte.Recv(&fsm, "abc", "def"); err == nil || err.Error() != `invalid msg_len argument type` {
 				t.Fatalf("unexpected error: %q", err)
 			}
 		})
@@ -142,7 +149,7 @@ func TestRecv(t *testing.T) {
 	// Ensure plugin passes through connection errors.
 	t.Run("ErrConnPeek", func(t *testing.T) {
 		errMarker := errors.New("marker")
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		conn.SetReadDeadlineFn = func(_ time.Time) error { return nil }
 		conn.ReadFn = func(p []byte) (int, error) {
 			return 0, errMarker
@@ -161,7 +168,7 @@ func TestRecv(t *testing.T) {
 	// Ensure plugin passes through decryption errors.
 	t.Run("ErrDecrypt", func(t *testing.T) {
 		errMarker := errors.New("marker")
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		conn.SetReadDeadlineFn = func(_ time.Time) error { return nil }
 		conn.ReadFn = func(p []byte) (int, error) {
 			copy(p, []byte("foo"))
@@ -187,7 +194,7 @@ func TestRecv(t *testing.T) {
 
 	// Ensure an error is returned if the UUID of the FSM and cell do not match.
 	t.Run("ErrUUIDMismatch", func(t *testing.T) {
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		conn.ReadFn = func(p []byte) (int, error) {
 			copy(p, []byte("bar"))
 			return 3, nil
@@ -210,14 +217,14 @@ func TestRecv(t *testing.T) {
 		}
 		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
-		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `uuid mismatch: fsm=100, cell=400` {
+		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `uuid mismatch` {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
 	// Ensure an error is returned if the instance ID of the FSM and cell do not match.
 	t.Run("ErrInstanceIDMismatch", func(t *testing.T) {
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		conn.ReadFn = func(p []byte) (int, error) {
 			copy(p, []byte("bar"))
 			return 3, nil
@@ -245,9 +252,10 @@ func TestRecv(t *testing.T) {
 		}
 	})
 
-	// Ensure an error is returned if a stream has been closed.
+	// A stream should continue receiving data after a close.
+	// The close only initiates an end-of-stream error.
 	t.Run("ErrStreamClosed", func(t *testing.T) {
-		var conn mock.Conn
+		conn := mock.DefaultConn()
 		conn.ReadFn = func(p []byte) (int, error) {
 			copy(p, []byte("bar"))
 			return 3, nil
@@ -276,7 +284,7 @@ func TestRecv(t *testing.T) {
 		}
 		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
-		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != marionette.ErrStreamClosed {
+		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != nil {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})

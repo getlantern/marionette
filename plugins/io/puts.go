@@ -1,6 +1,7 @@
 package io
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -12,7 +13,7 @@ func init() {
 	marionette.RegisterPlugin("io", "puts", Puts)
 }
 
-func Puts(fsm marionette.FSM, args ...interface{}) error {
+func Puts(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 	t0 := time.Now()
 
 	logger := marionette.Logger.With(

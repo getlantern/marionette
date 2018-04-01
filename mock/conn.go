@@ -18,6 +18,14 @@ type Conn struct {
 	SetWriteDeadlineFn func(t time.Time) error
 }
 
+func DefaultConn() Conn {
+	return Conn{
+		SetDeadlineFn:      func(t time.Time) error { return nil },
+		SetReadDeadlineFn:  func(t time.Time) error { return nil },
+		SetWriteDeadlineFn: func(t time.Time) error { return nil },
+	}
+}
+
 func (c *Conn) Read(b []byte) (n int, err error)   { return c.ReadFn(b) }
 func (c *Conn) Write(b []byte) (n int, err error)  { return c.WriteFn(b) }
 func (c *Conn) Close() error                       { return c.CloseFn() }

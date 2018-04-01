@@ -1,6 +1,7 @@
 package marionette
 
 import (
+	"context"
 	"math/big"
 	"math/rand"
 	"time"
@@ -28,7 +29,7 @@ var Logger = zap.NewNop()
 var Rand = func() *rand.Rand { return rand.New(rand.NewSource(time.Now().UnixNano())) }
 
 // PluginFunc represents a plugin in the MAR language.
-type PluginFunc func(fsm FSM, args ...interface{}) error
+type PluginFunc func(ctx context.Context, fsm FSM, args ...interface{}) error
 
 // FindPlugin returns a plugin function by module & name.
 func FindPlugin(module, method string) PluginFunc {

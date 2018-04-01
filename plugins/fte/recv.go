@@ -1,6 +1,7 @@
 package fte
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,15 +13,20 @@ import (
 
 func init() {
 	marionette.RegisterPlugin("fte", "recv", Recv)
-	marionette.RegisterPlugin("fte", "recv_async", Recv)
+	marionette.RegisterPlugin("fte", "recv_async", RecvAsync)
 }
 
 // Recv receives data from a connection.
-func Recv(fsm marionette.FSM, args ...interface{}) error {
-	return recv(fsm, args)
+func Recv(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
+	return recv(ctx, fsm, args, true)
 }
 
-func recv(fsm marionette.FSM, args []interface{}) error {
+// RecvAsync receives data from a connection without blocking.
+func RecvAsync(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
+	return recv(ctx, fsm, args, false)
+}
+
+func recv(ctx context.Context, fsm marionette.FSM, args []interface{}, blocking bool) error {
 	t0 := time.Now()
 
 	logger := func() *zap.Logger {
@@ -44,12 +50,14 @@ func recv(fsm marionette.FSM, args []interface{}) error {
 
 	// Retrieve data from the connection.
 	conn := fsm.Conn()
-	ciphertext, err := conn.Peek(-1)
+	ciphertext, err := conn.Peek(-1, blocking)
 	if err == io.EOF {
 		return err
 	} else if err != nil {
 		logger().Error("cannot read from connection", zap.Error(err))
 		return err
+	} else if len(ciphertext) == 0 {
+		return nil
 	}
 
 	// Decode ciphertext.

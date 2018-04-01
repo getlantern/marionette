@@ -1,6 +1,7 @@
 package tg
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -15,7 +16,7 @@ func init() {
 	marionette.RegisterPlugin("tg", "send", Send)
 }
 
-func Send(fsm marionette.FSM, args ...interface{}) error {
+func Send(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 	t0 := time.Now()
 
 	logger := marionette.Logger.With(
