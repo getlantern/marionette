@@ -1,0 +1,51 @@
+connection(tcp, 110):
+  start do33 NULL 0.35
+  do33 do33x2 sess33 1.0
+  do33x2 end sleep33 1.0
+  start do34 NULL 0.15
+  do34 do34x2 sess34 1.0
+  do34x2 end sleep34 1.0
+  start do35 NULL 0.15
+  do35 do35x2 sess35 1.0
+  do35x2 end sleep35 1.0
+  start do37 NULL 0.15
+  do37 do37x2 sess37 1.0
+  do37x2 end sleep37 1.0
+  start do39 NULL 0.20
+  do39 do39x2 sess39 1.0
+  do39x2 end sleep39 1.0
+
+action sess33:
+  client model.spawn("web_conn443", 33)
+  server model.spawn("web_conn443", 33)
+
+action sess34:
+  client model.spawn("web_conn443", 34)
+  server model.spawn("web_conn443", 34)
+
+action sess35:
+  client model.spawn("web_conn443", 35)
+  server model.spawn("web_conn443", 35)
+
+action sess37:
+  client model.spawn("web_conn443", 37)
+  server model.spawn("web_conn443", 37)
+
+action sess39:
+  client model.spawn("web_conn443", 39)
+  server model.spawn("web_conn443", 39)
+
+action sleep33:
+  server model.sleep("{'5.0' : 1.0}")
+
+action sleep34: 
+  server model.sleep("{'4.0' : 1.0}")
+
+action sleep35: 
+  server model.sleep("{'3.0' : 1.0}")
+
+action sleep37: 
+  server model.sleep("{'2.0' : 1.0}")
+
+action sleep39: 
+  server model.sleep("{'1.0' : 1.0}")

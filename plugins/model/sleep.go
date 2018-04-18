@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -33,36 +34,16 @@ func Sleep(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 		return errors.New("invalid argument type")
 	}
 
-	// Parse distribution.
-	distStr = distStr[1:]
-	distStr = strings.Replace(distStr, " ", "", -1)
-	distStr = strings.Replace(distStr, "\n", "", -1)
-	distStr = strings.Replace(distStr, "\t", "", -1)
-	distStr = strings.Replace(distStr, "\r", "", -1)
-
-	dist := make(map[float64]float64)
-	var keys []float64
-	for _, item := range strings.Split(distStr, ",") {
-		a := strings.Split(item, ":")
-		a[0] = strings.Trim(a[0], "'")
-
-		val, err := strconv.ParseFloat(a[0], 64)
-		if err != nil {
-			logger.Error("cannot parse element", zap.Int("i", 0), zap.String("value", a[0]), zap.Error(err))
-			return err
-		}
-
-		prob, err := strconv.ParseFloat(a[1], 64)
-		if err != nil {
-			logger.Error("cannot parse element", zap.Int("i", 1), zap.String("value", a[1]), zap.Error(err))
-			return err
-		}
-
-		if val > 0 {
-			dist[val] = prob
-			keys = append(keys, val)
-		}
+	dist, err := ParseSleepDistribution(distStr)
+	if err != nil {
+		return err
 	}
+
+	keys := make([]float64, 0, len(dist))
+	for k := range dist {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 
 	sum, coin := float64(0), rand.Float64()
 	var k float64
@@ -79,4 +60,36 @@ func Sleep(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 	logger.Debug("sleep complete", zap.Duration("duration", duration), zap.Duration("t", time.Since(t0)))
 
 	return nil
+}
+
+func ParseSleepDistribution(s string) (map[float64]float64, error) {
+	s = strings.TrimSpace(s)
+	s = strings.TrimLeft(s, "{")
+	s = strings.TrimRight(s, "}")
+	s = strings.Replace(s, " ", "", -1)
+	s = strings.Replace(s, "\n", "", -1)
+	s = strings.Replace(s, "\t", "", -1)
+	s = strings.Replace(s, "\r", "", -1)
+
+	dist := make(map[float64]float64)
+	for _, item := range strings.Split(s, ",") {
+		a := strings.Split(item, ":")
+		a[0] = strings.Trim(a[0], "'")
+
+		val, err := strconv.ParseFloat(a[0], 64)
+		if err != nil {
+			return nil, err
+		}
+
+		prob, err := strconv.ParseFloat(a[1], 64)
+		if err != nil {
+			return nil, err
+		}
+
+		if val > 0 {
+			dist[val] = prob
+		}
+	}
+
+	return dist, nil
 }

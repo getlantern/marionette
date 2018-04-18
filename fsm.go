@@ -415,10 +415,13 @@ func (fsm *fsm) ensureClientConn(ctx context.Context) error {
 	return nil
 }
 
-func (fsm *fsm) ensureServerConn(ctx context.Context) error {
+func (fsm *fsm) ensureServerConn(ctx context.Context) (err error) {
 	ln := fsm.listeners[fsm.Port()]
 	if ln == nil {
-		return fmt.Errorf("marionette.FSM: no listeners on port %d", fsm.Port())
+		if ln, err = net.Listen("tcp", net.JoinHostPort(fsm.host, strconv.Itoa(fsm.Port()))); err != nil {
+			return err
+		}
+		fsm.listeners[fsm.Port()] = ln
 	}
 
 	conn, err := ln.Accept()
