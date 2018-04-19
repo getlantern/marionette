@@ -12,6 +12,7 @@ import (
 	"github.com/redjack/marionette/fte"
 	"github.com/redjack/marionette/mar"
 	_ "github.com/redjack/marionette/plugins"
+	"github.com/redjack/marionette/plugins/model"
 	"go.uber.org/zap"
 )
 
@@ -30,6 +31,7 @@ func (cmd *ClientCommand) Run(args []string) error {
 		format   = fs.String("format", "", "Format name and version")
 		verbose  = fs.Bool("v", false, "Debug logging enabled")
 	)
+	fs.Float64Var(&model.SleepFactor, "sleep-factor", model.SleepFactor, "model.sleep() multipler")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

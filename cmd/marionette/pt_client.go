@@ -15,6 +15,7 @@ import (
 	pt "git.torproject.org/pluggable-transports/goptlib.git"
 	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/mar"
+	"github.com/redjack/marionette/plugins/model"
 	"go.uber.org/zap"
 )
 
@@ -32,6 +33,7 @@ func (cmd *PTClientCommand) Run(args []string) error {
 		format  = fs.String("format", "", "Format name and version")
 		logFile = fs.String("log-file", "", "Path to log file.")
 	)
+	fs.Float64Var(&model.SleepFactor, "sleep-factor", model.SleepFactor, "model.sleep() multipler")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

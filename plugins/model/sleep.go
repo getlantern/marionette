@@ -17,6 +17,10 @@ func init() {
 	marionette.RegisterPlugin("model", "sleep", Sleep)
 }
 
+// SleepFactor is the multiplier the sleep value is multipled by.
+// By default the sleep is not adjusted.
+var SleepFactor = 1.0
+
 func Sleep(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 	t0 := time.Now()
 
@@ -54,7 +58,7 @@ func Sleep(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 		}
 	}
 
-	duration := time.Duration(k * float64(time.Second))
+	duration := time.Duration(k * float64(time.Second) * SleepFactor)
 	time.Sleep(duration)
 
 	logger.Debug("sleep complete", zap.Duration("duration", duration), zap.Duration("t", time.Since(t0)))
