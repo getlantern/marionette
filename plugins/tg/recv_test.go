@@ -1,7 +1,9 @@
 package tg_test
 
 import (
+	"context"
 	"io"
+	"math/big"
 	"testing"
 
 	"github.com/redjack/marionette"
@@ -17,6 +19,8 @@ func init() {
 }
 
 func TestRecv(t *testing.T) {
+	t.Skip("TODO: Replace mock dfa with actual dfa")
+
 	t.Run("OK", func(t *testing.T) {
 		var stream *marionette.Stream
 		streamSet := marionette.NewStreamSet()
@@ -29,13 +33,23 @@ func TestRecv(t *testing.T) {
 			return len(ret), nil
 		}
 
+		var dfa mock.DFA
+		dfa.CapacityFn = func() (int, error) {
+			return 1000, nil
+		}
+		dfa.RankFn = func(s string) (rank *big.Int, err error) {
+			return big.NewInt(123), nil
+		}
 		fsm := mock.NewFSM(&conn, streamSet)
 		fsm.PartyFn = func() string { return marionette.PartyClient }
 		fsm.HostFn = func() string { return "127.0.0.1" }
 		fsm.UUIDFn = func() int { return 100 }
 		fsm.InstanceIDFn = func() int { return 200 }
+		fsm.DFAFn = func(regex string, msgLen int) marionette.DFA {
+			return &dfa
+		}
 
-		if err := tg.Recv(&fsm, `http_request_close`); err != nil {
+		if err := tg.Recv(context.Background(), &fsm, `http_request_close`); err != nil {
 			t.Fatal(err)
 		} else if stream == nil {
 			t.Fatal("expected stream")
@@ -53,7 +67,7 @@ func TestRecv(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := tg.Recv(&fsm); err == nil || err.Error() != `tg.recv: not enough arguments` {
+		if err := tg.Recv(context.Background(), &fsm); err == nil || err.Error() != `tg.recv: not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -61,7 +75,7 @@ func TestRecv(t *testing.T) {
 	t.Run("ErrInvalidArgument", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := tg.Recv(&fsm, 123); err == nil || err.Error() != `tg.recv: invalid grammar name argument type` {
+		if err := tg.Recv(context.Background(), &fsm, 123); err == nil || err.Error() != `tg.recv: invalid grammar name argument type` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -69,7 +83,7 @@ func TestRecv(t *testing.T) {
 	t.Run("ErrGrammarNotFound", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := tg.Recv(&fsm, "no_such_grammar"); err == nil || err.Error() != `tg.recv: grammar not found` {
+		if err := tg.Recv(context.Background(), &fsm, "no_such_grammar"); err == nil || err.Error() != `tg.recv: grammar not found` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})

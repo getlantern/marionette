@@ -1,6 +1,7 @@
 package fte_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -55,7 +56,7 @@ func TestSend(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := fte.Send(&fsm, `([a-z0-9]+)`, 128); err != nil {
+		if err := fte.Send(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != nil {
 			t.Fatal(err)
 		} else if !writeInvoked {
 			t.Fatal("expected conn.Write()")
@@ -65,7 +66,7 @@ func TestSend(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := fte.Send(&fsm); err == nil || err.Error() != `not enough arguments` {
+		if err := fte.Send(context.Background(), &fsm); err == nil || err.Error() != `not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -74,7 +75,7 @@ func TestSend(t *testing.T) {
 		t.Run("regex", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
-			if err := fte.Send(&fsm, 123, 456); err == nil || err.Error() != `invalid regex argument type` {
+			if err := fte.Send(context.Background(), &fsm, 123, 456); err == nil || err.Error() != `invalid regex argument type` {
 				t.Fatalf("unexpected error: %q", err)
 			}
 		})
@@ -82,7 +83,7 @@ func TestSend(t *testing.T) {
 		t.Run("msg_len", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
-			if err := fte.Send(&fsm, "abc", "def"); err == nil || err.Error() != `invalid msg_len argument type` {
+			if err := fte.Send(context.Background(), &fsm, "abc", "def"); err == nil || err.Error() != `invalid msg_len argument type` {
 				t.Fatalf("unexpected error: %q", err)
 			}
 		})
@@ -130,7 +131,7 @@ func TestSend(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err := fte.Send(&fsm, `([a-z0-9]+)`, 128); err != nil {
+			if err := fte.Send(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != nil {
 				t.Fatal(err)
 			} else if !writeInvoked {
 				t.Fatal("expected conn.Write()")
@@ -159,7 +160,7 @@ func TestSend(t *testing.T) {
 				return 0, nil
 			}
 
-			if err := fte.SendAsync(&fsm, `([a-z0-9]+)`, 128); err != nil {
+			if err := fte.SendAsync(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -180,7 +181,7 @@ func TestSend(t *testing.T) {
 		}
 		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
-		if err := fte.Send(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
+		if err := fte.Send(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})
@@ -205,7 +206,7 @@ func TestSend(t *testing.T) {
 			return 0, errMarker
 		}
 
-		if err := fte.Send(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
+		if err := fte.Send(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})

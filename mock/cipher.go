@@ -1,5 +1,11 @@
 package mock
 
+import (
+	"github.com/redjack/marionette"
+)
+
+var _ marionette.Cipher = (*Cipher)(nil)
+
 type Cipher struct {
 	CapacityFn func() (int, error)
 	EncryptFn  func(plaintext []byte) (ciphertext []byte, err error)

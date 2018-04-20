@@ -1,6 +1,7 @@
 package mar_test
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -30,6 +31,18 @@ func TestParser_Parse(t *testing.T) {
 					Source:      "upstream",
 					Destination: "end",
 					ActionBlock: "http_ok",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "end",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "dead",
+					Destination: "dead",
+					ActionBlock: "NULL",
 					Probability: 1,
 				},
 			},
@@ -106,6 +119,18 @@ func TestParser_Parse(t *testing.T) {
 					Source:      "upstream",
 					Destination: "end",
 					ActionBlock: "http_ok",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "end",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "dead",
+					Destination: "dead",
+					ActionBlock: "NULL",
 					Probability: 1,
 				},
 			},
@@ -200,6 +225,18 @@ func TestParser_Parse(t *testing.T) {
 					Source:      "upstream",
 					Destination: "end",
 					ActionBlock: "http_ok",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "end",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "dead",
+					Destination: "dead",
+					ActionBlock: "NULL",
 					Probability: 1,
 				},
 			},
@@ -320,6 +357,18 @@ func TestParser_Parse(t *testing.T) {
 					ActionBlock: "downstream_async",
 					Probability: 1,
 				},
+				&mar.Transition{
+					Source:      "end",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "dead",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
 				&mar.ActionBlock{
@@ -415,6 +464,18 @@ action downstream_async:
 					ActionBlock: "http_ok",
 					Probability: 1,
 				},
+				&mar.Transition{
+					Source:      "end",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "dead",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
 				&mar.ActionBlock{
@@ -480,6 +541,18 @@ action downstream_async:
 				&mar.Transition{
 					Source:      "do_nothing",
 					Destination: "end",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "end",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "dead",
+					Destination: "dead",
 					ActionBlock: "NULL",
 					Probability: 1,
 				},
@@ -555,6 +628,18 @@ action downstream_async:
 					ActionBlock:       "NULL",
 					IsErrorTransition: true,
 				},
+				&mar.Transition{
+					Source:      "end",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "dead",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
 				&mar.ActionBlock{
@@ -604,6 +689,18 @@ action downstream_async:
 				&mar.Transition{
 					Source:      "do_nothing",
 					Destination: "end",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "end",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "dead",
+					Destination: "dead",
 					ActionBlock: "NULL",
 					Probability: 1,
 				},
@@ -667,6 +764,18 @@ action downstream_async:
 					ActionBlock: "NULL",
 					Probability: 1,
 				},
+				&mar.Transition{
+					Source:      "end",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "dead",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
 			},
 			ActionBlocks: []*mar.ActionBlock{
 				&mar.ActionBlock{
@@ -714,6 +823,18 @@ action downstream_async:
 				&mar.Transition{
 					Source:      "do_nothing",
 					Destination: "end",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "end",
+					Destination: "dead",
+					ActionBlock: "NULL",
+					Probability: 1,
+				},
+				&mar.Transition{
+					Source:      "dead",
+					Destination: "dead",
 					ActionBlock: "NULL",
 					Probability: 1,
 				},
@@ -807,4 +928,20 @@ func Strip(node mar.Node) {
 			node.EndPos = mar.Pos{}
 		}
 	}), node)
+}
+
+func MustMarshalJSON(v interface{}) string {
+	buf, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(buf)
+}
+
+func MustMarshalIndentJSON(v interface{}) string {
+	buf, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	return string(buf)
 }

@@ -2,7 +2,6 @@ package marionette_test
 
 import (
 	"bytes"
-	"io"
 	"io/ioutil"
 	"sync"
 	"testing"
@@ -162,39 +161,6 @@ func TestStream_Enqueue(t *testing.T) {
 
 		// Ensure goroutine closes.
 		wg.Wait()
-	})
-
-	t.Run("ErrStreamClosed", func(t *testing.T) {
-		stream := marionette.NewStream(100)
-
-		// Encode some data.
-		if err := stream.Enqueue(&marionette.Cell{StreamID: 100, SequenceID: 1, Payload: []byte("bar")}); err != nil {
-			t.Fatal(err)
-		} else if err := stream.Enqueue(&marionette.Cell{StreamID: 100, SequenceID: 0, Payload: []byte("foo")}); err != nil {
-			t.Fatal(err)
-		}
-
-		// Close and try to enqueue.
-		if err := stream.Close(); err != nil {
-			t.Fatal(err)
-		} else if err := stream.Enqueue(&marionette.Cell{StreamID: 100, SequenceID: 2, Payload: []byte("baz")}); err != marionette.ErrStreamClosed {
-			t.Fatalf("unexpected error: %s", err)
-		}
-
-		// Successfully enqueued data should still be available.
-		buf := make([]byte, 9)
-		if n, err := stream.Read(buf); err != nil {
-			t.Fatal(err)
-		} else if n != 6 {
-			t.Fatalf("unexpected n: %d", n)
-		} else if string(buf[:n]) != "foobar" {
-			t.Fatalf("unexpected data: %s", buf)
-		}
-
-		// The next read should return EOF.
-		if _, err := stream.Read(buf); err != io.EOF {
-			t.Fatalf("unexpected error: %s", err)
-		}
 	})
 }
 

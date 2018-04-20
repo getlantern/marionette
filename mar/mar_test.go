@@ -48,6 +48,10 @@ func TestFormats(t *testing.T) {
 		"ta/amzn_sess:20150701",
 		"test_hex_input_strings:20150701",
 		"udp_test_format:20150701",
+		"web_conn:20150701",
+		"web_conn443:20150701",
+		"web_sess:20150701",
+		"web_sess443:20150701",
 		"http_simple_blocking:20150702",
 	}) {
 		t.Fatalf("unexpected formats: %+v", formats)

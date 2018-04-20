@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-//go:generate go-bindata -ignore .go -o mar.gen.go -pkg mar ./...
+//go:generate go-bindata -ignore (.go|^\.) -o mar.gen.go -pkg mar ./...
 
 var FormatVersions = []string{"20150701", "20150702"}
 
@@ -49,7 +49,10 @@ func Formats() []string {
 
 		// Move version to the end.
 		segments := strings.SplitN(name, "/", 2)
-		format := segments[1] + ":" + segments[0]
+		format := segments[0]
+		if len(segments) == 2 {
+			format = segments[1] + ":" + segments[0]
+		}
 
 		// Add to format list.
 		formats = append(formats, format)

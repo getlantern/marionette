@@ -1,6 +1,7 @@
 package fte_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -65,7 +66,7 @@ func TestRecv(t *testing.T) {
 			return &cipher
 		}
 
-		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != nil {
+		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != nil {
 			t.Fatal(err)
 		}
 
@@ -113,7 +114,7 @@ func TestRecv(t *testing.T) {
 		}
 		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
-		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != marionette.ErrRetryTransition {
+		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != marionette.ErrRetryTransition {
 			t.Fatal(err)
 		} else if !setInstanceIDInvoked {
 			t.Fatal("expected FSM.SetInstanceID() invocation")
@@ -123,7 +124,7 @@ func TestRecv(t *testing.T) {
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
 		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := fte.Recv(&fsm); err == nil || err.Error() != `not enough arguments` {
+		if err := fte.Recv(context.Background(), &fsm); err == nil || err.Error() != `not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -132,7 +133,7 @@ func TestRecv(t *testing.T) {
 		t.Run("regex", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
-			if err := fte.Recv(&fsm, 123, 456); err == nil || err.Error() != `invalid regex argument type` {
+			if err := fte.Recv(context.Background(), &fsm, 123, 456); err == nil || err.Error() != `invalid regex argument type` {
 				t.Fatalf("unexpected error: %q", err)
 			}
 		})
@@ -140,7 +141,7 @@ func TestRecv(t *testing.T) {
 		t.Run("msg_len", func(t *testing.T) {
 			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
-			if err := fte.Recv(&fsm, "abc", "def"); err == nil || err.Error() != `invalid msg_len argument type` {
+			if err := fte.Recv(context.Background(), &fsm, "abc", "def"); err == nil || err.Error() != `invalid msg_len argument type` {
 				t.Fatalf("unexpected error: %q", err)
 			}
 		})
@@ -160,7 +161,7 @@ func TestRecv(t *testing.T) {
 		fsm.UUIDFn = func() int { return 100 }
 		fsm.InstanceIDFn = func() int { return 200 }
 
-		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
+		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatal(err)
 		}
 	})
@@ -187,7 +188,7 @@ func TestRecv(t *testing.T) {
 		}
 		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
-		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != errMarker {
+		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatal(err)
 		}
 	})
@@ -217,7 +218,7 @@ func TestRecv(t *testing.T) {
 		}
 		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
-		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `uuid mismatch` {
+		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `uuid mismatch` {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -247,7 +248,7 @@ func TestRecv(t *testing.T) {
 		}
 		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
-		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `instance id mismatch: fsm=200, cell=400` {
+		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `instance id mismatch: fsm=200, cell=400` {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -284,7 +285,7 @@ func TestRecv(t *testing.T) {
 		}
 		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
 
-		if err := fte.Recv(&fsm, `([a-z0-9]+)`, 128); err != nil {
+		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != nil {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})

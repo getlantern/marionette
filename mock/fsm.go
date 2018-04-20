@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ marionette.FSM = &FSM{}
+var _ marionette.FSM = (*FSM)(nil)
 
 type FSM struct {
 	CloseFn         func() error

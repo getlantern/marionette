@@ -1,6 +1,7 @@
 package channel_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -34,7 +35,7 @@ func TestBind(t *testing.T) {
 			}
 		}
 
-		if err := channel.Bind(&fsm, "ftp_pasv_port"); err != nil {
+		if err := channel.Bind(context.Background(), &fsm, "ftp_pasv_port"); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -43,7 +44,7 @@ func TestBind(t *testing.T) {
 		conn := mock.DefaultConn()
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := channel.Bind(&fsm); err == nil || err.Error() != `not enough arguments` {
+		if err := channel.Bind(context.Background(), &fsm); err == nil || err.Error() != `not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -52,7 +53,7 @@ func TestBind(t *testing.T) {
 		conn := mock.DefaultConn()
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := channel.Bind(&fsm, 123); err == nil || err.Error() != `invalid argument type` {
+		if err := channel.Bind(context.Background(), &fsm, 123); err == nil || err.Error() != `invalid argument type` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -64,7 +65,7 @@ func TestBind(t *testing.T) {
 		fsm.PartyFn = func() string { return marionette.PartyClient }
 		fsm.VarFn = func(name string) interface{} { return 54321 }
 
-		if err := channel.Bind(&fsm, "ftp_pasv_port"); err != nil {
+		if err := channel.Bind(context.Background(), &fsm, "ftp_pasv_port"); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -78,7 +79,7 @@ func TestBind(t *testing.T) {
 		fsm.VarFn = func(name string) interface{} { return nil }
 		fsm.ListenFn = func() (int, error) { return 0, errMarker }
 
-		if err := channel.Bind(&fsm, "ftp_pasv_port"); err != errMarker {
+		if err := channel.Bind(context.Background(), &fsm, "ftp_pasv_port"); err != errMarker {
 			t.Fatal(err)
 		}
 	})

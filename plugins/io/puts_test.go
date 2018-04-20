@@ -1,6 +1,7 @@
 package io_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -23,7 +24,7 @@ func TestPuts(t *testing.T) {
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
 
-		if err := io.Puts(&fsm, "foo"); err != nil {
+		if err := io.Puts(context.Background(), &fsm, "foo"); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -48,7 +49,7 @@ func TestPuts(t *testing.T) {
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
 
-		if err := io.Puts(&fsm, "foo"); err != nil {
+		if err := io.Puts(context.Background(), &fsm, "foo"); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -57,7 +58,7 @@ func TestPuts(t *testing.T) {
 		conn := mock.DefaultConn()
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := io.Puts(&fsm); err == nil || err.Error() != `not enough arguments` {
+		if err := io.Puts(context.Background(), &fsm); err == nil || err.Error() != `not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -66,7 +67,7 @@ func TestPuts(t *testing.T) {
 		conn := mock.DefaultConn()
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
-		if err := io.Puts(&fsm, 123); err == nil || err.Error() != `invalid argument type` {
+		if err := io.Puts(context.Background(), &fsm, 123); err == nil || err.Error() != `invalid argument type` {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
@@ -81,7 +82,7 @@ func TestPuts(t *testing.T) {
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
 
-		if err := io.Puts(&fsm, "foo"); err != errMarker {
+		if err := io.Puts(context.Background(), &fsm, "foo"); err != errMarker {
 			t.Fatalf("unexpected error: %q", err)
 		}
 	})
