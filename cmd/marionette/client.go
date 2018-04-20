@@ -12,7 +12,6 @@ import (
 	"github.com/redjack/marionette/fte"
 	"github.com/redjack/marionette/mar"
 	_ "github.com/redjack/marionette/plugins"
-	"github.com/redjack/marionette/plugins/model"
 	"go.uber.org/zap"
 )
 
@@ -24,14 +23,13 @@ func NewClientCommand() *ClientCommand {
 
 func (cmd *ClientCommand) Run(args []string) error {
 	// Parse arguments.
-	fs := flag.NewFlagSet("marionette-client", flag.ContinueOnError)
+	fs := NewFlagSet("marionette-client", flag.ContinueOnError)
 	var (
 		bind     = fs.String("bind", "127.0.0.1:8079", "Bind address")
 		serverIP = fs.String("server", "127.0.0.1", "Server IP address")
 		format   = fs.String("format", "", "Format name and version")
 		verbose  = fs.Bool("v", false, "Debug logging enabled")
 	)
-	fs.Float64Var(&model.SleepFactor, "sleep-factor", model.SleepFactor, "model.sleep() multipler")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

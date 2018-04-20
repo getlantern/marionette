@@ -15,7 +15,6 @@ import (
 	"github.com/redjack/marionette/fte"
 	"github.com/redjack/marionette/mar"
 	_ "github.com/redjack/marionette/plugins"
-	"github.com/redjack/marionette/plugins/model"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +26,7 @@ func NewServerCommand() *ServerCommand {
 
 func (cmd *ServerCommand) Run(args []string) error {
 	// Parse arguments.
-	fs := flag.NewFlagSet("marionette-server", flag.ContinueOnError)
+	fs := NewFlagSet("marionette-server", flag.ContinueOnError)
 	var (
 		bind      = fs.String("bind", "", "Bind address")
 		useSocks5 = fs.Bool("socks5", false, "Enable socks5 proxying")
@@ -35,7 +34,6 @@ func (cmd *ServerCommand) Run(args []string) error {
 		format    = fs.String("format", "", "Format name and version")
 		verbose   = fs.Bool("v", false, "Debug logging enabled")
 	)
-	fs.Float64Var(&model.SleepFactor, "sleep-factor", model.SleepFactor, "model.sleep() multipler")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
