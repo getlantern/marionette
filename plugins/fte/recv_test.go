@@ -40,7 +40,7 @@ func TestRecv(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() (int, error) { return 128, nil }
+		cipher.CapacityFn = func() int { return 128 }
 		cipher.DecryptFn = func(ciphertext []byte) (plaintext, remainder []byte, err error) {
 			if string(ciphertext) != `barbaz` {
 				t.Fatalf("unexpected ciphertext: %q", ciphertext)
@@ -59,11 +59,11 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, []byte("baz"), nil
 		}
-		fsm.CipherFn = func(regex string) marionette.Cipher {
+		fsm.CipherFn = func(regex string) (marionette.Cipher, error) {
 			if regex != `([a-z0-9]+)` {
 				t.Fatalf("unexpected regex: %s", regex)
 			}
-			return &cipher
+			return &cipher, nil
 		}
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != nil {
@@ -103,7 +103,7 @@ func TestRecv(t *testing.T) {
 		}
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() (int, error) { return 128, nil }
+		cipher.CapacityFn = func() int { return 128 }
 		cipher.DecryptFn = func(ciphertext []byte) (plaintext, remainder []byte, err error) {
 			cell := &marionette.Cell{UUID: 100, InstanceID: 200, StreamID: 300, SequenceID: 0, Payload: []byte(`foo`)}
 			buf, err := cell.MarshalBinary()
@@ -112,7 +112,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
+		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != marionette.ErrRetryTransition {
 			t.Fatal(err)
@@ -182,11 +182,11 @@ func TestRecv(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() (int, error) { return 128, nil }
+		cipher.CapacityFn = func() int { return 128 }
 		cipher.DecryptFn = func(ciphertext []byte) (plaintext, remainder []byte, err error) {
 			return nil, nil, errMarker
 		}
-		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
+		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatal(err)
@@ -207,7 +207,7 @@ func TestRecv(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() (int, error) { return 128, nil }
+		cipher.CapacityFn = func() int { return 128 }
 		cipher.DecryptFn = func(ciphertext []byte) (plaintext, remainder []byte, err error) {
 			cell := &marionette.Cell{UUID: 400, InstanceID: 200, StreamID: 300, SequenceID: 0, Payload: []byte(`foo`)}
 			buf, err := cell.MarshalBinary()
@@ -216,7 +216,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
+		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `uuid mismatch` {
 			t.Fatalf("unexpected error: %v", err)
@@ -237,7 +237,7 @@ func TestRecv(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() (int, error) { return 128, nil }
+		cipher.CapacityFn = func() int { return 128 }
 		cipher.DecryptFn = func(ciphertext []byte) (plaintext, remainder []byte, err error) {
 			cell := &marionette.Cell{UUID: 100, InstanceID: 400, StreamID: 300, SequenceID: 0, Payload: []byte(`foo`)}
 			buf, err := cell.MarshalBinary()
@@ -246,7 +246,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
+		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `instance id mismatch: fsm=200, cell=400` {
 			t.Fatalf("unexpected error: %v", err)
@@ -274,7 +274,7 @@ func TestRecv(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() (int, error) { return 128, nil }
+		cipher.CapacityFn = func() int { return 128 }
 		cipher.DecryptFn = func(ciphertext []byte) (plaintext, remainder []byte, err error) {
 			cell := &marionette.Cell{UUID: 100, InstanceID: 200, StreamID: stream.ID(), SequenceID: 0, Payload: []byte(`foo`)}
 			buf, err := cell.MarshalBinary()
@@ -283,7 +283,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
+		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != nil {
 			t.Fatalf("unexpected error: %#v", err)

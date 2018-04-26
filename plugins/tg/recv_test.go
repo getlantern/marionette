@@ -34,9 +34,7 @@ func TestRecv(t *testing.T) {
 		}
 
 		var dfa mock.DFA
-		dfa.CapacityFn = func() (int, error) {
-			return 1000, nil
-		}
+		dfa.CapacityFn = func() int { return 1000 }
 		dfa.RankFn = func(s string) (rank *big.Int, err error) {
 			return big.NewInt(123), nil
 		}
@@ -45,8 +43,8 @@ func TestRecv(t *testing.T) {
 		fsm.HostFn = func() string { return "127.0.0.1" }
 		fsm.UUIDFn = func() int { return 100 }
 		fsm.InstanceIDFn = func() int { return 200 }
-		fsm.DFAFn = func(regex string, msgLen int) marionette.DFA {
-			return &dfa
+		fsm.DFAFn = func(regex string, msgLen int) (marionette.DFA, error) {
+			return &dfa, nil
 		}
 
 		if err := tg.Recv(context.Background(), &fsm, `http_request_close`); err != nil {

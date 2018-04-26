@@ -7,9 +7,21 @@ This is a Go port of the [marionette][] programmable networy proxy.
 
 Please install Marionette as described below, and then go to the web browser demonstration page [here](./BrowserDemo.md)
 
-## Installation
+## Development
 
 Marionette requires several dependencies to be installed first.
+
+### re2
+
+https://github.com/google/re2
+https://github.com/google/re2/archive/2015-08-01.tar.gz
+
+
+### OpenFST
+
+http://www.openfst.org
+http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.5.0.tar.gz
+
 
 ### GMP
 

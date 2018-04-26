@@ -9,13 +9,13 @@ import (
 var _ marionette.DFA = (*DFA)(nil)
 
 type DFA struct {
-	CapacityFn        func() (int, error)
+	CapacityFn        func() int
 	RankFn            func(s string) (rank *big.Int, err error)
 	UnrankFn          func(rank *big.Int) (ret string, err error)
 	NumWordsInSliceFn func(n int) (numWords *big.Int, err error)
 }
 
-func (m *DFA) Capacity() (int, error) {
+func (m *DFA) Capacity() int {
 	return m.CapacityFn()
 }
 

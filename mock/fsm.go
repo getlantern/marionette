@@ -27,8 +27,8 @@ type FSM struct {
 	ListenFn        func() (int, error)
 	ConnFn          func() *marionette.BufferedConn
 	StreamSetFn     func() *marionette.StreamSet
-	CipherFn        func(regex string) marionette.Cipher
-	DFAFn           func(regex string, n int) marionette.DFA
+	CipherFn        func(regex string) (marionette.Cipher, error)
+	DFAFn           func(regex string, n int) (marionette.DFA, error)
 	SetVarFn        func(key string, value interface{})
 	VarFn           func(key string) interface{}
 	CloneFn         func(doc *mar.Document) marionette.FSM
@@ -71,11 +71,11 @@ func (m *FSM) StreamSet() *marionette.StreamSet { return m.StreamSetFn() }
 func (m *FSM) SetVar(key string, value interface{}) { m.SetVarFn(key, value) }
 func (m *FSM) Var(key string) interface{}           { return m.VarFn(key) }
 
-func (m *FSM) Cipher(regex string) marionette.Cipher {
+func (m *FSM) Cipher(regex string) (marionette.Cipher, error) {
 	return m.CipherFn(regex)
 }
 
-func (m *FSM) DFA(regex string, msgLen int) marionette.DFA {
+func (m *FSM) DFA(regex string, msgLen int) (marionette.DFA, error) {
 	return m.DFAFn(regex, msgLen)
 }
 

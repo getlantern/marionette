@@ -1,25 +1,25 @@
 package fte_test
 
 import (
+	"math"
+	"math/big"
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/redjack/marionette/fte"
 )
 
 func TestDFA(t *testing.T) {
 	t.Run("Simple", func(t *testing.T) {
-		dfa := fte.NewDFA(`[a-zA-Z0-9\?\-\.\&]+`, 2048)
-		if err := dfa.Open(); err != nil {
+		dfa, err := fte.NewDFA(`[a-zA-Z0-9\?\-\.\&]+`, 2048)
+		if err != nil {
 			t.Fatal(err)
 		}
 		defer dfa.Close()
 
-		// Verify initial capacity.
-		if capacity, err := dfa.Capacity(); err != nil {
-			t.Fatal(err)
-		} else if capacity != 1547 {
-			t.Fatalf("unexpected initial capacity: %d", capacity)
+		if capacity := dfa.Capacity(); capacity != 386 {
+			t.Fatalf("unexpected capacity: %d", capacity)
 		}
 
 		msg0 := strings.Repeat("A", 2048)
@@ -49,8 +49,8 @@ func TestDFA(t *testing.T) {
 	})
 
 	t.Run("TG", func(t *testing.T) {
-		dfa := fte.NewDFA(`[a-zA-Z0-9\?\-\.\&]+`, 2048)
-		if err := dfa.Open(); err != nil {
+		dfa, err := fte.NewDFA(`[a-zA-Z0-9\?\-\.\&]+`, 2048)
+		if err != nil {
 			t.Fatal(err)
 		}
 		defer dfa.Close()
@@ -67,15 +67,34 @@ func TestDFA(t *testing.T) {
 }
 
 func TestDFA_NumWordsInSlice(t *testing.T) {
-	dfa := fte.NewDFA(`[a-zA-Z0-9\?\-\.\&]+`, 2048)
-	if err := dfa.Open(); err != nil {
+	dfa, err := fte.NewDFA(`[a-zA-Z0-9\?\-\.\&]+`, 2048)
+	if err != nil {
 		t.Fatal(err)
 	}
-	defer dfa.Close()
-
 	if n, err := dfa.NumWordsInSlice(2); err != nil {
 		t.Fatal(err)
-	} else if n.String() != `4356` {
+	} else if n.Int64() != 4356 {
 		t.Fatalf("unexpected num: %s", n.String())
+	}
+}
+
+func TestLog2(t *testing.T) {
+	for _, tt := range []struct {
+		value  *big.Int
+		result int
+	}{
+		{big.NewInt(1), 0},
+		{big.NewInt(2), 1},
+		{big.NewInt(3), 1},
+		{big.NewInt(4), 2},
+		{big.NewInt(7), 2},
+		{big.NewInt(8), 3},
+		{big.NewInt(math.MaxInt64), 62},
+	} {
+		t.Run(tt.value.String(), func(t *testing.T) {
+			if diff := cmp.Diff(tt.result, fte.Log2(tt.value)); diff != "" {
+				t.Fatal(diff)
+			}
+		})
 	}
 }

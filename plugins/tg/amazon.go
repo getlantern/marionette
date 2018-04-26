@@ -48,7 +48,10 @@ func (h *AmazonMsgLensCipher) Capacity(fsm marionette.FSM) (int, error) {
 
 func (h *AmazonMsgLensCipher) Encrypt(fsm marionette.FSM, template string, plaintext []byte) (ciphertext []byte, err error) {
 	if h.target < h.min || h.target > h.max {
-		dfa := fsm.DFA(h.regex, h.target)
+		dfa, err := fsm.DFA(h.regex, h.target)
+		if err != nil {
+			return nil, err
+		}
 
 		numWords, err := dfa.NumWordsInSlice(h.target)
 		if err != nil {
@@ -67,7 +70,12 @@ func (h *AmazonMsgLensCipher) Encrypt(fsm marionette.FSM, template string, plain
 		return []byte(ret), nil
 	}
 
-	ciphertext, err = fsm.Cipher(h.regex).Encrypt(plaintext)
+	cipher, err := fsm.Cipher(h.regex)
+	if err != nil {
+		return nil, err
+	}
+
+	ciphertext, err = cipher.Encrypt(plaintext)
 	if err != nil {
 		return nil, err
 	} else if len(ciphertext) != h.target {
@@ -80,7 +88,11 @@ func (h *AmazonMsgLensCipher) Decrypt(fsm marionette.FSM, ciphertext []byte) (pl
 	if len(ciphertext) < h.min {
 		return nil, nil
 	}
-	plaintext, _, err = fsm.Cipher(h.regex).Decrypt(ciphertext)
+	cipher, err := fsm.Cipher(h.regex)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, _, err = cipher.Decrypt(ciphertext)
 	return plaintext, err
 }
 
