@@ -29,18 +29,26 @@ func (c *FTECipher) Capacity(fsm marionette.FSM) (int, error) {
 	if !c.useCapacity && strings.HasSuffix(c.regex, ".+") {
 		return (1 << 18), nil
 	}
-	capacity, err := fsm.Cipher(c.regex).Capacity()
+	cipher, err := fsm.Cipher(c.regex)
 	if err != nil {
 		return 0, err
 	}
-	return capacity - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION, nil
+	return cipher.Capacity() - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION, nil
 }
 
 func (c *FTECipher) Encrypt(fsm marionette.FSM, template string, data []byte) (ciphertext []byte, err error) {
-	return fsm.Cipher(c.regex).Encrypt(data)
+	cipher, err := fsm.Cipher(c.regex)
+	if err != nil {
+		return nil, err
+	}
+	return cipher.Encrypt(data)
 }
 
 func (c *FTECipher) Decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
-	plaintext, _, err = fsm.Cipher(c.regex).Decrypt(ciphertext)
+	cipher, err := fsm.Cipher(c.regex)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, _, err = cipher.Decrypt(ciphertext)
 	return plaintext, err
 }

@@ -21,7 +21,7 @@ func TestSend(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() (int, error) { return 128, nil }
+		cipher.CapacityFn = func() int { return 128 }
 		cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 			var cell marionette.Cell
 			if err := cell.UnmarshalBinary(plaintext); err != nil {
@@ -35,11 +35,11 @@ func TestSend(t *testing.T) {
 			}
 			return []byte(`bar`), nil
 		}
-		fsm.CipherFn = func(regex string) marionette.Cipher {
+		fsm.CipherFn = func(regex string) (marionette.Cipher, error) {
 			if regex != `([a-z0-9]+)` {
 				t.Fatalf("unexpected regex: %s", regex)
 			}
-			return &cipher
+			return &cipher, nil
 		}
 
 		var writeInvoked bool
@@ -100,7 +100,7 @@ func TestSend(t *testing.T) {
 			fsm.InstanceIDFn = func() int { return 200 }
 
 			var cipher mock.Cipher
-			cipher.CapacityFn = func() (int, error) { return 128, nil }
+			cipher.CapacityFn = func() int { return 128 }
 			cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 				var cell marionette.Cell
 				if err := cell.UnmarshalBinary(plaintext); err != nil {
@@ -110,11 +110,11 @@ func TestSend(t *testing.T) {
 				}
 				return []byte(`bar`), nil
 			}
-			fsm.CipherFn = func(regex string) marionette.Cipher {
+			fsm.CipherFn = func(regex string) (marionette.Cipher, error) {
 				if regex != `([a-z0-9]+)` {
 					t.Fatalf("unexpected regex: %s", regex)
 				}
-				return &cipher
+				return &cipher, nil
 			}
 
 			var writeInvoked bool
@@ -147,12 +147,12 @@ func TestSend(t *testing.T) {
 			fsm.InstanceIDFn = func() int { return 200 }
 
 			var cipher mock.Cipher
-			cipher.CapacityFn = func() (int, error) { return 128, nil }
-			fsm.CipherFn = func(regex string) marionette.Cipher {
+			cipher.CapacityFn = func() int { return 128 }
+			fsm.CipherFn = func(regex string) (marionette.Cipher, error) {
 				if regex != `([a-z0-9]+)` {
 					t.Fatalf("unexpected regex: %s", regex)
 				}
-				return &cipher
+				return &cipher, nil
 			}
 
 			conn.WriteFn = func(p []byte) (int, error) {
@@ -175,11 +175,11 @@ func TestSend(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() (int, error) { return 128, nil }
+		cipher.CapacityFn = func() int { return 128 }
 		cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 			return nil, errMarker
 		}
-		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
+		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Send(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatalf("unexpected error: %#v", err)
@@ -196,11 +196,11 @@ func TestSend(t *testing.T) {
 		fsm.InstanceIDFn = func() int { return 200 }
 
 		var cipher mock.Cipher
-		cipher.CapacityFn = func() (int, error) { return 128, nil }
+		cipher.CapacityFn = func() int { return 128 }
 		cipher.EncryptFn = func(plaintext []byte) ([]byte, error) {
 			return []byte(`bar`), nil
 		}
-		fsm.CipherFn = func(regex string) marionette.Cipher { return &cipher }
+		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
 
 		conn.WriteFn = func(p []byte) (int, error) {
 			return 0, errMarker

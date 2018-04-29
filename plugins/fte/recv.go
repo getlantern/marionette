@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/redjack/marionette"
+	"github.com/redjack/marionette/fte"
 	"go.uber.org/zap"
 )
 
@@ -61,8 +62,20 @@ func recv(ctx context.Context, fsm marionette.FSM, args []interface{}, blocking 
 	}
 
 	// Decode ciphertext.
-	plaintext, remainder, err := fsm.Cipher(regex).Decrypt(ciphertext)
+	cipher, err := fsm.Cipher(regex)
 	if err != nil {
+		return err
+	}
+	plaintext, remainder, err := cipher.Decrypt(ciphertext)
+	logger().Debug("decrypt",
+		zap.Int("plaintext", len(plaintext)),
+		zap.Int("remainder", len(remainder)),
+		zap.Int("ciphertext", len(ciphertext)),
+		zap.Error(err),
+	)
+	if err == fte.ErrShortCiphertext {
+		return nil
+	} else if err != nil {
 		logger().Error("cannot decrypt ciphertext", zap.Error(err))
 		return err
 	}

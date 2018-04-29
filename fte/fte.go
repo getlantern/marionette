@@ -54,24 +54,28 @@ func (c *Cache) Close() (err error) {
 
 // Cipher returns a instance of Cipher associated with regex & n.
 // Creates a new cipher if one doesn't already exist.
-func (c *Cache) Cipher(regex string) *Cipher {
+func (c *Cache) Cipher(regex string) (_ *Cipher, err error) {
 	cipher := c.ciphers[regex]
 	if cipher == nil {
-		cipher = NewCipher(regex)
+		if cipher, err = NewCipher(regex); err != nil {
+			return nil, err
+		}
 		c.ciphers[regex] = cipher
 	}
-	return cipher
+	return cipher, nil
 }
 
 // DFA returns a instance of DFA associated with regex & n.
 // Creates a new DFA if one doesn't already exist.
-func (c *Cache) DFA(regex string, n int) *DFA {
+func (c *Cache) DFA(regex string, n int) (_ *DFA, err error) {
 	dfa := c.dfas[dfaKey{regex, n}]
 	if dfa == nil {
-		dfa = NewDFA(regex, n)
+		if dfa, err = NewDFA(regex, n); err != nil {
+			return nil, err
+		}
 		c.dfas[dfaKey{regex, n}] = dfa
 	}
-	return dfa
+	return dfa, nil
 }
 
 type dfaKey struct {

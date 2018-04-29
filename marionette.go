@@ -54,14 +54,14 @@ var plugins = make(map[pluginKey]PluginFunc)
 
 // Cipher represents the interface to the FTE Cipher.
 type Cipher interface {
-	Capacity() (int, error)
+	Capacity() int
 	Encrypt(plaintext []byte) (ciphertext []byte, err error)
 	Decrypt(ciphertext []byte) (plaintext, remainder []byte, err error)
 }
 
 // DFA represents the interface to the DFA ranker.
 type DFA interface {
-	Capacity() (int, error)
+	Capacity() int
 	Rank(s string) (rank *big.Int, err error)
 	Unrank(rank *big.Int) (ret string, err error)
 	NumWordsInSlice(n int) (numWords *big.Int, err error)

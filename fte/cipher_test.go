@@ -4,22 +4,14 @@ import (
 	"testing"
 
 	"github.com/redjack/marionette/fte"
-	//"fmt"
 )
 
 func TestCipher(t *testing.T) {
-	cipher := fte.NewCipher(`^(a|b)+$`)
-	if err := cipher.Open(); err != nil {
+	cipher, err := fte.NewCipher(`^(a|b|c)+$`)
+	if err != nil {
 		t.Fatal(err)
 	}
 	defer cipher.Close()
-
-	// Verify initial capacity.
-	if capacity, err := cipher.Capacity(); err != nil {
-		t.Fatal(err)
-	} else if capacity != 15 {
-		t.Fatalf("unexpected initial capacity: %d", capacity)
-	}
 
 	// Encode/decode first message.
 	if ciphertext, err := cipher.Encrypt([]byte(`test`)); err != nil {

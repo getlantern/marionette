@@ -1,213 +1,148 @@
 package fte
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/hex"
-	"fmt"
+	"crypto/rand"
+	"encoding/binary"
+	"errors"
 	"io"
-	"io/ioutil"
-	"os/exec"
-	"strconv"
-	"sync"
+	"math/big"
+)
+
+const FixedSlice = 512
+
+var (
+	ErrInsufficientCapacity = errors.New("fte: insufficient capacity")
 )
 
 type Cipher struct {
-	mu   sync.Mutex
-	once sync.Once
-
-	regex    string
-	filename string
-
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	stdout io.ReadCloser
-	bufout *bufio.Reader
-
-	capacity int
+	dfa *DFA
+	enc *Encrypter
+	dec *Decrypter
 }
 
 // NewCipher returns a new instance of Cipher.
-func NewCipher(regex string) *Cipher {
-	return &Cipher{regex: regex}
+func NewCipher(regex string) (_ *Cipher, err error) {
+	var c Cipher
+	if c.enc, err = NewEncrypter(); err != nil {
+		return nil, err
+	} else if c.dec, err = NewDecrypter(); err != nil {
+		return nil, err
+	} else if c.dfa, err = NewDFA(regex, FixedSlice); err != nil {
+		return nil, err
+	}
+	return &c, nil
 }
 
-// Open initializes the external cipher process.
-func (c *Cipher) Open() error {
-	// Generate filename for temporary program file.
-	f, err := ioutil.TempFile("", "fte-cipher-")
-	if err != nil {
-		return err
-	} else if err := f.Close(); err != nil {
+func (c *Cipher) Close() error {
+	if c.dfa != nil {
+		err := c.dfa.Close()
+		c.dfa = nil
 		return err
 	}
-	c.filename = f.Name() + ".py"
-
-	// Copy program to temporary path.
-	if err := ioutil.WriteFile(c.filename, []byte(cipherProgram), 0700); err != nil {
-		return err
-	}
-
-	// Start process.
-	c.cmd = exec.Command("python2", c.filename, c.regex)
-	c.cmd.Stderr = stderr()
-	if c.stdin, err = c.cmd.StdinPipe(); err != nil {
-		return err
-	} else if c.stdout, err = c.cmd.StdoutPipe(); err != nil {
-		return err
-	}
-	c.bufout = bufio.NewReader(c.stdout)
-
-	if err := c.cmd.Start(); err != nil {
-		return err
-	}
-
-	// Read initial capacity.
-	if line, err := c.bufout.ReadBytes('\n'); err != nil {
-		return fmt.Errorf("fte.Cipher.Open(): cannot read from stdout: %s", err)
-	} else if c.capacity, err = strconv.Atoi(string(bytes.TrimSpace(line))); err != nil {
-		return fmt.Errorf("fte.Cipher.Open(): cannot convert capacity to int: %s", err)
-	}
-
 	return nil
 }
 
-// Close stops the cipher process.
-func (c *Cipher) Close() (err error) {
-	c.once.Do(func() {
-		if c.cmd != nil {
-			if e := c.stdin.Close(); e != nil && err == nil {
-				err = e
-			}
-			if e := c.cmd.Wait(); e != nil && err == nil {
-				err = e
-			}
-			c.cmd = nil
-		}
-	})
-	return err
-}
-
-func (c *Cipher) init() error {
-	if c.cmd != nil {
-		return nil
-	}
-	return c.Open()
-}
-
 // Capacity returns the capacity left in the encoder.
-func (c *Cipher) Capacity() (int, error) {
-	if err := c.init(); err != nil {
-		return 0, err
-	}
-	return (c.capacity / 8) - COVERTEXT_HEADER_LEN_CIPHERTTEXT - CTXT_EXPANSION, nil
+func (c *Cipher) Capacity() int {
+	return c.dfa.Capacity()
 }
 
 // Encrypt encrypts plaintext into ciphertext.
 func (c *Cipher) Encrypt(plaintext []byte) (ciphertext []byte, err error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	if len(plaintext) == 0 {
+		return nil, nil
+	}
 
-	if err := c.init(); err != nil {
+	if ciphertext, err = c.enc.Encrypt(plaintext); err != nil {
 		return nil, err
 	}
 
-	if _, err := fmt.Fprintf(c.stdin, "E%09d%x", len(plaintext), plaintext); err != nil {
-		return nil, fmt.Errorf("fte.Cipher.Encrypt(): cannot write to stdin: %s", err)
+	maximumBytesToRank := c.Capacity()
+	unrank_payload_len := (maximumBytesToRank - COVERTEXT_HEADER_LEN_CIPHERTTEXT)
+	if len(ciphertext) < unrank_payload_len {
+		unrank_payload_len = len(ciphertext)
 	}
 
-	line, err := c.bufout.ReadBytes('\n')
+	if unrank_payload_len <= 0 {
+		return nil, ErrInsufficientCapacity
+	}
+
+	msg_len_header := make([]byte, 16)
+	if _, err := io.ReadFull(rand.Reader, msg_len_header[:8]); err != nil {
+		return nil, err
+	}
+	binary.BigEndian.PutUint64(msg_len_header[8:], uint64(unrank_payload_len))
+
+	encryptedHeader := make([]byte, len(msg_len_header))
+	c.enc.block.Encrypt(encryptedHeader, msg_len_header)
+	msg_len_header = encryptedHeader
+
+	unrank_payload := encryptedHeader
+	if len(ciphertext) <= maximumBytesToRank-16 {
+		unrank_payload = append(unrank_payload, ciphertext...)
+	} else {
+		unrank_payload = append(unrank_payload, ciphertext[:maximumBytesToRank-16]...)
+	}
+
+	random_padding_len := maximumBytesToRank - len(unrank_payload)
+	if random_padding_len > 0 {
+		randomPadding := make([]byte, random_padding_len)
+		if _, err := io.ReadFull(rand.Reader, randomPadding); err != nil {
+			return nil, err
+		}
+		unrank_payload = append(unrank_payload, randomPadding...)
+	}
+
+	var unrankValue big.Int
+	unrankValue.SetBytes(unrank_payload)
+
+	formatted_covertext_header, err := c.dfa.Unrank(&unrankValue)
 	if err != nil {
-		return nil, fmt.Errorf("fte.Cipher.Encrypt(): cannot read from stdout: %s", err)
+		return nil, err
 	}
 
-	// Line is split into <plaintext,capacity>.
-	segments := bytes.SplitN(line, []byte(":"), 2)
-
-	if ciphertext, err = hex.DecodeString(string(bytes.TrimSpace(segments[0]))); err != nil {
-		return nil, fmt.Errorf("fte.Cipher.Encrypt(): cannot decode ciphertext hex: %s", err)
+	var unformatted_covertext_body []byte
+	if len(ciphertext) > maximumBytesToRank-16 {
+		unformatted_covertext_body = ciphertext[maximumBytesToRank-16:]
 	}
-	if c.capacity, err = strconv.Atoi(string(bytes.TrimSpace(segments[1]))); err != nil {
-		return nil, fmt.Errorf("fte.Cipher.Encrypt(): cannot convert capacity to int: %s", err)
-	}
-	return ciphertext, nil
+	return append([]byte(formatted_covertext_header), unformatted_covertext_body...), nil
 }
 
 // Decrypt decrypts ciphertext into plaintext.
+// Returns ErrShortCiphertext if the ciphertext is too short to be decrypted.
 func (c *Cipher) Decrypt(ciphertext []byte) (plaintext, remainder []byte, err error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	if len(ciphertext) < FixedSlice {
+		return nil, nil, ErrShortCiphertext
+	}
 
-	if err := c.init(); err != nil {
+	maximumBytesToRank := c.Capacity()
+
+	rank_payload, err := c.dfa.Rank(string(ciphertext[:FixedSlice]))
+	if err != nil {
 		return nil, nil, err
 	}
-
-	if _, err := fmt.Fprintf(c.stdin, "D%09d%x", len(ciphertext), ciphertext); err != nil {
-		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot write to stdin: %s", err)
+	X := rank_payload.Bytes()
+	if len(X) < maximumBytesToRank {
+		X = append(make([]byte, maximumBytesToRank-len(X)), X...)
 	}
 
-	line, err := c.bufout.ReadBytes('\n')
-	if err != nil {
-		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot read from stdout: %s", err)
+	msg_len_header := make([]byte, 16)
+	c.dec.block.Decrypt(msg_len_header, X[:16])
+	msg_len := binary.BigEndian.Uint64(msg_len_header[8:16])
+
+	retval := X[16 : 16+msg_len]
+	retval = append(retval, ciphertext[FixedSlice:]...)
+	ctxt_len := c.dec.CiphertextLen(retval)
+	var remaining_buffer []byte
+	if len(retval) > ctxt_len {
+		remaining_buffer = retval[ctxt_len:]
+	}
+	if len(retval) > ctxt_len {
+		retval = retval[:ctxt_len]
 	}
 
-	// Line is split into <plaintext,remainder,capacity>.
-	segments := bytes.SplitN(line, []byte(":"), 3)
-
-	if plaintext, err = hex.DecodeString(string(bytes.TrimSpace(segments[0]))); err != nil {
-		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot decode plaintext hex: %s", err)
+	if retval, err = c.dec.Decrypt(retval); err != nil {
+		return nil, nil, err
 	}
-	if remainder, err = hex.DecodeString(string(bytes.TrimSpace(segments[1]))); err != nil {
-		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot decode remainder hex: %s", err)
-	}
-	if c.capacity, err = strconv.Atoi(string(bytes.TrimSpace(segments[2]))); err != nil {
-		return nil, nil, fmt.Errorf("fte.Cipher.Decrypt(): cannot convert capacity to int: %s", err)
-	}
-	return plaintext, remainder, nil
+	return retval, remaining_buffer, nil
 }
-
-const cipherProgram = `
-import sys
-import regex2dfa
-import fte.encoder
-import binascii
-
-regex = sys.argv[1]
-encoder = fte.encoder.DfaEncoder(regex2dfa.regex2dfa(regex), 512)
-
-sys.stdout.write(str(encoder.getCapacity()))
-sys.stdout.write("\n")
-sys.stdout.flush()
-
-def encode(payload):
-	ciphertext = bytearray(encoder.encode(payload))
-	sys.stdout.write(binascii.hexlify(ciphertext))
-	sys.stdout.write(":")
-	sys.stdout.write(str(encoder.getCapacity()))
-	sys.stdout.write("\n")
-	sys.stdout.flush()
-
-def decode(payload):
-	[plaintext, remainder] = encoder.decode(payload)
-	sys.stdout.write(binascii.hexlify(plaintext))
-	sys.stdout.write(":")
-	sys.stdout.write(binascii.hexlify(remainder))
-	sys.stdout.write(":")
-	sys.stdout.write(str(encoder.getCapacity()))
-	sys.stdout.write("\n")
-	sys.stdout.flush()
-
-while True:
-	cmd = sys.stdin.read(1)
-	if cmd == "":
-		break
-	assert cmd == 'E' or cmd == 'D'
-
-	sz = int(sys.stdin.read(9))
-	payload = binascii.unhexlify(sys.stdin.read(sz*2))
-
-	if cmd == 'E':
-		encode(payload)
-	else:
-		decode(payload)
-`

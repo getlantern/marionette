@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/redjack/marionette"
+	"github.com/redjack/marionette/fte"
 	"go.uber.org/zap"
 )
 
@@ -46,10 +47,11 @@ func send(ctx context.Context, fsm marionette.FSM, args []interface{}, blocking 
 		return errors.New("invalid msg_len argument type")
 	}
 
-	capacity, err := fsm.Cipher(regex).Capacity()
+	cipher, err := fsm.Cipher(regex)
 	if err != nil {
 		return err
 	}
+	capacity := cipher.Capacity() - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT - fte.CTXT_EXPANSION
 
 	// Pull the next cell for the stream set. If no cell exists and we are
 	// blocking then send an empty cell. If no cell exists and we are not
@@ -75,7 +77,7 @@ func send(ctx context.Context, fsm marionette.FSM, args []interface{}, blocking 
 	}
 
 	// Encrypt using FTE cipher.
-	ciphertext, err := fsm.Cipher(regex).Encrypt(plaintext)
+	ciphertext, err := cipher.Encrypt(plaintext)
 	if err != nil {
 		return err
 	}
