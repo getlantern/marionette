@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	_ "expvar"
 	"flag"
 	"fmt"
 	"net/http"
@@ -67,13 +68,13 @@ The commands are:
 
 type FlagSet struct {
 	*flag.FlagSet
-	Pprof bool
+	Debug string
 }
 
 func NewFlagSet(name string, errorHandling flag.ErrorHandling) *FlagSet {
 	fs := &FlagSet{FlagSet: flag.NewFlagSet(name, errorHandling)}
 	fs.Float64Var(&model.SleepFactor, "sleep-factor", model.SleepFactor, "model.sleep() multipler")
-	fs.BoolVar(&fs.Pprof, "pprof", false, "enable pprof debugging")
+	fs.StringVar(&fs.Debug, "debug", "", "debug http bind address")
 	return fs
 }
 
@@ -83,9 +84,9 @@ func (fs *FlagSet) Parse(arguments []string) error {
 	}
 
 	// Run pprof-server in the background if requested.
-	if fs.Pprof {
-		fmt.Println("pprof listening on http://localhost:6060")
-		go func() { http.ListenAndServe("localhost:6060", nil) }()
+	if fs.Debug != "" {
+		fmt.Fprintf(os.Stderr, "debug http server listening on %s\n", fs.Debug)
+		go func() { http.ListenAndServe(fs.Debug, nil) }()
 	}
 
 	return nil

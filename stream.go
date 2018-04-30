@@ -1,6 +1,7 @@
 package marionette
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -27,9 +28,10 @@ var _ net.Conn = &Stream{}
 // Data is injected into the stream using cells which provide ordering and payload data.
 // Implements the net.Conn interface.
 type Stream struct {
-	mu  sync.RWMutex
-	id  int
-	seq int
+	mu   sync.RWMutex
+	id   int
+	rseq int
+	wseq int
 
 	once    sync.Once
 	closed  bool
@@ -186,8 +188,10 @@ func (s *Stream) Enqueue(cell *Cell) error {
 	defer s.mu.Unlock()
 
 	// If sequence is out of order then add to queue and exit.
-	if cell.SequenceID < s.seq {
-		s.logger().Debug("duplicate cell", zap.Int("sequence_id", cell.SequenceID))
+	if cell.SequenceID < s.rseq {
+		s.logger().Info("duplicate cell sequence",
+			zap.Int("local", s.rseq),
+			zap.Int("remote", cell.SequenceID))
 		return nil // duplicate cell
 	}
 
@@ -205,7 +209,7 @@ func (s *Stream) processReadQueue() {
 	var notify bool
 	for len(s.rqueue) > 0 {
 		cell := s.rqueue[0]
-		if cell.SequenceID != s.seq {
+		if cell.SequenceID != s.rseq {
 			break // out-of-order
 		} else if len(cell.Payload) > cap(s.rbuf)-len(s.rbuf) {
 			break // not enough space on buffer
@@ -219,7 +223,7 @@ func (s *Stream) processReadQueue() {
 		// Shift cell off queue and increment sequence.
 		s.rqueue[0] = nil
 		s.rqueue = s.rqueue[1:]
-		s.seq++
+		s.rseq++
 	}
 
 	// Notify of read buffer change.
@@ -241,8 +245,8 @@ func (s *Stream) Dequeue(n int) *Cell {
 	}
 
 	// Determine next sequence.
-	sequenceID := s.seq
-	s.seq++
+	sequenceID := s.wseq
+	s.wseq++
 
 	// End stream if there's no more data and it's marked as closed.
 	if len(s.wbuf) == 0 && s.closed {
@@ -306,4 +310,33 @@ func (c *Stream) SetWriteDeadline(t time.Time) error { return nil }
 
 func (s *Stream) logger() *zap.Logger {
 	return Logger.With(zap.Int("stream_id", s.id))
+}
+
+// streamExpVar is a wrapper for stream to generate expvar data.
+type streamExpVar Stream
+
+// String returns JSON representation of the expvar data.
+func (s *streamExpVar) String() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	buf, _ := json.Marshal(streamExpVarJSON{
+		Rseq:   s.rseq,
+		Wseq:   s.wseq,
+		Closed: s.closed,
+		Rbuf:   len(s.rbuf),
+		Wbuf:   len(s.wbuf),
+		Rqueue: len(s.rqueue),
+	})
+	return string(buf)
+}
+
+// streamExpVarJSON is the JSON representation of a stream in expvar.
+type streamExpVarJSON struct {
+	Rseq   int  `json:"rseq"`
+	Wseq   int  `json:"wseq"`
+	Closed bool `json:"closed,omitempty"`
+	Rbuf   int  `json:"rbuf"`
+	Wbuf   int  `json:"wbuf"`
+	Rqueue int  `json:"rqueue"`
 }

@@ -1,9 +1,13 @@
 package marionette
 
 import (
+	"expvar"
 	"math/rand"
+	"strconv"
 	"sync"
 )
+
+var evStreamMap = expvar.NewMap("streams")
 
 type StreamSet struct {
 	mu      sync.RWMutex
@@ -59,6 +63,8 @@ func (ss *StreamSet) create(id int) *Stream {
 
 	stream := NewStream(id)
 	ss.streams[stream.id] = stream
+
+	evStreamMap.Set(strconv.Itoa(stream.id), (*streamExpVar)(stream))
 
 	ss.wg.Add(1)
 	go func() { defer ss.wg.Done(); ss.handleStream(stream) }()
