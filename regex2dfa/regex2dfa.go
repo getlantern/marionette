@@ -1,6 +1,6 @@
 package regex2dfa
 
-// #cgo CXXFLAGS: -std=c++11 -I${SRCDIR}/../third_party/re2
+// #cgo CXXFLAGS: -std=c++11 -DMARIONETTE -I${SRCDIR}/../third_party/re2
 // #cgo LDFLAGS: -ldl /usr/local/lib/libfst.a /usr/local/lib/libfstscript.a /usr/local/lib/libre2.a
 // #include <stdlib.h>
 // #include <stdint.h>
