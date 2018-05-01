@@ -33,9 +33,15 @@ type Stream struct {
 	rseq int
 	wseq int
 
-	once    sync.Once
-	closed  bool
-	closing chan struct{}
+	once         sync.Once
+	readClosed   bool
+	readClosing  chan struct{}
+	writeClosed  bool
+	writeClosing chan struct{}
+
+	// TODO: Find better names for these.
+	writeCloseNotified       bool
+	writeCloseNotifiedNotify chan struct{}
 
 	localAddr  net.Addr
 	remoteAddr net.Addr
@@ -45,22 +51,35 @@ type Stream struct {
 	rnotify    chan struct{}
 	wnotify    chan struct{}
 
+	modTime time.Time
+
 	onWrite func() // callback when a new write buffer changes
 }
 
 func NewStream(id int) *Stream {
 	return &Stream{
-		id:      id,
-		rbuf:    make([]byte, 0, MaxCellLength),
-		wbuf:    make([]byte, 0, MaxCellLength),
-		closing: make(chan struct{}),
-		rnotify: make(chan struct{}),
-		wnotify: make(chan struct{}),
+		id:           id,
+		rbuf:         make([]byte, 0, MaxCellLength),
+		wbuf:         make([]byte, 0, MaxCellLength),
+		readClosing:  make(chan struct{}),
+		writeClosing: make(chan struct{}),
+		rnotify:      make(chan struct{}),
+		wnotify:      make(chan struct{}),
+		modTime:      time.Now(),
+
+		writeCloseNotifiedNotify: make(chan struct{}),
 	}
 }
 
 // ID returns the stream id.
 func (s *Stream) ID() int { return s.id }
+
+// ModTime returns the last time a cell was added or removed from the stream.
+func (s *Stream) ModTime() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.modTime
+}
 
 // ReadNotify returns a channel that receives a notification when a new read is available.
 func (s *Stream) ReadNotify() <-chan struct{} {
@@ -82,7 +101,8 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 		if n, err = s.read(b); n != 0 || err != nil {
 			s.mu.Unlock()
 			return n, err
-		} else if n == 0 && len(s.rqueue) == 0 && s.closed {
+		} else if n == 0 && s.readClosed {
+			s.rbuf = nil
 			s.mu.Unlock()
 			return 0, io.EOF
 		}
@@ -93,7 +113,7 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 
 		// Wait for notification of new read buffer bytes.
 		select {
-		case <-s.closing:
+		case <-s.readClosing:
 		case <-notify:
 		}
 	}
@@ -130,7 +150,7 @@ func (s *Stream) ReadBufferLen() int {
 func (s *Stream) Write(b []byte) (n int, err error) {
 	for {
 		s.mu.Lock()
-		if s.closed {
+		if s.writeClosed {
 			s.mu.Unlock()
 			return 0, ErrStreamClosed
 		} else if n, err = s.write(b); n != 0 || err != nil {
@@ -143,7 +163,7 @@ func (s *Stream) Write(b []byte) (n int, err error) {
 
 		// Wait for a change in the write buffer.
 		select {
-		case <-s.closing:
+		case <-s.writeClosing:
 		case <-notify:
 		}
 	}
@@ -200,6 +220,7 @@ func (s *Stream) Enqueue(cell *Cell) error {
 	sort.Sort(Cells(s.rqueue))
 
 	s.processReadQueue()
+	s.modTime = time.Now()
 
 	return nil
 }
@@ -224,6 +245,12 @@ func (s *Stream) processReadQueue() {
 		s.rqueue[0] = nil
 		s.rqueue = s.rqueue[1:]
 		s.rseq++
+
+		// If this is the end of the stream then close out reads.
+		if cell.Type == END_OF_STREAM {
+			s.rqueue = nil
+			s.closeRead()
+		}
 	}
 
 	// Notify of read buffer change.
@@ -237,6 +264,11 @@ func (s *Stream) Dequeue(n int) *Cell {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Exit immediately if stream has already notified that its writes are closed.
+	if s.writeCloseNotified {
+		return nil
+	}
+
 	// Determine the amount of data to read.
 	if n == 0 {
 		n = len(s.wbuf) + CellHeaderSize
@@ -247,9 +279,12 @@ func (s *Stream) Dequeue(n int) *Cell {
 	// Determine next sequence.
 	sequenceID := s.wseq
 	s.wseq++
+	s.modTime = time.Now()
 
 	// End stream if there's no more data and it's marked as closed.
-	if len(s.wbuf) == 0 && s.closed {
+	if len(s.wbuf) == 0 && s.writeClosed {
+		s.writeCloseNotified = true
+		close(s.writeCloseNotifiedNotify)
 		return NewCell(s.id, sequenceID, n, END_OF_STREAM)
 	}
 
@@ -279,27 +314,80 @@ func (s *Stream) Dequeue(n int) *Cell {
 	return cell
 }
 
-// Close marks the stream as closed.
+// Close marks the stream as closed for writes. The server will close the read side.
 func (s *Stream) Close() error {
+	return s.CloseWrite()
+}
+
+// CloseWrite marks the stream as closed for writes.
+func (s *Stream) CloseWrite() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	s.once.Do(func() {
-		s.closed = true
-		close(s.closing)
-	})
+	s.closeWrite()
 	return nil
+}
+
+func (s *Stream) closeWrite() {
+	s.writeClosed = true
+	s.once.Do(func() { close(s.writeClosing) })
+	s.notifyWrite()
+}
+
+// CloseRead marks the stream as closed for reads.
+func (s *Stream) CloseRead() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closeRead()
+	return nil
+}
+
+func (s *Stream) closeRead() {
+	s.readClosed = true
+	s.once.Do(func() { close(s.readClosing) })
 }
 
 // Closed returns true if the stream has been closed.
 func (s *Stream) Closed() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.closed
+	return s.readClosed && s.writeClosed
 }
 
-// CloseNotify returns a channel that sends when the stream has been closed.
-func (s *Stream) CloseNotify() <-chan struct{} { return s.closing }
+// ReadClosed returns true if the stream has been closed for reads.
+func (s *Stream) ReadClosed() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.readClosed
+}
+
+// ReadCloseNotify returns a channel that sends when the stream has been closed for writing.
+func (s *Stream) ReadCloseNotify() <-chan struct{} { return s.readClosing }
+
+// WriteClosed returns true if the stream has been requested to be closed for writes.
+func (s *Stream) WriteClosed() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.writeClosed
+}
+
+// WriteCloseNotify returns a channel that sends when the stream has been closed for writing.
+func (s *Stream) WriteCloseNotify() <-chan struct{} { return s.writeClosing }
+
+// WriteCloseNotified returns true if the stream has notified the peer connection of the end of stream.
+func (s *Stream) WriteCloseNotified() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.writeCloseNotified
+}
+
+func (s *Stream) WriteCloseNotifiedNotify() <-chan struct{} { return s.writeCloseNotifiedNotify }
+
+// ReadWriteCloseNotified returns true if the stream is closed for read and write and has been notified.
+func (s *Stream) ReadWriteCloseNotified() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.readClosed && s.writeCloseNotified
+}
 
 func (c *Stream) LocalAddr() net.Addr  { return c.localAddr }
 func (c *Stream) RemoteAddr() net.Addr { return c.remoteAddr }
@@ -323,7 +411,6 @@ func (s *streamExpVar) String() string {
 	buf, _ := json.Marshal(streamExpVarJSON{
 		Rseq:   s.rseq,
 		Wseq:   s.wseq,
-		Closed: s.closed,
 		Rbuf:   len(s.rbuf),
 		Wbuf:   len(s.wbuf),
 		Rqueue: len(s.rqueue),
@@ -333,10 +420,9 @@ func (s *streamExpVar) String() string {
 
 // streamExpVarJSON is the JSON representation of a stream in expvar.
 type streamExpVarJSON struct {
-	Rseq   int  `json:"rseq"`
-	Wseq   int  `json:"wseq"`
-	Closed bool `json:"closed,omitempty"`
-	Rbuf   int  `json:"rbuf"`
-	Wbuf   int  `json:"wbuf"`
-	Rqueue int  `json:"rqueue"`
+	Rseq   int `json:"rseq"`
+	Wseq   int `json:"wseq"`
+	Rbuf   int `json:"rbuf"`
+	Wbuf   int `json:"wbuf"`
+	Rqueue int `json:"rqueue"`
 }

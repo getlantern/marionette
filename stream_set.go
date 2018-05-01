@@ -3,16 +3,21 @@ package marionette
 import (
 	"expvar"
 	"math/rand"
-	"strconv"
 	"sync"
+	"time"
 )
 
-var evStreamMap = expvar.NewMap("streams")
+const StreamSetMonitorInterval = 1 * time.Second
+
+var (
+	evStreams = expvar.NewInt("streams")
+)
 
 type StreamSet struct {
-	mu      sync.RWMutex
-	streams map[int]*Stream
-	wnotify chan struct{}
+	mu        sync.RWMutex
+	streams   map[int]*Stream
+	streamIDs []int
+	wnotify   chan struct{}
 
 	closing chan struct{}
 	once    sync.Once
@@ -23,11 +28,12 @@ type StreamSet struct {
 
 // NewStreamSet returns a new instance of StreamSet.
 func NewStreamSet() *StreamSet {
-	return &StreamSet{
+	ss := &StreamSet{
 		streams: make(map[int]*Stream),
 		closing: make(chan struct{}),
 		wnotify: make(chan struct{}),
 	}
+	return ss
 }
 
 // Close closes all streams in the set.
@@ -42,11 +48,45 @@ func (ss *StreamSet) Close() (err error) {
 	return err
 }
 
+// monitorStream checks a stream until its read & write channels are closed
+// and then removes the stream from the set.
+func (ss *StreamSet) monitorStream(stream *Stream) {
+	for {
+		// Wait until stream closed state is changed or the set is closed.
+		select {
+		case <-ss.closing:
+			return
+		case <-stream.ReadCloseNotify():
+		case <-stream.WriteCloseNotifiedNotify():
+		}
+
+		// If stream is completely closed then remove from the set.
+		if stream.ReadWriteCloseNotified() {
+			ss.mu.Lock()
+			ss.remove(stream)
+			ss.mu.Unlock()
+			return
+		}
+	}
+}
+
 // Stream returns a stream by id.
 func (ss *StreamSet) Stream(id int) *Stream {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 	return ss.streams[id]
+}
+
+// Streams returns a list of streams.
+func (ss *StreamSet) Streams() []*Stream {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+
+	streams := make([]*Stream, 0, len(ss.streams))
+	for _, stream := range ss.streams {
+		streams = append(streams, stream)
+	}
+	return streams
 }
 
 // Create returns a new stream with a random stream id.
@@ -63,8 +103,12 @@ func (ss *StreamSet) create(id int) *Stream {
 
 	stream := NewStream(id)
 	ss.streams[stream.id] = stream
+	ss.streamIDs = append(ss.streamIDs, stream.id)
 
-	evStreamMap.Set(strconv.Itoa(stream.id), (*streamExpVar)(stream))
+	ss.wg.Add(1)
+	go func() { defer ss.wg.Done(); ss.monitorStream(stream) }()
+
+	evStreams.Add(1)
 
 	ss.wg.Add(1)
 	go func() { defer ss.wg.Done(); ss.handleStream(stream) }()
@@ -75,6 +119,20 @@ func (ss *StreamSet) create(id int) *Stream {
 	}
 
 	return stream
+}
+
+func (ss *StreamSet) remove(stream *Stream) {
+	streamID := stream.ID()
+
+	evStreams.Add(-1)
+
+	delete(ss.streams, streamID)
+
+	for i, id := range ss.streamIDs {
+		if id == streamID {
+			ss.streamIDs = append(ss.streamIDs[:i], ss.streamIDs[i+1:]...)
+		}
+	}
 }
 
 // Enqueue pushes a cell onto a stream's read queue.
@@ -103,8 +161,9 @@ func (ss *StreamSet) Dequeue(n int) *Cell {
 
 	// Choose a random stream with data.
 	var stream *Stream
-	for _, s := range ss.streams {
-		if s.WriteBufferLen() > 0 || s.Closed() {
+	for _, i := range rand.Perm(len(ss.streamIDs)) {
+		s := ss.streams[ss.streamIDs[i]]
+		if s.WriteBufferLen() > 0 || s.WriteClosed() {
 			stream = s
 			break
 		}
@@ -115,12 +174,8 @@ func (ss *StreamSet) Dequeue(n int) *Cell {
 		return nil
 	}
 
-	// Generate cell from stream. Remove from set if at the end.
-	cell := stream.Dequeue(n)
-	if cell.Type == END_OF_STREAM {
-		delete(ss.streams, stream.ID())
-	}
-	return cell
+	// Generate cell from stream.
+	return stream.Dequeue(n)
 }
 
 // WriteNotify returns a channel that receives a notification when a new write is available.
@@ -146,7 +201,7 @@ func (ss *StreamSet) handleStream(stream *Stream) {
 		case <-notify:
 			notify = stream.WriteNotify()
 			ss.notifyWrite()
-		case <-stream.CloseNotify():
+		case <-stream.WriteCloseNotify():
 			ss.notifyWrite()
 			return
 		}

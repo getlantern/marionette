@@ -79,7 +79,14 @@ func (p *ServerProxy) handleConn(conn net.Conn) {
 	// Copy between connection and proxy until an error occurs.
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() { defer wg.Done(); io.Copy(proxyConn, conn) }()
-	go func() { defer wg.Done(); io.Copy(conn, proxyConn) }()
+	go func() {
+		defer wg.Done()
+		io.Copy(proxyConn, conn)
+		proxyConn.Close()
+	}()
+	go func() {
+		defer wg.Done()
+		io.Copy(conn, proxyConn)
+	}()
 	wg.Wait()
 }
