@@ -4,7 +4,7 @@ package regex2dfa
 // #cgo LDFLAGS: -lfst -lfstscript /usr/local/lib/libre2.a
 // #include <stdlib.h>
 // #include <stdint.h>
-// int _regex2dfa(const char * input_regex, uint32_t input_regex_len, char **out, size_t *sz);
+// int _regex2dfa(const char* input_regex, uint32_t input_regex_len, char **out, size_t *sz);
 import "C"
 
 import (

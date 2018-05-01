@@ -187,9 +187,8 @@ bool Regex2Dfa(const std::string & regex,
 } // namespace regex2dfa
 
 extern "C"  {
-  int _regex2dfa(const uint8_t * input_regex, uint32_t input_regex_len, char **out, size_t *sz) {
-    const char * s = reinterpret_cast<const char*>(input_regex);
-    std::string input_regex_str(s, input_regex_len);
+  int _regex2dfa(const char* input_regex, uint32_t input_regex_len, char **out, size_t *sz) {
+    std::string input_regex_str(input_regex, input_regex_len);
     std::string dfa;
 
     bool success = regex2dfa::Regex2Dfa(input_regex_str, &dfa);
@@ -197,8 +196,9 @@ extern "C"  {
       return 1;
     } 
 
-    *out = strdup(dfa.c_str());
     *sz = dfa.size();
+    *out = (char*)malloc(*sz);
+    memmove(*out, dfa.c_str(), *sz);
     return 0;
   }
 }

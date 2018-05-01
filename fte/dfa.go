@@ -5,6 +5,7 @@ package fte
 // #include <stdlib.h>
 // #include <stdint.h>
 // void* _dfa_new(char *tbl, const uint32_t max_len);
+// void _dfa_delete(void *ptr);
 // int _dfa_rank(void *ptr, const char *s, const size_t ssz, char **out, size_t *sz);
 // int _dfa_unrank(void *ptr, const char *in, const size_t insz, char **out, size_t *sz);
 // char* _dfa_getNumWordsInLanguage(void *ptr, const uint32_t min_word_length, const uint32_t max_word_length, char **out, size_t *sz);
@@ -56,7 +57,7 @@ func NewDFA(regex string, n int) (*DFA, error) {
 
 func (dfa *DFA) Close() error {
 	if dfa.ptr != nil {
-		C.free(dfa.ptr)
+		C._dfa_delete(dfa.ptr)
 		dfa.ptr = nil
 	}
 	return nil
