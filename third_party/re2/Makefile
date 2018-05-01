@@ -10,7 +10,7 @@ all: obj/libre2.a obj/so/libre2.so
 # LDPCRE=-L/usr/local/lib -lpcre
 
 CXX?=g++
-CXXFLAGS?=-Wall -fPIC -O3 -g -DNO_THREADS # can override
+CXXFLAGS?=-Wall -fPIC -O3 -g -DNO_THREADS -std=c++11 # can override
 RE2_CXXFLAGS?=-Wno-sign-compare -c -I. $(CCPCRE)  # required
 LDFLAGS?=
 AR?=ar
