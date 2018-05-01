@@ -5,22 +5,46 @@ This is a Go port of the [marionette][] programmable networy proxy.
 
 ## WebBrowser Demonstration
 
-Please install Marionette as described below, and then go to the web browser demonstration page [here](./BrowserDemo.md)
+Please install Marionette as described below, and then go to the web browser
+demonstration page [here](./BrowserDemo.md)
+
 
 ## Development
 
-Marionette requires several dependencies to be installed first.
+Marionette requires several dependencies to be installed first. Two of them
+are in the `third_party` directory and the third one can be downloaded from
+the web.
 
-### re2
+### Installing on CentOS
 
-https://github.com/google/re2
-https://github.com/google/re2/archive/2015-08-01.tar.gz
+Ensure you have a C/C++ compiler installed:
+
+```sh
+$ yum group install -y "Development Tools"
+```
+
+### Installing OpenFST
+
+You must use the included `third_party/openfst` implementation. Also note that
+static builds must be enabled via the `--enable-static` flag.
+
+```sh
+$ cd third_party/openfst
+$ ./configure --enable-static=yes
+$ make
+$ sudo make install
+```
 
 
-### OpenFST
+### Installing re2
 
-http://www.openfst.org
-http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.5.0.tar.gz
+You must use the included `third_party/re2` implementation:
+
+```sh
+$ cd third_party/re2
+$ make
+$ sudo make install
+```
 
 
 ### GMP
@@ -39,48 +63,6 @@ $ sudo make install
 $ make check
 ```
 
-
-
-### PyCrypto
-
-Download the latest version of [PyCrypto][], unpack the archive and run:
-
-```sh
-$ wget https://ftp.dlitz.net/pub/dlitz/crypto/pycrypto/pycrypto-2.6.1.tar.gz
-$ tar zxvf pycrypto-2.6.1.tar.gz
-$ cd pycrypto-2.6.1
-
-$ python setup.py build
-$ sudo python setup.py install --user
-```
-
-
-### regex2dfa
-
-Download the latest version of [regex2dfa][], unpack the archive and run:
-
-```sh
-$ wget -O regex2dfa.zip https://github.com/kpdyer/regex2dfa/archive/master.zip
-$ unzip regex2dfa.zip
-$ cd regex2dfa-master
-
-$ ./configure
-$ make
-$ sudo python setup.py install --user
-```
-
-
-### libfte
-
-Download the latest version of [libfte][], unpack the archive and run:
-
-```sh
-$ wget -O libfte.zip https://github.com/kpdyer/libfte/archive/master.zip
-$ unzip libfte.zip
-$ cd libfte-master
-
-$ sudo python setup.py install --user
-```
 
 
 ### Building the Marionette Binary
@@ -103,63 +85,43 @@ The `marionette` binary is now installed in your `$GOPATH/bin` folder.
 
 [marionette]: https://github.com/marionette-tg/marionette
 [GMP]: https://gmplib.org
-[PyCrypto]: https://www.dlitz.net/software/pycrypto/
-[regex2dfa]: https://github.com/kpdyer/regex2dfa/archive/master.zip
-[libfte]: https://github.com/kpdyer/libfte
 [go]: https://golang.org/
 [dep]: https://github.com/golang/dep#installation
 
 
+## Installing new build-in formats
 
-## Installation (Docker)
-
-You can also install `marionette` as a Docker image. You'll need to have Docker
-installed. You can find instructions for specific operating system here:
-https://docs.docker.com/install
-
-The easiest way to setup `marionette` is to use the provided `Dockerfile`.
-First, build your docker image. Please note that this can take a while.
-
-```
-$ docker build -t redjack/marionette:latest .
-```
-
-
-### Running using the Docker image
-
-Next, run the Docker image and use the appropriate port mappings for the
-Marionette format you're using. For example, `http_simple_blocking` uses
-port `8081`:
+When adding new formats, you'll need to first install `go-bindata`:
 
 ```sh
-$ docker run -p 8081:8081 redjack/marionette server -format http_simple_blocking
+$ go get -u github.com/jteeuwen/go-bindata/...
 ```
+
+Then you can use `go generate` to convert the asset files to Go files:
 
 ```sh
-$ docker run -p 8079:8079 redjack/marionette client -bind 0.0.0.0:8079 -format http_simple_blocking
+$ go generate ./...
 ```
 
-If you're running _Docker for Mac_ then you'll also need to add a `-server` argument:
+To install the original [marionette][] library for comparing tests, download
+the latest version, unpack the archive and run:
+
+
+## Testing
+
+Use the built-in go testing command to run the unit tests:
 
 ```sh
-$ docker run -p 8079:8079 redjack/marionette client -bind 0.0.0.0:8079 -server docker.for.mac.host.internal -format http_simple_blocking
+$ go test ./...
 ```
 
-
-### Using a fixed `channel.bind()` port
-
-The `ftp_simple_blocking` uses randomized ports for the `channel.bind()` plugin.
-Unfortunately, `docker` does not support random port mappings so you can
-hardcode the port using the `MARIONETTE_CHANNEL_BIND_PORT` environment variable:
+If you have the original Python marionette installed then you can run tests
+of the ports using the `python` tag:
 
 ```sh
-$ docker run -p 2121:2121 -e MARIONETTE_CHANNEL_BIND_PORT='6000' redjack/marionette server -format ftp_simple_blocking
+$ go test -tags python ./regex2dfa
+$ go test -tags python ./fte
 ```
-
-```sh
-$ docker run -p 8079:8079 redjack/marionette client -format ftp_simple_blocking
-```
-
 
 
 ## Demo
@@ -193,41 +155,3 @@ Finally, send a `curl` to `127.0.0.1:8079` and you should see a response from
 $ curl 127.0.0.1:8079
 ```
 
-
-## Development
-
-When adding new formats, you'll need to first install `go-bindata`:
-
-```sh
-$ go get -u github.com/jteeuwen/go-bindata/...
-```
-
-Then you can use `go generate` to convert the asset files to Go files:
-
-```sh
-$ go generate ./...
-```
-
-To install the original [marionette][] library for comparing tests, download
-the latest version, unpack the archive and run:
-
-### Marionette
-
-```sh
-$ python setup.py install
-```
-
-
-## Testing
-
-Use the built-in go testing command to run the unit tests:
-
-```sh
-$ go test ./...
-```
-
-To run integration tests, specify the `integration` tag:
-
-```sh
-$ go test -tags integration ./...
-```
