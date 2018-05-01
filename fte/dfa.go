@@ -1,7 +1,7 @@
 package fte
 
 // #cgo CXXFLAGS: -std=c++11
-// #cgo LDFLAGS: -lgmp
+// #cgo LDFLAGS: /usr/local/lib/libgmp.a
 // #include <stdlib.h>
 // #include <stdint.h>
 // void* _dfa_new(char *tbl, const uint32_t max_len);
