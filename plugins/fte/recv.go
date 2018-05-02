@@ -67,12 +67,6 @@ func recv(ctx context.Context, fsm marionette.FSM, args []interface{}, blocking 
 		return err
 	}
 	plaintext, remainder, err := cipher.Decrypt(ciphertext)
-	logger().Debug("decrypt",
-		zap.Int("plaintext", len(plaintext)),
-		zap.Int("remainder", len(remainder)),
-		zap.Int("ciphertext", len(ciphertext)),
-		zap.Error(err),
-	)
 	if err == fte.ErrShortCiphertext {
 		return nil
 	} else if err != nil {

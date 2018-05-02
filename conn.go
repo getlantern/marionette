@@ -4,18 +4,32 @@ import (
 	"io"
 	"net"
 	"strings"
-	"time"
 )
 
 type BufferedConn struct {
 	net.Conn
-	buf []byte
+	buf  []byte
+	msgs chan bufferedConnMsg
 }
 
 func NewBufferedConn(conn net.Conn, bufferSize int) *BufferedConn {
-	return &BufferedConn{
+	bufConn := &BufferedConn{
 		Conn: conn,
-		buf:  make([]byte, 0, bufferSize),
+		buf:  make([]byte, 0, bufferSize+bufferedConnMsgSize),
+		msgs: make(chan bufferedConnMsg),
+	}
+	go bufConn.readBuffer()
+	return bufConn
+}
+
+func (conn *BufferedConn) readBuffer() {
+	for {
+		buf := make([]byte, bufferedConnMsgSize)
+		n, err := conn.Conn.Read(buf)
+		conn.msgs <- bufferedConnMsg{buf[:n], err}
+		if isEOFError(err) {
+			return
+		}
 	}
 }
 
@@ -34,31 +48,26 @@ func (conn *BufferedConn) Peek(n int, blocking bool) ([]byte, error) {
 			return conn.buf, nil
 		}
 
-		capacity := cap(conn.buf)
-		if n >= 0 {
-			capacity = n - len(conn.buf)
-		}
-
-		deadline := time.Now()
+		// Wait for next message if blocking. Otherwise skip if no message available.
+		var msg bufferedConnMsg
 		if blocking {
-			deadline = deadline.Add(24 * time.Hour)
+			msg = <-conn.msgs
 		} else {
-			deadline = deadline.Add(100 * time.Microsecond)
+			select {
+			case msg = <-conn.msgs:
+			default:
+			}
 		}
 
-		if err := conn.Conn.SetReadDeadline(deadline); err != nil {
-			return conn.buf, err
-		}
+		// Append any buffer returned.
+		conn.buf = append(conn.buf, msg.buf...)
 
-		nn, err := conn.Conn.Read(conn.buf[len(conn.buf) : len(conn.buf)+capacity])
-		if isTimeoutError(err) {
-			// nop
-		} else if isEOFError(err) {
+		// Handle errors.
+		if isEOFError(msg.err) {
 			return conn.buf, io.EOF
-		} else if err != nil {
-			return conn.buf, err
+		} else if msg.err != nil {
+			return conn.buf, msg.err
 		}
-		conn.buf = conn.buf[:len(conn.buf)+nn]
 
 		if n == -1 {
 			return conn.buf, nil
@@ -76,6 +85,13 @@ func (conn *BufferedConn) Seek(offset int64, whence int) (int64, error) {
 	conn.buf = conn.buf[:len(b)]
 	copy(conn.buf, b)
 	return 0, nil
+}
+
+const bufferedConnMsgSize = 4096
+
+type bufferedConnMsg struct {
+	buf []byte
+	err error
 }
 
 // isTimeoutError returns true if the error is a timeout error.
