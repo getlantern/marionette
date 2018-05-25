@@ -3,6 +3,7 @@ package marionette
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"sort"
@@ -54,6 +55,9 @@ type Stream struct {
 	modTime time.Time
 
 	onWrite func() // callback when a new write buffer changes
+
+	// Stream verbosely logs to trace writer when set.
+	TraceWriter io.Writer
 }
 
 func NewStream(id int) *Stream {
@@ -89,12 +93,19 @@ func (s *Stream) ReadNotify() <-chan struct{} {
 }
 
 func (s *Stream) notifyRead() {
+	if s.TraceWriter != nil {
+		fmt.Fprintf(s.TraceWriter, "[notifyRead]")
+	}
 	close(s.rnotify)
 	s.rnotify = make(chan struct{})
 }
 
 // Read reads n bytes from the stream.
 func (s *Stream) Read(b []byte) (n int, err error) {
+	if s.TraceWriter != nil {
+		s.TraceWriter.Write([]byte("[Read]"))
+	}
+
 	for {
 		// Attempt to read from the buffer. Exit if bytes read or error.
 		s.mu.Lock()
@@ -148,6 +159,10 @@ func (s *Stream) ReadBufferLen() int {
 // Write appends b to the write buffer. This method will continue to try until
 // the entire byte slice is written atomically to the buffer.
 func (s *Stream) Write(b []byte) (n int, err error) {
+	if s.TraceWriter != nil {
+		fmt.Fprintf(s.TraceWriter, "[Write] len=%d", len(b))
+	}
+
 	for {
 		s.mu.Lock()
 		if s.writeClosed {
@@ -190,6 +205,9 @@ func (s *Stream) WriteNotify() <-chan struct{} {
 }
 
 func (s *Stream) notifyWrite() {
+	if s.TraceWriter != nil {
+		fmt.Fprintf(s.TraceWriter, "[notifyWrite]")
+	}
 	close(s.wnotify)
 	s.wnotify = make(chan struct{})
 }
@@ -206,6 +224,10 @@ func (s *Stream) WriteBufferLen() int {
 func (s *Stream) Enqueue(cell *Cell) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.TraceWriter != nil {
+		fmt.Fprintf(s.TraceWriter, "[Enqueue] seq=%d rseq=%d", cell.SequenceID, s.rseq)
+	}
 
 	// If sequence is out of order then add to queue and exit.
 	if cell.SequenceID < s.rseq {
@@ -248,6 +270,10 @@ func (s *Stream) processReadQueue() {
 
 		// If this is the end of the stream then close out reads.
 		if cell.Type == END_OF_STREAM {
+			if s.TraceWriter != nil {
+				fmt.Fprintf(s.TraceWriter, "[eos:recv] seq=%d rseq=%d qlen=%d rbuf=%d", cell.SequenceID, s.rseq, len(s.rqueue), len(s.rbuf))
+			}
+
 			s.rqueue = nil
 			s.closeRead()
 		}
@@ -263,6 +289,10 @@ func (s *Stream) processReadQueue() {
 func (s *Stream) Dequeue(n int) *Cell {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.TraceWriter != nil {
+		fmt.Fprintf(s.TraceWriter, "[Dequeue] n=%d", n)
+	}
 
 	// Exit immediately if stream has already notified that its writes are closed.
 	if s.writeCloseNotified {
@@ -283,6 +313,9 @@ func (s *Stream) Dequeue(n int) *Cell {
 
 	// End stream if there's no more data and it's marked as closed.
 	if len(s.wbuf) == 0 && s.writeClosed {
+		if s.TraceWriter != nil {
+			fmt.Fprintf(s.TraceWriter, "[eos:send] seq=%d", sequenceID)
+		}
 		s.writeCloseNotified = true
 		close(s.writeCloseNotifiedNotify)
 		return NewCell(s.id, sequenceID, n, END_OF_STREAM)

@@ -2,9 +2,16 @@ package marionette
 
 import (
 	"expvar"
+	"fmt"
+	"io"
 	"math/rand"
+	"os"
+	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 const StreamSetMonitorInterval = 1 * time.Second
@@ -24,6 +31,9 @@ type StreamSet struct {
 	wg      sync.WaitGroup
 
 	OnNewStream func(*Stream)
+
+	// Directory for storing stream traces.
+	TracePath string
 }
 
 // NewStreamSet returns a new instance of StreamSet.
@@ -102,6 +112,19 @@ func (ss *StreamSet) create(id int) *Stream {
 	}
 
 	stream := NewStream(id)
+	if ss.TracePath != "" {
+		path := filepath.Join(ss.TracePath, strconv.Itoa(id))
+		if err := os.MkdirAll(ss.TracePath, 0777); err != nil {
+			Logger.Warn("cannot create trace directory", zap.Error(err))
+		} else if w, err := os.Create(path); err != nil {
+			Logger.Warn("cannot create trace file", zap.Error(err))
+		} else {
+			fmt.Fprintf(w, "# STREAM %d\n\n", id)
+			stream.TraceWriter = &timestampWriter{Writer: w}
+		}
+		stream.TraceWriter.Write([]byte("[create]"))
+	}
+
 	ss.streams[stream.id] = stream
 	ss.streamIDs = append(ss.streamIDs, stream.id)
 
@@ -126,6 +149,12 @@ func (ss *StreamSet) remove(stream *Stream) {
 
 	evStreams.Add(-1)
 
+	if stream.TraceWriter != nil {
+		stream.TraceWriter.Write([]byte("[remove]"))
+		if traceWriter, ok := stream.TraceWriter.(io.Closer); ok {
+			traceWriter.Close()
+		}
+	}
 	delete(ss.streams, streamID)
 
 	for i, id := range ss.streamIDs {
@@ -206,4 +235,13 @@ func (ss *StreamSet) handleStream(stream *Stream) {
 			return
 		}
 	}
+}
+
+// timestampWriter wraps a writer and prepends a timestamp & appends a newline to every write.
+type timestampWriter struct {
+	Writer io.Writer
+}
+
+func (w *timestampWriter) Write(p []byte) (n int, err error) {
+	return fmt.Fprintf(w.Writer, "%s %s\n", time.Now().UTC().Format("2006-01-02T15:04:05.000Z"), p)
 }

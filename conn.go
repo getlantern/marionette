@@ -25,16 +25,10 @@ func (conn *BufferedConn) Read(p []byte) (int, error) {
 }
 
 // Peek returns the first n bytes of the read buffer.
-// If n is -1 then returns any available data.
+// If n is -1 then returns any available data after attempting a read.
 func (conn *BufferedConn) Peek(n int, blocking bool) ([]byte, error) {
 	for {
-		if n >= 0 && len(conn.buf) >= n {
-			return conn.buf[:n], nil
-		} else if n == -1 && len(conn.buf) > 0 {
-			return conn.buf, nil
-		}
-
-		capacity := cap(conn.buf)
+		capacity := cap(conn.buf) - len(conn.buf)
 		if n >= 0 {
 			capacity = n - len(conn.buf)
 		}
@@ -60,7 +54,9 @@ func (conn *BufferedConn) Peek(n int, blocking bool) ([]byte, error) {
 		}
 		conn.buf = conn.buf[:len(conn.buf)+nn]
 
-		if n == -1 {
+		if n >= 0 && len(conn.buf) >= n {
+			return conn.buf[:n], nil
+		} else if n == -1 {
 			return conn.buf, nil
 		}
 	}

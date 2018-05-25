@@ -34,6 +34,9 @@ type Listener struct {
 	wg      sync.WaitGroup
 	closing chan struct{}
 	closed  bool
+
+	// Specifies directory for dumping stream traces. Passed to StreamSet.TracePath.
+	TracePath string
 }
 
 // Listen returns a new instance of Listener.
@@ -139,6 +142,7 @@ func (l *Listener) accept() {
 
 		streamSet := NewStreamSet()
 		streamSet.OnNewStream = l.onNewStream
+		streamSet.TracePath = l.TracePath
 
 		fsm := NewFSM(l.doc, l.iface, PartyServer, conn, streamSet)
 

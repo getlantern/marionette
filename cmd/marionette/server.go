@@ -75,6 +75,7 @@ func (cmd *ServerCommand) Run(args []string) error {
 	if err != nil {
 		return err
 	}
+	ln.TracePath = fs.TracePath
 	defer ln.Close()
 
 	// Start proxy.

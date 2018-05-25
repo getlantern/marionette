@@ -8,7 +8,11 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"sort"
+	"text/tabwriter"
+	"time"
 
+	"github.com/redjack/marionette"
 	"github.com/redjack/marionette/plugins/model"
 )
 
@@ -68,13 +72,15 @@ The commands are:
 
 type FlagSet struct {
 	*flag.FlagSet
-	Debug string
+	Debug     string
+	TracePath string
 }
 
 func NewFlagSet(name string, errorHandling flag.ErrorHandling) *FlagSet {
 	fs := &FlagSet{FlagSet: flag.NewFlagSet(name, errorHandling)}
 	fs.Float64Var(&model.SleepFactor, "sleep-factor", model.SleepFactor, "model.sleep() multipler")
 	fs.StringVar(&fs.Debug, "debug", "", "debug http bind address")
+	fs.StringVar(&fs.TracePath, "trace-path", "", "stream trace directory path")
 	return fs
 }
 
@@ -90,4 +96,17 @@ func (fs *FlagSet) Parse(arguments []string) error {
 	}
 
 	return nil
+}
+
+// dumpStreams writes out a list of streams ordered by mod time.
+func dumpStreams(streams []*marionette.Stream) {
+	sort.Slice(streams, func(i, j int) bool { return streams[i].ModTime().Before(streams[j].ModTime()) })
+
+	fmt.Fprintln(os.Stderr, "# OPEN STREAMS")
+	w := tabwriter.NewWriter(os.Stderr, 0, 0, 1, ' ', 0)
+	for _, stream := range streams {
+		fmt.Fprintf(w, "%d\t%s\t\n", stream.ID(), time.Since(stream.ModTime()).Truncate(1*time.Second))
+	}
+	w.Flush()
+	os.Stderr.Write([]byte("\n"))
 }

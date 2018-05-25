@@ -72,6 +72,7 @@ func (cmd *ClientCommand) Run(args []string) error {
 	defer ln.Close()
 
 	streamSet := marionette.NewStreamSet()
+	streamSet.TracePath = fs.TracePath
 	defer streamSet.Close()
 
 	// Create dialer to remote server.
@@ -95,6 +96,11 @@ func (cmd *ClientCommand) Run(args []string) error {
 	signal.Notify(c, os.Interrupt)
 	<-c
 	fmt.Fprintln(os.Stderr, "received interrupt, shutting down...")
+
+	// Dump open streams.
+	if *verbose {
+		dumpStreams(streamSet.Streams())
+	}
 
 	return nil
 }
