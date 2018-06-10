@@ -21,15 +21,15 @@ var Verbose bool
 
 // Cache represents a cache of Ciphers & DFAs.
 type Cache struct {
-	ciphers map[string]*Cipher
-	dfas    map[dfaKey]*DFA
+	ciphers map[cacheKey]*Cipher
+	dfas    map[cacheKey]*DFA
 }
 
 // NewCache returns a new instance of Cache.
 func NewCache() *Cache {
 	return &Cache{
-		ciphers: make(map[string]*Cipher),
-		dfas:    make(map[dfaKey]*DFA),
+		ciphers: make(map[cacheKey]*Cipher),
+		dfas:    make(map[cacheKey]*DFA),
 	}
 }
 
@@ -54,13 +54,13 @@ func (c *Cache) Close() (err error) {
 
 // Cipher returns a instance of Cipher associated with regex & n.
 // Creates a new cipher if one doesn't already exist.
-func (c *Cache) Cipher(regex string) (_ *Cipher, err error) {
-	cipher := c.ciphers[regex]
+func (c *Cache) Cipher(regex string, n int) (_ *Cipher, err error) {
+	cipher := c.ciphers[cacheKey{regex, n}]
 	if cipher == nil {
-		if cipher, err = NewCipher(regex); err != nil {
+		if cipher, err = NewCipher(regex, n); err != nil {
 			return nil, err
 		}
-		c.ciphers[regex] = cipher
+		c.ciphers[cacheKey{regex, n}] = cipher
 	}
 	return cipher, nil
 }
@@ -68,17 +68,17 @@ func (c *Cache) Cipher(regex string) (_ *Cipher, err error) {
 // DFA returns a instance of DFA associated with regex & n.
 // Creates a new DFA if one doesn't already exist.
 func (c *Cache) DFA(regex string, n int) (_ *DFA, err error) {
-	dfa := c.dfas[dfaKey{regex, n}]
+	dfa := c.dfas[cacheKey{regex, n}]
 	if dfa == nil {
 		if dfa, err = NewDFA(regex, n); err != nil {
 			return nil, err
 		}
-		c.dfas[dfaKey{regex, n}] = dfa
+		c.dfas[cacheKey{regex, n}] = dfa
 	}
 	return dfa, nil
 }
 
-type dfaKey struct {
+type cacheKey struct {
 	regex string
 	n     int
 }

@@ -269,8 +269,9 @@ std::string DFA::unrank( const mpz_class c_in ) {
 
     // throw exception if input integer is not in range of pre-computed value
     mpz_class words_in_slice = getNumWordsInLanguage( _fixed_slice, _fixed_slice );
-    if ( c_in > words_in_slice )
+    if ( c_in > words_in_slice ) {
         throw invalid_unrank_input;
+    }
 
     // walk the DFA subtracting values from c until we have our n symbols
     mpz_class c = c_in;
@@ -352,6 +353,7 @@ mpz_class DFA::rank( const std::string X ) {
 
     // verify len(X) is what we expect
     if (X.length()!=_fixed_slice) {
+        std::cerr << X.length() << " != " << _fixed_slice << "\n";
         throw invalid_rank_input;
     }
 

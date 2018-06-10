@@ -24,7 +24,7 @@ type BufferedConn struct {
 func NewBufferedConn(conn net.Conn, bufferSize int) *BufferedConn {
 	c := &BufferedConn{
 		Conn:    conn,
-		buf:     make([]byte, 0, bufferSize),
+		buf:     make([]byte, 0, bufferSize*2),
 		closing: make(chan struct{}, 0),
 
 		seekNotify:  make(chan struct{}, 1),
@@ -65,7 +65,11 @@ func (conn *BufferedConn) Peek(n int, blocking bool) ([]byte, error) {
 		// Return any data that exists in the buffer.
 		switch n {
 		case -1:
-			return buf, err
+			if len(buf) > 0 {
+				return buf, nil
+			} else if err != nil {
+				return nil, err
+			}
 		default:
 			if n <= len(buf) {
 				return buf[:n], nil

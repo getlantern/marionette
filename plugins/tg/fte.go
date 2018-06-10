@@ -10,13 +10,15 @@ import (
 type FTECipher struct {
 	key         string
 	regex       string
+	msgLen      int
 	useCapacity bool
 }
 
-func NewFTECipher(key, regex string, msg_len int, useCapacity bool) *FTECipher {
+func NewFTECipher(key, regex string, msgLen int, useCapacity bool) *FTECipher {
 	return &FTECipher{
 		key:         key,
 		regex:       regex,
+		msgLen:      msgLen,
 		useCapacity: useCapacity,
 	}
 }
@@ -29,7 +31,7 @@ func (c *FTECipher) Capacity(fsm marionette.FSM) (int, error) {
 	if !c.useCapacity && strings.HasSuffix(c.regex, ".+") {
 		return (1 << 18), nil
 	}
-	cipher, err := fsm.Cipher(c.regex)
+	cipher, err := fsm.Cipher(c.regex, c.msgLen)
 	if err != nil {
 		return 0, err
 	}
@@ -37,7 +39,7 @@ func (c *FTECipher) Capacity(fsm marionette.FSM) (int, error) {
 }
 
 func (c *FTECipher) Encrypt(fsm marionette.FSM, template string, data []byte) (ciphertext []byte, err error) {
-	cipher, err := fsm.Cipher(c.regex)
+	cipher, err := fsm.Cipher(c.regex, c.msgLen)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +47,7 @@ func (c *FTECipher) Encrypt(fsm marionette.FSM, template string, data []byte) (c
 }
 
 func (c *FTECipher) Decrypt(fsm marionette.FSM, ciphertext []byte) (plaintext []byte, err error) {
-	cipher, err := fsm.Cipher(c.regex)
+	cipher, err := fsm.Cipher(c.regex, c.msgLen)
 	if err != nil {
 		return nil, err
 	}

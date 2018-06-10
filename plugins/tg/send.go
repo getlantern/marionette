@@ -58,7 +58,7 @@ func Send(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 		return err
 	}
 
-	logger.Debug("msg sent", zap.Int("ciphertext", len(ciphertext)), zap.Duration("t", time.Since(t0)))
+	logger.Debug("msg sent", zap.String("grammar", name), zap.Int("ciphertext", len(ciphertext)), zap.Duration("t", time.Since(t0)))
 	return nil
 }
 

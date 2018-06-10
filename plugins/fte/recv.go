@@ -45,7 +45,8 @@ func recv(ctx context.Context, fsm marionette.FSM, args []interface{}, blocking 
 	if !ok {
 		return errors.New("invalid regex argument type")
 	}
-	if _, ok := args[1].(int); !ok {
+	msgLen, ok := args[1].(int)
+	if !ok {
 		return errors.New("invalid msg_len argument type")
 	}
 
@@ -60,7 +61,7 @@ func recv(ctx context.Context, fsm marionette.FSM, args []interface{}, blocking 
 	}
 
 	// Decode ciphertext.
-	cipher, err := fsm.Cipher(regex)
+	cipher, err := fsm.Cipher(regex, msgLen)
 	if err != nil {
 		return err
 	}

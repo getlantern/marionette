@@ -51,8 +51,7 @@ func Recv(ctx context.Context, fsm marionette.FSM, args ...interface{}) error {
 	// Verify incoming data can be parsed by the grammar.
 	m := Parse(grammar.Name, string(ciphertext))
 	if m == nil {
-		logger.Debug("tg.recv: cannot parse buffer")
-		// TODO: Retry within this plugin.
+		logger.Debug("tg.recv: cannot parse buffer", zap.String("grammar", grammar.Name))
 		return marionette.ErrRetryTransition
 	}
 

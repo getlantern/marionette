@@ -42,7 +42,7 @@ func (h *AmazonMsgLensCipher) Capacity(fsm marionette.FSM) (int, error) {
 	}
 	n := h.target - fte.COVERTEXT_HEADER_LEN_CIPHERTTEXT
 	n -= fte.CTXT_EXPANSION
-	// n = int(ptxt_len * 8.0)-1
+	n -= 1
 	return n, nil
 }
 
@@ -70,7 +70,7 @@ func (h *AmazonMsgLensCipher) Encrypt(fsm marionette.FSM, template string, plain
 		return []byte(ret), nil
 	}
 
-	cipher, err := fsm.Cipher(h.regex)
+	cipher, err := fsm.Cipher(h.regex, h.min)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (h *AmazonMsgLensCipher) Decrypt(fsm marionette.FSM, ciphertext []byte) (pl
 	if len(ciphertext) < h.min {
 		return nil, nil
 	}
-	cipher, err := fsm.Cipher(h.regex)
+	cipher, err := fsm.Cipher(h.regex, h.min)
 	if err != nil {
 		return nil, err
 	}

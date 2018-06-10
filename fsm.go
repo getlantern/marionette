@@ -58,7 +58,7 @@ type FSM interface {
 	Reset()
 
 	// Returns an FTE cipher or DFA from the cache or creates a new one.
-	Cipher(regex string) (Cipher, error)
+	Cipher(regex string, n int) (Cipher, error)
 	DFA(regex string, msgLen int) (DFA, error)
 
 	// Returns the network connection attached to the FSM.
@@ -366,8 +366,8 @@ func (fsm *fsm) SetVar(key string, value interface{}) {
 
 // Cipher returns a cipher with the given settings.
 // If no cipher exists then a new one is created and returned.
-func (fsm *fsm) Cipher(regex string) (Cipher, error) {
-	return fsm.fteCache.Cipher(regex)
+func (fsm *fsm) Cipher(regex string, n int) (Cipher, error) {
+	return fsm.fteCache.Cipher(regex, n)
 }
 
 // DFA returns a DFA with the given settings.

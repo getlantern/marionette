@@ -8,8 +8,6 @@ import (
 	"math/big"
 )
 
-const FixedSlice = 512
-
 var (
 	ErrInsufficientCapacity = errors.New("fte: insufficient capacity")
 )
@@ -21,13 +19,13 @@ type Cipher struct {
 }
 
 // NewCipher returns a new instance of Cipher.
-func NewCipher(regex string) (_ *Cipher, err error) {
+func NewCipher(regex string, n int) (_ *Cipher, err error) {
 	var c Cipher
 	if c.enc, err = NewEncrypter(); err != nil {
 		return nil, err
 	} else if c.dec, err = NewDecrypter(); err != nil {
 		return nil, err
-	} else if c.dfa, err = NewDFA(regex, FixedSlice); err != nil {
+	} else if c.dfa, err = NewDFA(regex, n); err != nil {
 		return nil, err
 	}
 	return &c, nil
@@ -111,13 +109,13 @@ func (c *Cipher) Encrypt(plaintext []byte) (ciphertext []byte, err error) {
 // Decrypt decrypts ciphertext into plaintext.
 // Returns ErrShortCiphertext if the ciphertext is too short to be decrypted.
 func (c *Cipher) Decrypt(ciphertext []byte) (plaintext, remainder []byte, err error) {
-	if len(ciphertext) < FixedSlice {
+	if len(ciphertext) < c.dfa.N() {
 		return nil, nil, ErrShortCiphertext
 	}
 
 	maximumBytesToRank := c.Capacity()
 
-	rank_payload, err := c.dfa.Rank(string(ciphertext[:FixedSlice]))
+	rank_payload, err := c.dfa.Rank(string(ciphertext[:c.dfa.N()]))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -131,7 +129,7 @@ func (c *Cipher) Decrypt(ciphertext []byte) (plaintext, remainder []byte, err er
 	msg_len := binary.BigEndian.Uint64(msg_len_header[8:16])
 
 	retval := X[16 : 16+msg_len]
-	retval = append(retval, ciphertext[FixedSlice:]...)
+	retval = append(retval, ciphertext[c.dfa.N():]...)
 	ctxt_len := c.dec.CiphertextLen(retval)
 	var remaining_buffer []byte
 	if len(retval) > ctxt_len {

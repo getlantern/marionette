@@ -73,7 +73,7 @@ func parseHTTPResponse(data string) map[string]string {
 	m := make(map[string]string)
 	m["CONTENT-LENGTH"] = httpHeaderValue(hdrs, "Content-Length")
 	m["COOKIE"] = httpHeaderValue(hdrs, "Cookie")
-	if a := strings.Split(data, "\r\n\r\n"); len(a) > 1 {
+	if a := strings.SplitN(data, "\r\n\r\n", 2); len(a) > 1 {
 		m["HTTP-RESPONSE-BODY"] = a[1]
 	} else {
 		m["HTTP-RESPONSE-BODY"] = ""
