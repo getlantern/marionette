@@ -17,6 +17,8 @@ var ErrInternal = errors.New("regex2dfa: internal error")
 
 // Regex2DFA converts regex into a DFA table.
 func Regex2DFA(regex string) (string, error) {
+	regex = "^" + regex + "$"
+
 	cregex := C.CString(regex)
 	defer C.free(unsafe.Pointer(cregex))
 

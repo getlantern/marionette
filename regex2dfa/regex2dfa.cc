@@ -194,7 +194,7 @@ extern "C"  {
     bool success = regex2dfa::Regex2Dfa(input_regex_str, &dfa);
     if (!success) {
       return 1;
-    } 
+    }
 
     *sz = dfa.size();
     *out = (char*)malloc(*sz);

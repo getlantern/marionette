@@ -21,7 +21,6 @@
 // formats/20150701/ssh_simple_nonblocking.mar
 // formats/20150701/ta/amzn_conn.mar
 // formats/20150701/ta/amzn_sess.mar
-// formats/20150701/test_hex_input_strings.mar
 // formats/20150701/udp_test_format.mar
 // formats/20150701/web_conn.mar
 // formats/20150701/web_conn443.mar
@@ -110,7 +109,7 @@ func formats20150701Active_probingFtp_pureftpd_10Mar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/active_probing/ftp_pureftpd_10.mar", size: 648, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/active_probing/ftp_pureftpd_10.mar", size: 648, mode: os.FileMode(493), modTime: time.Unix(1528646765, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -130,7 +129,7 @@ func formats20150701Active_probingHttp_apache_247Mar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/active_probing/http_apache_247.mar", size: 573, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/active_probing/http_apache_247.mar", size: 573, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -150,7 +149,7 @@ func formats20150701Active_probingSsh_openssh_661Mar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/active_probing/ssh_openssh_661.mar", size: 397, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/active_probing/ssh_openssh_661.mar", size: 397, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -170,7 +169,7 @@ func formats20150701Dns_requestMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/dns_request.mar", size: 255, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/dns_request.mar", size: 255, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -190,7 +189,7 @@ func formats20150701DummyMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/dummy.mar", size: 394, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/dummy.mar", size: 394, mode: os.FileMode(493), modTime: time.Unix(1515342466, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -210,7 +209,7 @@ func formats20150701Ftp_pasv_transferMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/ftp_pasv_transfer.mar", size: 180, mode: os.FileMode(493), modTime: time.Unix(1518744147, 0)}
+	info := bindataFileInfo{name: "formats/20150701/ftp_pasv_transfer.mar", size: 180, mode: os.FileMode(493), modTime: time.Unix(1528658885, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -230,7 +229,7 @@ func formats20150701Ftp_simple_blockingMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/ftp_simple_blocking.mar", size: 1803, mode: os.FileMode(493), modTime: time.Unix(1518744149, 0)}
+	info := bindataFileInfo{name: "formats/20150701/ftp_simple_blocking.mar", size: 1803, mode: os.FileMode(493), modTime: time.Unix(1518736274, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -250,7 +249,7 @@ func formats20150701Http_active_probingMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/http_active_probing.mar", size: 540, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/http_active_probing.mar", size: 540, mode: os.FileMode(493), modTime: time.Unix(1513726392, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -270,7 +269,7 @@ func formats20150701Http_active_probing2Mar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/http_active_probing2.mar", size: 823, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/http_active_probing2.mar", size: 823, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -290,7 +289,7 @@ func formats20150701Http_probabilistic_blockingMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/http_probabilistic_blocking.mar", size: 627, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/http_probabilistic_blocking.mar", size: 627, mode: os.FileMode(493), modTime: time.Unix(1528658876, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -310,7 +309,7 @@ func formats20150701Http_simple_blockingMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/http_simple_blocking.mar", size: 331, mode: os.FileMode(493), modTime: time.Unix(1520202360, 0)}
+	info := bindataFileInfo{name: "formats/20150701/http_simple_blocking.mar", size: 331, mode: os.FileMode(493), modTime: time.Unix(1524253622, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -330,7 +329,7 @@ func formats20150701Http_simple_blocking_with_msg_lensMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/http_simple_blocking_with_msg_lens.mar", size: 286, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/http_simple_blocking_with_msg_lens.mar", size: 286, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -350,7 +349,7 @@ func formats20150701Http_simple_nonblockingMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/http_simple_nonblocking.mar", size: 518, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/http_simple_nonblocking.mar", size: 518, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -370,7 +369,7 @@ func formats20150701Http_squid_blockingMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/http_squid_blocking.mar", size: 590, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/http_squid_blocking.mar", size: 590, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -390,7 +389,7 @@ func formats20150701Http_timingsMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/http_timings.mar", size: 585, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/http_timings.mar", size: 585, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -410,7 +409,7 @@ func formats20150701Https_simple_blockingMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/https_simple_blocking.mar", size: 17009, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/https_simple_blocking.mar", size: 17009, mode: os.FileMode(493), modTime: time.Unix(1515340149, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -430,7 +429,7 @@ func formats20150701NmapKpdyerComMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/nmap/kpdyer.com.mar", size: 573, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/nmap/kpdyer.com.mar", size: 573, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -450,7 +449,7 @@ func formats20150701Smb_simple_nonblockingMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/smb_simple_nonblocking.mar", size: 545, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/smb_simple_nonblocking.mar", size: 545, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -470,7 +469,7 @@ func formats20150701Ssh_simple_nonblockingMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/ssh_simple_nonblocking.mar", size: 383, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/ssh_simple_nonblocking.mar", size: 383, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -490,7 +489,7 @@ func formats20150701TaAmzn_connMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/ta/amzn_conn.mar", size: 7755, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/ta/amzn_conn.mar", size: 7755, mode: os.FileMode(493), modTime: time.Unix(1518474284, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -510,27 +509,7 @@ func formats20150701TaAmzn_sessMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/ta/amzn_sess.mar", size: 739, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _formats20150701Test_hex_input_stringsMar = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x4a\xce\xcf\xcb\x4b\x4d\x2e\xc9\xcc\xcf\xd3\x28\x49\x2e\xd0\x51\xb0\x30\xd0\xb4\xe2\x52\x50\x28\x2e\x49\x2c\x2a\x51\x48\xc9\x8f\xcf\xcb\x2f\xc9\xc8\xcc\x4b\x57\xf0\x0b\xf5\xf1\x51\x30\xd4\x33\xe0\x52\x40\x16\x4d\xcd\x4b\x41\xc8\x70\x25\x82\xcd\x51\xc8\x2b\xcd\xc9\x89\x2f\x28\x2d\x29\x06\x19\x94\x9c\x93\x99\x9a\x57\xa2\x90\x99\xaf\x07\x12\xd1\x50\x8f\xa9\x30\x31\x8c\xa9\x30\x31\x8a\x89\x49\x4a\x4c\xce\x2e\xce\x49\x2c\xce\x50\xd7\xe4\x02\x04\x00\x00\xff\xff\x1d\xdf\x6d\x96\x86\x00\x00\x00")
-
-func formats20150701Test_hex_input_stringsMarBytes() ([]byte, error) {
-	return bindataRead(
-		_formats20150701Test_hex_input_stringsMar,
-		"formats/20150701/test_hex_input_strings.mar",
-	)
-}
-
-func formats20150701Test_hex_input_stringsMar() (*asset, error) {
-	bytes, err := formats20150701Test_hex_input_stringsMarBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "formats/20150701/test_hex_input_strings.mar", size: 134, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/ta/amzn_sess.mar", size: 739, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -550,7 +529,7 @@ func formats20150701Udp_test_formatMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/udp_test_format.mar", size: 343, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150701/udp_test_format.mar", size: 343, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -570,7 +549,7 @@ func formats20150701Web_connMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/web_conn.mar", size: 7753, mode: os.FileMode(420), modTime: time.Unix(1524183427, 0)}
+	info := bindataFileInfo{name: "formats/20150701/web_conn.mar", size: 7753, mode: os.FileMode(420), modTime: time.Unix(1524518517, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -590,7 +569,7 @@ func formats20150701Web_conn443Mar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/web_conn443.mar", size: 24296, mode: os.FileMode(420), modTime: time.Unix(1524183427, 0)}
+	info := bindataFileInfo{name: "formats/20150701/web_conn443.mar", size: 24296, mode: os.FileMode(420), modTime: time.Unix(1524518517, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -610,7 +589,7 @@ func formats20150701Web_sessMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/web_sess.mar", size: 1116, mode: os.FileMode(420), modTime: time.Unix(1524183427, 0)}
+	info := bindataFileInfo{name: "formats/20150701/web_sess.mar", size: 1116, mode: os.FileMode(420), modTime: time.Unix(1524518517, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -630,7 +609,7 @@ func formats20150701Web_sess443Mar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150701/web_sess443.mar", size: 1146, mode: os.FileMode(420), modTime: time.Unix(1524183427, 0)}
+	info := bindataFileInfo{name: "formats/20150701/web_sess443.mar", size: 1146, mode: os.FileMode(420), modTime: time.Unix(1524518517, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -650,7 +629,7 @@ func formats20150702Http_simple_blockingMar() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "formats/20150702/http_simple_blocking.mar", size: 331, mode: os.FileMode(493), modTime: time.Unix(1518726541, 0)}
+	info := bindataFileInfo{name: "formats/20150702/http_simple_blocking.mar", size: 331, mode: os.FileMode(493), modTime: time.Unix(1508358574, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -728,7 +707,6 @@ var _bindata = map[string]func() (*asset, error){
 	"formats/20150701/ssh_simple_nonblocking.mar": formats20150701Ssh_simple_nonblockingMar,
 	"formats/20150701/ta/amzn_conn.mar": formats20150701TaAmzn_connMar,
 	"formats/20150701/ta/amzn_sess.mar": formats20150701TaAmzn_sessMar,
-	"formats/20150701/test_hex_input_strings.mar": formats20150701Test_hex_input_stringsMar,
 	"formats/20150701/udp_test_format.mar": formats20150701Udp_test_formatMar,
 	"formats/20150701/web_conn.mar": formats20150701Web_connMar,
 	"formats/20150701/web_conn443.mar": formats20150701Web_conn443Mar,
@@ -806,7 +784,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"amzn_conn.mar": &bintree{formats20150701TaAmzn_connMar, map[string]*bintree{}},
 				"amzn_sess.mar": &bintree{formats20150701TaAmzn_sessMar, map[string]*bintree{}},
 			}},
-			"test_hex_input_strings.mar": &bintree{formats20150701Test_hex_input_stringsMar, map[string]*bintree{}},
 			"udp_test_format.mar": &bintree{formats20150701Udp_test_formatMar, map[string]*bintree{}},
 			"web_conn.mar": &bintree{formats20150701Web_connMar, map[string]*bintree{}},
 			"web_conn443.mar": &bintree{formats20150701Web_conn443Mar, map[string]*bintree{}},

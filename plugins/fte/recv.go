@@ -52,9 +52,7 @@ func recv(ctx context.Context, fsm marionette.FSM, args []interface{}, blocking 
 	// Retrieve data from the connection.
 	conn := fsm.Conn()
 	ciphertext, err := conn.Peek(-1, blocking)
-	if err == io.EOF {
-		return err
-	} else if err != nil {
+	if err != nil && err != io.EOF {
 		logger().Error("cannot read from connection", zap.Error(err))
 		return err
 	} else if len(ciphertext) == 0 {
@@ -98,7 +96,7 @@ func recv(ctx context.Context, fsm marionette.FSM, args []interface{}, blocking 
 	if fsm.InstanceID() == 0 {
 		fsm.SetInstanceID(cell.InstanceID)
 		return marionette.ErrRetryTransition
-	} else if fsm.InstanceID() != cell.InstanceID {
+	} else if cell.InstanceID != 0 && fsm.InstanceID() != cell.InstanceID {
 		logger().Error("instance id mismatch", zap.Int("local", fsm.InstanceID()), zap.Int("remote", cell.InstanceID))
 		return fmt.Errorf("instance id mismatch: fsm=%d, cell=%d", fsm.InstanceID(), cell.InstanceID)
 	}

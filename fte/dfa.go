@@ -75,7 +75,7 @@ func (dfa *DFA) Capacity() int {
 }
 
 func (dfa *DFA) calculateCapacity() error {
-	wordsInSlice, err := dfa.NumWordsInLanguage(FixedSlice, FixedSlice)
+	wordsInSlice, err := dfa.NumWordsInLanguage(dfa.n, dfa.n)
 	if err != nil {
 		return err
 	} else if wordsInSlice.Cmp(big.NewInt(0)) == 0 {

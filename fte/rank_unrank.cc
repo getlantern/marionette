@@ -453,6 +453,7 @@ extern "C"  {
   void _dfa_getNumWordsInLanguage(void *ptr, const uint32_t min_word_length, const uint32_t max_word_length, char **out, size_t *sz) {
     DFA* dfa = reinterpret_cast<DFA*>(ptr);
     mpz_class num_words = dfa->getNumWordsInLanguage(min_word_length, max_word_length);
+
     *sz = num_words.get_str().size();
     *out = (char*)malloc(*sz);
     memmove(*out, num_words.get_str().c_str(), *sz);
