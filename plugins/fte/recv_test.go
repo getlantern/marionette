@@ -3,6 +3,7 @@ package fte_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,10 +30,7 @@ func TestRecv(t *testing.T) {
 
 		conn := mock.DefaultConn()
 		conn.SetReadDeadlineFn = func(_ time.Time) error { return nil }
-		conn.ReadFn = func(p []byte) (int, error) {
-			copy(p, []byte("barbaz"))
-			return 6, nil
-		}
+		conn.ReadFn = strings.NewReader("barbaz").Read
 
 		fsm := mock.NewFSM(&conn, streamSet)
 		fsm.PartyFn = func() string { return marionette.PartyClient }
@@ -59,7 +57,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, []byte("baz"), nil
 		}
-		fsm.CipherFn = func(regex string) (marionette.Cipher, error) {
+		fsm.CipherFn = func(regex string, n int) (marionette.Cipher, error) {
 			if regex != `([a-z0-9]+)` {
 				t.Fatalf("unexpected regex: %s", regex)
 			}
@@ -84,10 +82,7 @@ func TestRecv(t *testing.T) {
 	// Ensure instance ID can be set and retried.
 	t.Run("SetInstanceID", func(t *testing.T) {
 		conn := mock.DefaultConn()
-		conn.ReadFn = func(p []byte) (int, error) {
-			copy(p, []byte("bar"))
-			return 3, nil
-		}
+		conn.ReadFn = strings.NewReader("bar").Read
 
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
@@ -112,7 +107,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
+		fsm.CipherFn = func(regex string, n int) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != marionette.ErrRetryTransition {
 			t.Fatal(err)
@@ -122,7 +117,8 @@ func TestRecv(t *testing.T) {
 	})
 
 	t.Run("ErrNotEnoughArguments", func(t *testing.T) {
-		fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
+		conn := mock.DefaultConn()
+		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
 		if err := fte.Recv(context.Background(), &fsm); err == nil || err.Error() != `not enough arguments` {
 			t.Fatalf("unexpected error: %q", err)
@@ -131,7 +127,8 @@ func TestRecv(t *testing.T) {
 
 	t.Run("ErrInvalidArgument", func(t *testing.T) {
 		t.Run("regex", func(t *testing.T) {
-			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
+			conn := mock.DefaultConn()
+			fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
 			if err := fte.Recv(context.Background(), &fsm, 123, 456); err == nil || err.Error() != `invalid regex argument type` {
 				t.Fatalf("unexpected error: %q", err)
@@ -139,7 +136,8 @@ func TestRecv(t *testing.T) {
 		})
 
 		t.Run("msg_len", func(t *testing.T) {
-			fsm := mock.NewFSM(&mock.Conn{}, marionette.NewStreamSet())
+			conn := mock.DefaultConn()
+			fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 			fsm.PartyFn = func() string { return marionette.PartyClient }
 			if err := fte.Recv(context.Background(), &fsm, "abc", "def"); err == nil || err.Error() != `invalid msg_len argument type` {
 				t.Fatalf("unexpected error: %q", err)
@@ -186,7 +184,7 @@ func TestRecv(t *testing.T) {
 		cipher.DecryptFn = func(ciphertext []byte) (plaintext, remainder []byte, err error) {
 			return nil, nil, errMarker
 		}
-		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
+		fsm.CipherFn = func(regex string, n int) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != errMarker {
 			t.Fatal(err)
@@ -196,10 +194,7 @@ func TestRecv(t *testing.T) {
 	// Ensure an error is returned if the UUID of the FSM and cell do not match.
 	t.Run("ErrUUIDMismatch", func(t *testing.T) {
 		conn := mock.DefaultConn()
-		conn.ReadFn = func(p []byte) (int, error) {
-			copy(p, []byte("bar"))
-			return 3, nil
-		}
+		conn.ReadFn = strings.NewReader("bar").Read
 
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
@@ -216,7 +211,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
+		fsm.CipherFn = func(regex string, n int) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `uuid mismatch` {
 			t.Fatalf("unexpected error: %v", err)
@@ -226,10 +221,7 @@ func TestRecv(t *testing.T) {
 	// Ensure an error is returned if the instance ID of the FSM and cell do not match.
 	t.Run("ErrInstanceIDMismatch", func(t *testing.T) {
 		conn := mock.DefaultConn()
-		conn.ReadFn = func(p []byte) (int, error) {
-			copy(p, []byte("bar"))
-			return 3, nil
-		}
+		conn.ReadFn = strings.NewReader("bar").Read
 
 		fsm := mock.NewFSM(&conn, marionette.NewStreamSet())
 		fsm.PartyFn = func() string { return marionette.PartyClient }
@@ -246,7 +238,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
+		fsm.CipherFn = func(regex string, n int) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err == nil || err.Error() != `instance id mismatch: fsm=200, cell=400` {
 			t.Fatalf("unexpected error: %v", err)
@@ -257,10 +249,7 @@ func TestRecv(t *testing.T) {
 	// The close only initiates an end-of-stream error.
 	t.Run("ErrStreamClosed", func(t *testing.T) {
 		conn := mock.DefaultConn()
-		conn.ReadFn = func(p []byte) (int, error) {
-			copy(p, []byte("bar"))
-			return 3, nil
-		}
+		conn.ReadFn = strings.NewReader("bar").Read
 
 		streamSet := marionette.NewStreamSet()
 		stream := streamSet.Create()
@@ -283,7 +272,7 @@ func TestRecv(t *testing.T) {
 			}
 			return buf, nil, nil
 		}
-		fsm.CipherFn = func(regex string) (marionette.Cipher, error) { return &cipher, nil }
+		fsm.CipherFn = func(regex string, n int) (marionette.Cipher, error) { return &cipher, nil }
 
 		if err := fte.Recv(context.Background(), &fsm, `([a-z0-9]+)`, 128); err != nil {
 			t.Fatalf("unexpected error: %#v", err)

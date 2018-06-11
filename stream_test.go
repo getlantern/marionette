@@ -109,7 +109,7 @@ func TestStream_Enqueue(t *testing.T) {
 			t.Fatal(err)
 		} else if err := stream.Enqueue(&marionette.Cell{StreamID: 100, SequenceID: 1, Payload: data}); err != nil {
 			t.Fatal(err)
-		} else if err := stream.Close(); err != nil {
+		} else if err := stream.CloseRead(); err != nil {
 			t.Fatal(err)
 		}
 
@@ -147,7 +147,7 @@ func TestStream_Enqueue(t *testing.T) {
 			}
 
 			time.Sleep(100 * time.Millisecond)
-			if err := stream.Close(); err != nil {
+			if err := stream.CloseRead(); err != nil {
 				t.Fatal(err)
 			}
 		}()
@@ -414,7 +414,9 @@ func TestStream_Closed(t *testing.T) {
 	stream := marionette.NewStream(100)
 	if stream.Closed() {
 		t.Fatal("expected open")
-	} else if err := stream.Close(); err != nil {
+	} else if err := stream.CloseWrite(); err != nil {
+		t.Fatal(err)
+	} else if err := stream.CloseRead(); err != nil {
 		t.Fatal(err)
 	} else if !stream.Closed() {
 		t.Fatal("expected closed")

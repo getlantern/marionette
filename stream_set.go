@@ -49,7 +49,9 @@ func NewStreamSet() *StreamSet {
 // Close closes all streams in the set.
 func (ss *StreamSet) Close() (err error) {
 	for _, stream := range ss.streams {
-		if e := stream.Close(); e != nil && err == nil {
+		if e := stream.CloseWrite(); e != nil && err == nil {
+			err = e
+		} else if e := stream.CloseRead(); e != nil && err == nil {
 			err = e
 		}
 	}

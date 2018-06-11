@@ -7,7 +7,7 @@ import (
 )
 
 func TestCipher(t *testing.T) {
-	cipher, err := fte.NewCipher(`^(a|b|c)+$`)
+	cipher, err := fte.NewCipher(`^(a|b|c)+$`, 512)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,71 +39,3 @@ func TestCipher(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-/*func TestCipher2(t *testing.T) {
-	cipher := fte.NewCipher(`^(a|b|c)+$`)
-	if err := cipher.Open(); err != nil {
-		t.Fatal(err)
-	}
-	defer cipher.Close()
-
-	// Encode/decode first message.
-	if ciphertext, err := cipher.Encrypt([]byte(`test`)); err != nil {
-		t.Fatal(err)
-	} else if plaintext, err := cipher.Decrypt(ciphertext); err != nil {
-		t.Fatal(err)
-	} else if string(plaintext) != `test` {
-		t.Fatalf("unexpected plaintext: %q", plaintext)
-	} else {
-		fmt.Printf("%s\n", ciphertext);
-		fmt.Printf("%s\n", plaintext);
-	}
-
-
-	// Encode/decode second message.
-	if ciphertext, err := cipher.Encrypt([]byte(`foo bar`)); err != nil {
-		t.Fatal(err)
-	} else if plaintext, err := cipher.Decrypt(ciphertext); err != nil {
-		t.Fatal(err)
-	} else if string(plaintext) != `foo bar` {
-		t.Fatalf("unexpected plaintext: %q", plaintext)
-	}
-
-	if err := cipher.Close(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestCipher3(t *testing.T) {
-	cipher := fte.NewCipher(`^panda(a|b)+$`)
-	if err := cipher.Open(); err != nil {
-		t.Fatal(err)
-	}
-	defer cipher.Close()
-
-	// Encode/decode first message.
-	if ciphertext, err := cipher.Encrypt([]byte(`test`)); err != nil {
-		t.Fatal(err)
-	} else if plaintext, err := cipher.Decrypt(ciphertext); err != nil {
-		t.Fatal(err)
-	} else if string(plaintext) != `test` {
-		t.Fatalf("unexpected plaintext: %q", plaintext)
-	} else {
-		fmt.Printf("%s\n", ciphertext);
-		fmt.Printf("%s\n", plaintext);
-	}
-
-
-	// Encode/decode second message.
-	if ciphertext, err := cipher.Encrypt([]byte(`foo bar`)); err != nil {
-		t.Fatal(err)
-	} else if plaintext, err := cipher.Decrypt(ciphertext); err != nil {
-		t.Fatal(err)
-	} else if string(plaintext) != `foo bar` {
-		t.Fatalf("unexpected plaintext: %q", plaintext)
-	}
-
-	if err := cipher.Close(); err != nil {
-		t.Fatal(err)
-	}
-} */

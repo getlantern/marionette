@@ -112,7 +112,7 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 		if n, err = s.read(b); n != 0 || err != nil {
 			s.mu.Unlock()
 			return n, err
-		} else if n == 0 && s.readClosed {
+		} else if n == 0 && len(s.rqueue) == 0 && s.readClosed {
 			s.rbuf = nil
 			s.mu.Unlock()
 			return 0, io.EOF

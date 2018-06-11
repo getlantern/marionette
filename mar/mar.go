@@ -2,7 +2,6 @@ package mar
 
 import (
 	"path"
-	"sort"
 	"strings"
 )
 
@@ -30,34 +29,34 @@ func Format(name, version string) []byte {
 	return nil
 }
 
-// Formats returns a list of available formats.
+// Formats returns a list of available built-in formats.
+// Excludes formats that are only to be spawned by other formats.
 func Formats() []string {
-	var formats []string
-
-	names := AssetNames()
-	sort.Strings(names)
-
-	for _, name := range names {
-		// Ignore files outside 'formats' directory.
-		if !strings.HasPrefix(name, "formats/") {
-			continue
-		}
-
-		// Remove subdir and extension.
-		name = strings.TrimPrefix(name, "formats/")
-		name = strings.TrimSuffix(name, ".mar")
-
-		// Move version to the end.
-		segments := strings.SplitN(name, "/", 2)
-		format := segments[0]
-		if len(segments) == 2 {
-			format = segments[1] + ":" + segments[0]
-		}
-
-		// Add to format list.
-		formats = append(formats, format)
+	return []string{
+		"active_probing/ftp_pureftpd_10:20150701",
+		"active_probing/http_apache_247:20150701",
+		"active_probing/ssh_openssh_661:20150701",
+		"dns_request:20150701",
+		"dummy:20150701",
+		"ftp_simple_blocking:20150701",
+		"http_active_probing2:20150701",
+		"http_active_probing:20150701",
+		"http_probabilistic_blocking:20150701",
+		"http_simple_blocking:20150701",
+		"http_simple_blocking:20150702",
+		"http_simple_blocking_with_msg_lens:20150701",
+		"http_simple_nonblocking:20150701",
+		"http_squid_blocking:20150701",
+		"http_timings:20150701",
+		"https_simple_blocking:20150701",
+		"nmap/kpdyer.com:20150701",
+		"smb_simple_nonblocking:20150701",
+		"ssh_simple_nonblocking:20150701",
+		"ta/amzn_sess:20150701",
+		"udp_test_format:20150701",
+		"web_sess443:20150701",
+		"web_sess:20150701",
 	}
-	return formats
 }
 
 // SplitFormat splits a fully qualified format name into it's name and version parts.

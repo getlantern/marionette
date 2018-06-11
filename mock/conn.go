@@ -1,6 +1,7 @@
 package mock
 
 import (
+	"io"
 	"net"
 	"time"
 )
@@ -20,6 +21,7 @@ type Conn struct {
 
 func DefaultConn() Conn {
 	return Conn{
+		ReadFn:             func(b []byte) (n int, err error) { return 0, io.EOF },
 		SetDeadlineFn:      func(t time.Time) error { return nil },
 		SetReadDeadlineFn:  func(t time.Time) error { return nil },
 		SetWriteDeadlineFn: func(t time.Time) error { return nil },

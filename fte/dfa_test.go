@@ -18,7 +18,7 @@ func TestDFA(t *testing.T) {
 		}
 		defer dfa.Close()
 
-		if capacity := dfa.Capacity(); capacity != 386 {
+		if capacity := dfa.Capacity(); capacity != 1547 {
 			t.Fatalf("unexpected capacity: %d", capacity)
 		}
 
