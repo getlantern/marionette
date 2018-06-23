@@ -64,16 +64,8 @@ func (cmd *ClientCommand) Run(args []string) error {
 		marionette.Logger, _ = config.Build()
 	}
 
-	// Start listener.
-	ln, err := net.Listen("tcp", *bind)
-	if err != nil {
-		return err
-	}
-	defer ln.Close()
-
 	streamSet := marionette.NewStreamSet()
 	streamSet.TracePath = fs.TracePath
-	defer streamSet.Close()
 
 	// Create dialer to remote server.
 	dialer, err := marionette.NewDialer(doc, *serverIP, streamSet)
@@ -81,6 +73,13 @@ func (cmd *ClientCommand) Run(args []string) error {
 		return err
 	}
 	defer dialer.Close()
+
+	// Start listener.
+	ln, err := net.Listen("tcp", *bind)
+	if err != nil {
+		return err
+	}
+	defer ln.Close()
 
 	// Start proxy.
 	proxy := marionette.NewClientProxy(ln, dialer)

@@ -63,13 +63,18 @@ func (ss *StreamSet) Close() (err error) {
 // monitorStream checks a stream until its read & write channels are closed
 // and then removes the stream from the set.
 func (ss *StreamSet) monitorStream(stream *Stream) {
+	readCloseNotify := stream.ReadCloseNotify()
+	writeCloseNotifiedNotify := stream.WriteCloseNotifiedNotify()
+
 	for {
 		// Wait until stream closed state is changed or the set is closed.
 		select {
 		case <-ss.closing:
 			return
-		case <-stream.ReadCloseNotify():
-		case <-stream.WriteCloseNotifiedNotify():
+		case <-readCloseNotify:
+			readCloseNotify = nil
+		case <-writeCloseNotifiedNotify:
+			writeCloseNotifiedNotify = nil
 		}
 
 		// If stream is completely closed then remove from the set.
