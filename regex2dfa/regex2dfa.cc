@@ -165,6 +165,7 @@ bool AttFstMinimize(const std::string & str_dfa,
   fst::script::PrintFst(*fst, ostrm, "", NULL, NULL, NULL, true, true);
 
   FormatFst(ostrm.str(), minimized_dfa);
+  delete fst;
 
   return true;
 }
