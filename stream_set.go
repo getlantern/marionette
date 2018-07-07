@@ -14,7 +14,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const StreamSetMonitorInterval = 1 * time.Second
+const (
+	StreamSetMonitorInterval = 1 * time.Second
+	StreamCloseTimeout       = 5 * time.Second
+)
 
 var (
 	evStreams = expvar.NewInt("streams")
@@ -65,26 +68,36 @@ func (ss *StreamSet) Close() (err error) {
 func (ss *StreamSet) monitorStream(stream *Stream) {
 	readCloseNotify := stream.ReadCloseNotify()
 	writeCloseNotifiedNotify := stream.WriteCloseNotifiedNotify()
+	var timeout <-chan time.Time
 
 	for {
 		// Wait until stream closed state is changed or the set is closed.
 		select {
 		case <-ss.closing:
-			return
+			break
+		case <-timeout:
+			break
 		case <-readCloseNotify:
 			readCloseNotify = nil
+			timeout = time.After(StreamCloseTimeout)
 		case <-writeCloseNotifiedNotify:
 			writeCloseNotifiedNotify = nil
+			timeout = time.After(StreamCloseTimeout)
 		}
 
 		// If stream is completely closed then remove from the set.
 		if stream.ReadWriteCloseNotified() {
-			ss.mu.Lock()
-			ss.remove(stream)
-			ss.mu.Unlock()
-			return
+			break
 		}
 	}
+
+	// Ensure both sides are closed.
+	stream.CloseRead()
+	stream.CloseWrite()
+
+	ss.mu.Lock()
+	ss.remove(stream)
+	ss.mu.Unlock()
 }
 
 // Stream returns a stream by id.

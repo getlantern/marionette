@@ -72,21 +72,18 @@ func (cmd *ClientCommand) Run(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer dialer.Close()
 
 	// Start listener.
 	ln, err := net.Listen("tcp", *bind)
 	if err != nil {
 		return err
 	}
-	defer ln.Close()
 
 	// Start proxy.
 	proxy := marionette.NewClientProxy(ln, dialer)
 	if err := proxy.Open(); err != nil {
 		return err
 	}
-	defer proxy.Close()
 
 	fmt.Printf("listening on %s, connected to %s\n", *bind, *serverIP)
 

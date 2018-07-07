@@ -34,9 +34,10 @@ type Stream struct {
 	rseq int
 	wseq int
 
-	once         sync.Once
+	ronce        sync.Once
 	readClosed   bool
 	readClosing  chan struct{}
+	wonce        sync.Once
 	writeClosed  bool
 	writeClosing chan struct{}
 
@@ -362,7 +363,7 @@ func (s *Stream) CloseWrite() error {
 
 func (s *Stream) closeWrite() {
 	s.writeClosed = true
-	s.once.Do(func() { close(s.writeClosing) })
+	s.wonce.Do(func() { close(s.writeClosing) })
 	s.notifyWrite()
 }
 
@@ -376,7 +377,7 @@ func (s *Stream) CloseRead() error {
 
 func (s *Stream) closeRead() {
 	s.readClosed = true
-	s.once.Do(func() { close(s.readClosing) })
+	s.ronce.Do(func() { close(s.readClosing) })
 }
 
 // Closed returns true if the stream has been closed.

@@ -76,7 +76,6 @@ func (cmd *ServerCommand) Run(args []string) error {
 		return err
 	}
 	ln.TracePath = fs.TracePath
-	defer ln.Close()
 
 	// Start proxy.
 	proxy := marionette.NewServerProxy(ln)
@@ -92,7 +91,6 @@ func (cmd *ServerCommand) Run(args []string) error {
 	if err := proxy.Open(); err != nil {
 		return err
 	}
-	defer proxy.Close()
 
 	// Notify user that proxy is ready.
 	if proxy.Socks5Server != nil {
