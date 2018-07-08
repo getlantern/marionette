@@ -29,7 +29,7 @@ func (c *FTECipher) Key() string {
 
 func (c *FTECipher) Capacity(fsm marionette.FSM) (int, error) {
 	if !c.useCapacity && strings.HasSuffix(c.regex, ".+") {
-		return (1 << 18), nil
+		return marionette.MaxCellLength, nil
 	}
 	cipher, err := fsm.Cipher(c.regex, c.msgLen)
 	if err != nil {
