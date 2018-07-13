@@ -141,8 +141,8 @@ func (cmd *PTClientCommand) handleConn(connection *pt.SocksConn, doc *mar.Docume
 	defer streamSet.Close()
 
 	// Create dialer to remote server.
-	dialer, err := marionette.NewDialer(doc, host, streamSet)
-	if err != nil {
+	dialer := marionette.NewDialer(doc, host, streamSet)
+	if err := dialer.Open(); err != nil {
 		log.Printf("Unable to create dialer: %s", err)
 		connection.Reject()
 		return
