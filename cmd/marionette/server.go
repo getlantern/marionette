@@ -46,10 +46,11 @@ func (cmd *ServerCommand) Run(args []string) error {
 	}
 
 	// Read MAR file.
-	formatName, formatVersion := mar.SplitFormat(*format)
-	data := mar.Format(formatName, formatVersion)
-	if data == nil {
-		return fmt.Errorf("MAR document not found: %s", formatName)
+	data, err := mar.ReadFormat(*format)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("MAR document not found: %s", *format)
+	} else if err != nil {
+		return err
 	}
 
 	// Parse document.

@@ -1,6 +1,7 @@
 package mar
 
 import (
+	"io/ioutil"
 	"path"
 	"strings"
 )
@@ -9,7 +10,7 @@ import (
 
 var FormatVersions = []string{"20150701", "20150702"}
 
-// Format returns the contents of the named MAR file.
+// Format returns the contents of the named embedded MAR file.
 // If the verison is not specified then latest version is returned.
 // Returns nil if the format does not exist.
 func Format(name, version string) []byte {
@@ -27,6 +28,18 @@ func Format(name, version string) []byte {
 	}
 
 	return nil
+}
+
+// ReadFormat returns a built-in format, if it exists, or reads from a file.
+func ReadFormat(name string) ([]byte, error) {
+	// Search built-in first.
+	formatName, formatVersion := SplitFormat(name)
+	if data := Format(formatName, formatVersion); data != nil {
+		return data, nil
+	}
+
+	// Otherwise read from file.
+	return ioutil.ReadFile(name)
 }
 
 // Formats returns a list of available built-in formats.
