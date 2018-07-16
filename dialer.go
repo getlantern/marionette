@@ -18,6 +18,8 @@ var (
 // Dialer represents a client-side dialer that communicates over the marionette protocol.
 type Dialer struct {
 	mu        sync.RWMutex
+	addr      string
+	doc       *mar.Document
 	fsm       FSM
 	streamSet *StreamSet
 
@@ -26,25 +28,34 @@ type Dialer struct {
 
 	closed bool
 	wg     sync.WaitGroup
+
+	// Underlying net.Dialer used for net connection.
+	Dialer net.Dialer
 }
 
 // NewDialer returns a new instance of Dialer.
-func NewDialer(doc *mar.Document, addr string, streamSet *StreamSet) (*Dialer, error) {
-	conn, err := net.Dial(doc.Transport, net.JoinHostPort(addr, doc.Port))
-	if err != nil {
-		return nil, err
-	}
-
+func NewDialer(doc *mar.Document, addr string, streamSet *StreamSet) *Dialer {
 	// Run execution in a separate goroutine.
 	d := &Dialer{
-		fsm:       NewFSM(doc, addr, PartyClient, conn, streamSet),
+		addr:      addr,
+		doc:       doc,
 		streamSet: streamSet,
 	}
 	d.ctx, d.cancel = context.WithCancel(context.Background())
+	return d
+}
+
+// Open initializes the underlying connection.
+func (d *Dialer) Open() error {
+	conn, err := d.Dialer.DialContext(d.ctx, d.doc.Transport, net.JoinHostPort(d.addr, d.doc.Port))
+	if err != nil {
+		return err
+	}
+	d.fsm = NewFSM(d.doc, d.addr, PartyClient, conn, d.streamSet)
 
 	d.wg.Add(1)
 	go func() { defer d.wg.Done(); d.execute() }()
-	return d, nil
+	return nil
 }
 
 // Close stops the dialer and its underlying connections.

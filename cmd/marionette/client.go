@@ -69,8 +69,8 @@ func (cmd *ClientCommand) Run(args []string) error {
 	streamSet.TracePath = fs.TracePath
 
 	// Create dialer to remote server.
-	dialer, err := marionette.NewDialer(doc, *serverIP, streamSet)
-	if err != nil {
+	dialer := marionette.NewDialer(doc, *serverIP, streamSet)
+	if err := dialer.Open(); err != nil {
 		return err
 	}
 
