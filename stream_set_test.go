@@ -45,16 +45,22 @@ func TestStreamSet_Enqueue(t *testing.T) {
 			t.Fatal(err)
 		} else if err := ss.Enqueue(&marionette.Cell{StreamID: 100, SequenceID: 1, Payload: []byte("baz")}); err != nil {
 			t.Fatal(err)
-		} else if err := ss.Close(); err != nil {
-			t.Fatal(err)
 		}
 
-		if buf, err := ioutil.ReadAll(ss.Stream(100)); err != nil {
+		if stream := ss.Stream(100); stream == nil {
+			t.Fatal("expected stream")
+		} else if err := stream.CloseRead(); err != nil {
+			t.Fatal(err)
+		} else if buf, err := ioutil.ReadAll(stream); err != nil {
 			t.Fatal(err)
 		} else if string(buf) != "foobaz" {
 			t.Fatalf("unexpected stream data: %s", buf)
 		} else if !callbackInvoked {
 			t.Fatal("expected callback invocation")
+		}
+
+		if err := ss.Close(); err != nil {
+			t.Fatal(err)
 		}
 	})
 

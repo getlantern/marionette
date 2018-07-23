@@ -70,13 +70,14 @@ func (ss *StreamSet) monitorStream(stream *Stream) {
 	writeCloseNotifiedNotify := stream.WriteCloseNotifiedNotify()
 	var timeout <-chan time.Time
 
+LOOP:
 	for {
 		// Wait until stream closed state is changed or the set is closed.
 		select {
 		case <-ss.closing:
-			break
+			break LOOP
 		case <-timeout:
-			break
+			break LOOP
 		case <-readCloseNotify:
 			readCloseNotify = nil
 			timeout = time.After(StreamCloseTimeout)

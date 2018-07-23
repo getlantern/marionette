@@ -29,8 +29,8 @@ type Dialer struct {
 	closed bool
 	wg     sync.WaitGroup
 
-	// Underlying net.Dialer used for net connection.
-	Dialer net.Dialer
+	// Underlying NetDialer used for net connection.
+	Dialer NetDialer
 }
 
 // NewDialer returns a new instance of Dialer.
@@ -103,4 +103,10 @@ func (d *Dialer) execute() {
 		}
 		d.fsm.Reset()
 	}
+}
+
+// NetDialer is an abstract dialer. net.Dialer implements the NetDialer interface.
+type NetDialer interface {
+	Dial(network, address string) (net.Conn, error)
+	DialContext(ctx context.Context, network, address string) (net.Conn, error)
 }

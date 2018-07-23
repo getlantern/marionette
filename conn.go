@@ -110,7 +110,10 @@ func (conn *BufferedConn) Seek(offset int64, whence int) (int64, error) {
 
 // monitor runs in a separate goroutine and continually reads to the buffer.
 func (conn *BufferedConn) monitor() {
+	conn.mu.RLock()
 	buf := make([]byte, cap(conn.buf))
+	conn.mu.RUnlock()
+
 	for {
 		// Ensure connection is not closed.
 		select {
@@ -121,7 +124,9 @@ func (conn *BufferedConn) monitor() {
 
 		// Determine remaining space on buffer.
 		// If no capacity remains then wait for seek or connection close.
+		conn.mu.RLock()
 		capacity := cap(conn.buf) - len(conn.buf)
+		conn.mu.RUnlock()
 		if capacity == 0 {
 			select {
 			case <-conn.closing:
