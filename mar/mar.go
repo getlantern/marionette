@@ -60,7 +60,6 @@ func Formats() []string {
 		"http_simple_blocking_with_msg_lens:20150701",
 		"http_simple_nonblocking:20150701",
 		"http_squid_blocking:20150701",
-		"http_timings:20150701",
 		"https_simple_blocking:20150701",
 		"nmap/kpdyer.com:20150701",
 		"smb_simple_nonblocking:20150701",
