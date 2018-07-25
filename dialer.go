@@ -40,6 +40,7 @@ func NewDialer(doc *mar.Document, addr string, streamSet *StreamSet) *Dialer {
 		addr:      addr,
 		doc:       doc,
 		streamSet: streamSet,
+		Dialer:    &net.Dialer{},
 	}
 	d.ctx, d.cancel = context.WithCancel(context.Background())
 	return d
